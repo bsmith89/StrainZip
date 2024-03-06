@@ -1,5 +1,4 @@
-from spgc.estimation import partition_gene_content
-import spgc
+import sz
 import logging
 import sys
 import pandas as pd
@@ -15,7 +14,7 @@ class App:
     - validate_and_transform_args
     - execute
 
-    Subcommands can then be registered in spgc.__main__ by adding them to the
+    Subcommands can then be registered in sz.__main__ by adding them to the
     *APPLICATIONS* dict.
 
     """
@@ -34,7 +33,7 @@ class App:
         self.parser.add_argument(
             "--version",
             action="version",
-            version=spgc.__version__,
+            version=sz.__version__,
         )
         self.parser.add_argument(
             "--verbose",
