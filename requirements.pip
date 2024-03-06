@@ -1,0 +1,6 @@
+graph_tool
+scipy
+matplotlib
+pandas
+numpy
+xarray
