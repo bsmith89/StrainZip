@@ -1,6 +1,11 @@
-graph_tool
+# graph_tool
 scipy
 matplotlib
 pandas
 numpy
 xarray
+black
+isort
+pre-commit
+pyright
+pytest
