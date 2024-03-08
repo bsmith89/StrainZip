@@ -1,23 +1,18 @@
-from typing import Any, Iterable, List, Self, TypeAlias
+from typing import Iterable, List, Self, TypeAlias
 from warnings import warn
 
 import graph_tool as gt
+from graph_tool import Vertex
 from numpy.typing import NDArray
 
-from .io import (  # FIXME: These don't belong here, I don't think...unless I want to do loading in this module.
-    load_kmer_depths,
-    parse_gfa,
-)
-
-VertexID: TypeAlias = int
-Unitig: TypeAlias = list[VertexID]
+Unitig: TypeAlias = list[Vertex]
 Count: TypeAlias = int
 
 
 class Junction:
     def __init__(
         self,
-        vertex: VertexID,
+        vertex: Vertex,
         # in_edges: list[VertexID],
         # out_edges: list[VertexID],
         # depths_matrix: NDArray,
@@ -32,8 +27,8 @@ class Junction:
 class LocalPath:
     def __init__(
         self: Self,
-        in_edge: VertexID,
-        out_edge: VertexID,
+        in_edge: Vertex,
+        out_edge: Vertex,
         depths_vector: NDArray,
     ) -> None:
         # an in-edge, out-edge, and depth
@@ -59,8 +54,7 @@ class DepthGraph:
 
     def iter_junctions(self: Self) -> Iterable[Junction]:
         # TODO: Return depth information for in-edges, out-edges, and vertex v across all n samples.
-        vv: Any = self.graph.vertices
-        for v in vv:
+        for v in self.graph.vertices:
             yield Junction(v)
 
     def split_junctions(self: Self, local_paths: List[LocalPath]) -> None:
@@ -69,6 +63,5 @@ class DepthGraph:
         pass
 
     def iter_unitigs(self: Self) -> Iterable[Unitig]:
-        vv: Any = self.graph.vertices
-        for v in vv:
+        for v in self.graph.vertices:
             yield [v]
