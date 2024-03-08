@@ -14,3 +14,7 @@ repos:
     hooks:
       - id: isort
         args: ["--profile", "black"]
+-   repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.352
+    hooks:
+    - id: pyright
