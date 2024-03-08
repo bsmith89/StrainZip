@@ -11,6 +11,9 @@ format:
 clean:
 	rm -rf ${CLEANUP}
 
+install-pre-commit:
+	pre-commit install
+
 pre-commit:
 	pre-commit run --all-files
 
