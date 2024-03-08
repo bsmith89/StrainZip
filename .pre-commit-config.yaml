@@ -21,8 +21,7 @@ repos:
     rev: v1.1.352
     hooks:
     - id: pyright
-repos:
-  - repo: https://github.com/snakemake/snakefmt
+-   repo: https://github.com/snakemake/snakefmt
     rev: v0.10.0
     hooks:
       - id: snakefmt
