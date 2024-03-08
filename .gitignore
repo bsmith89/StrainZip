@@ -1,3 +1,4 @@
-StrainZip.egg-info
-__pycache__
+StrainZip.egg-info/
+__pycache__/
 pyrightconfig.json
+.pytest_cache/
