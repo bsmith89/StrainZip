@@ -33,7 +33,7 @@ setuptools.setup(
     packages=setuptools.find_packages('src'),
     package_dir={'': 'src'},
     install_requires=[
-        "graph-tool>=2.59",
+        # "graph-tool>=2.59",  # This can't be installed with pip...womp womp.
         "pandas>=2",
         "scipy>=1",
     ],
