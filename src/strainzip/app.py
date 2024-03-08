@@ -1,8 +1,6 @@
 import logging
 import sys
 
-import pandas as pd
-
 import strainzip as sz
 
 

@@ -1,10 +1,8 @@
-from collections.abc import Iterable  # FIXME: Do I need this ABC? I think not...?
-from typing import TypeAlias
+from typing import Any, Iterable, List, Self, TypeAlias
 from warnings import warn
 
 import graph_tool as gt
-import pandas as pd
-from numpy import array as NDArray
+from numpy.typing import NDArray
 
 from .io import (  # FIXME: These don't belong here, I don't think...unless I want to do loading in this module.
     load_kmer_depths,
@@ -20,9 +18,9 @@ class Junction:
     def __init__(
         self,
         vertex: VertexID,
-        in_edges: list[VertexID],
-        out_edges: list[VertexID],
-        depths_matrix: NDArray,
+        # in_edges: list[VertexID],
+        # out_edges: list[VertexID],
+        # depths_matrix: NDArray,
     ) -> None:
         # TODO: Implement some sort of data type that
         # tracks all the in- and out- edges, the VertexID, and the depth information
@@ -33,7 +31,10 @@ class Junction:
 
 class LocalPath:
     def __init__(
-        self: Self, in_edge: VertexID, out_edge: VertexID, depths_vector: np.NDArray
+        self: Self,
+        in_edge: VertexID,
+        out_edge: VertexID,
+        depths_vector: NDArray,
     ) -> None:
         # an in-edge, out-edge, and depth
         pass
@@ -58,8 +59,9 @@ class DepthGraph:
 
     def iter_junctions(self: Self) -> Iterable[Junction]:
         # TODO: Return depth information for in-edges, out-edges, and vertex v across all n samples.
-        for i, _ in self.graph.vertices:
-            yield Junction()
+        vv: Any = self.graph.vertices
+        for v in vv:
+            yield Junction(v)
 
     def split_junctions(self: Self, local_paths: List[LocalPath]) -> None:
         self.edge_weights_up_to_date = False
@@ -67,4 +69,6 @@ class DepthGraph:
         pass
 
     def iter_unitigs(self: Self) -> Iterable[Unitig]:
-        pass
+        vv: Any = self.graph.vertices
+        for v in vv:
+            yield [v]
