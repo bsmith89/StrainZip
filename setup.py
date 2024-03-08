@@ -30,8 +30,8 @@ setuptools.setup(
     url="http://github.com/bsmith89/StrainZip",
     author="Byron J. Smith",
     author_email="me@byronjsmith.com",
-    packages=setuptools.find_packages('src'),
-    package_dir={'': 'src'},
+    packages=setuptools.find_packages("src"),
+    package_dir={"": "src"},
     install_requires=[
         # "graph-tool>=2.59",  # This can't be installed with pip...womp womp.
         "pandas>=2",
