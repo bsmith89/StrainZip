@@ -1,8 +1,9 @@
-from . import app
 import argparse
 import sys
 
-APPLICATIONS = {'foo': app.Example}
+from . import app
+
+APPLICATIONS = {"foo": app.Example}
 
 
 def main():

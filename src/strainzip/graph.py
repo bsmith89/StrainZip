@@ -1,15 +1,16 @@
-import graph_tool as gt
-import pandas as pd
-from .io import load_kmer_depths
-from .io import parse_gfa
 from collections.abc import Iterable
-from typing import TypeAlias, Self
+from typing import List, Self, TypeAlias
 from warnings import warn
 
+import graph_tool as gt
+import pandas as pd
+
+from .io import load_kmer_depths, parse_gfa
 
 VertexID: TypeAlias = int
 Unitig: TypeAlias = list[VertexID]
 Count: TypeAlias = int
+
 
 class Junction:
     def __init__(self) -> None:

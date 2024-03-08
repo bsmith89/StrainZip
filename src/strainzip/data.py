@@ -1,20 +1,29 @@
-import graph_tool as gt
-import pandas as pd
-from .io import load_kmer_depths, parse_gfa  # FIXME: These don't belong here, I don't think...unless I want to do loading in this module.
 from collections.abc import Iterable  # FIXME: Do I need this ABC? I think not...?
 from typing import TypeAlias
 from warnings import warn
-from numpy import NDArray
 
+import graph_tool as gt
+import pandas as pd
+from numpy import array as NDArray
+
+from .io import (  # FIXME: These don't belong here, I don't think...unless I want to do loading in this module.
+    load_kmer_depths,
+    parse_gfa,
+)
 
 VertexID: TypeAlias = int
 Unitig: TypeAlias = list[VertexID]
 Count: TypeAlias = int
 
 
-
-class Junction():
-    def __init__(self, vertex: VertexID, in_edges: list[VertexID], out_edges: list[VertexID], depths_matrix: np.NDArray) -> None:
+class Junction:
+    def __init__(
+        self,
+        vertex: VertexID,
+        in_edges: list[VertexID],
+        out_edges: list[VertexID],
+        depths_matrix: NDArray,
+    ) -> None:
         # TODO: Implement some sort of data type that
         # tracks all the in- and out- edges, the VertexID, and the depth information
         # This will then be used to construct the optimization problem before
@@ -22,8 +31,10 @@ class Junction():
         pass
 
 
-class LocalPath():
-    def __init__(self: Self, in_edge: VertexID, out_edge: VertexID, depths_vector: np.NDArray) -> None:
+class LocalPath:
+    def __init__(
+        self: Self, in_edge: VertexID, out_edge: VertexID, depths_vector: np.NDArray
+    ) -> None:
         # an in-edge, out-edge, and depth
         pass
 

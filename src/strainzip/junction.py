@@ -1,6 +1,7 @@
 from typing import Self
 
-class Junction():
+
+class Junction:
     def __init__(self) -> None:
         # TODO: Implement some sort of data type that
         # tracks all the in- and out- edges, the VertexID, and the depth information
@@ -9,6 +10,6 @@ class Junction():
         pass
 
 
-class LocalPath():
+class LocalPath:
     def __init__(self: Self) -> None:
         pass
