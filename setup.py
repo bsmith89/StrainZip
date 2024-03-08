@@ -24,7 +24,7 @@ def get_version(path):
 
 setuptools.setup(
     name="StrainZip",
-    version=get_version("sz/__init__.py"),
+    version=get_version("strainzip/__init__.py"),
     long_description=long_description,
     description="Unified co-assembly and pseudo-alignment",
     url="http://github.com/bsmith89/StrainZip",
@@ -37,7 +37,7 @@ setuptools.setup(
         "scipy>=1",
     ],
     dependency_links=[],
-    entry_points={"console_scripts": ["sz = sz.__main__:main"]},
+    entry_points={"console_scripts": ["strainzip = strainzip.__main__:main"]},
     zip_safe=False,
     long_description_content_type="text/markdown",
 )

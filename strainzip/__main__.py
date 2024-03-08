@@ -1,8 +1,8 @@
-import sz.app
+from . import app
 import argparse
 import sys
 
-APPLICATIONS = {'foo': sz.app.Example}
+APPLICATIONS = {'foo': app.Example}
 
 
 def main():

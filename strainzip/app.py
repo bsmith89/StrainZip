@@ -1,4 +1,4 @@
-import sz
+import strainzip as sz
 import logging
 import sys
 import pandas as pd
