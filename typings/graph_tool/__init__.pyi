@@ -1,4 +1,4 @@
-from typing import List, NewType, Self, TypeAlias
+from typing import List, NewType, Self
 
 Vertex = NewType("Vertex", object)
 
