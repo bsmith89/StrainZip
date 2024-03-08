@@ -1,21 +1,21 @@
-# graph_tool
-scipy
-matplotlib
-pandas
-numpy
-xarray
-tqdm
-patsy
-memory_profiler
+black
+cython
+ipython
+isort
+jupyterlab
 line_profiler
 lz4
-jupyterlab
-ipython
+matplotlib
+memory_profiler
 numba
-cython
-black
-isort
+numpy
+pandas
+patsy
 pre-commit
+pynvim
 pyright
 pytest
-pynvim
+# graph_tool
+scipy
+tqdm
+xarray
