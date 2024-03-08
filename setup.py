@@ -24,13 +24,14 @@ def get_version(path):
 
 setuptools.setup(
     name="StrainZip",
-    version=get_version("strainzip/__init__.py"),
+    version=get_version("src/strainzip/__init__.py"),
     long_description=long_description,
     description="Unified co-assembly and pseudo-alignment",
     url="http://github.com/bsmith89/StrainZip",
     author="Byron J. Smith",
     author_email="me@byronjsmith.com",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages('src'),
+    package_dir={'': 'src'},
     install_requires=[
         "graph-tool>=2.59",
         "pandas>=2",
