@@ -1,3 +1,4 @@
+JUPYTER_PORT=8888
 CLEANUP="build .pytest_cache"
 
 
@@ -20,3 +21,9 @@ pre-commit:
 install-git-jupyter-notebook-clean-smudge:
 	git config --local filter.dropoutput_jupyternb.clean scripts/jupyternb_output_filter.py
 	git config --local filter.dropoutput_jupyternb.smudge cat
+
+install_jupyter_kernel:
+	python -m ipykernel install --user --name=strainzip
+
+start_jupyter:
+	jupyter lab --port ${JUPYTER_PORT}
