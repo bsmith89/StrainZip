@@ -1,0 +1,93 @@
+from typing import cast
+
+import graph_tool as gt
+import numpy as np
+
+from strainzip.vertex_properties import (
+    ChildID,
+    LengthProperty,
+    ParentID,
+    SequenceProperty,
+)
+
+
+def test_length_property():
+    def pid(i: int) -> ParentID:
+        return cast(ParentID, i)
+
+    def cid(i: int) -> ChildID:
+        return cast(ChildID, i)
+
+    g = gt.Graph()
+
+    g.add_edge_list([(0, 1)])
+
+    p0 = g.new_vertex_property("int", val=1)
+    assert np.array_equal(
+        list(p0), [1, 1]
+    )  # Value for all vertices initially set to 1.
+
+    p0[1] = 2
+    assert np.array_equal(list(p0), [1, 2])
+
+    g.add_edge_list(
+        [(0, 2)]
+    )  # New vertex (added implicitly by new edge) has "default" value of 0 (not 1).
+    assert np.array_equal(list(p0), [1, 2, 0])
+
+    p0.a[:2] = 3
+    assert np.array_equal(list(p0), [3, 3, 0])
+
+    # Add vertices with index 3 and 4.
+    g.add_vertex(n=2)
+    p1 = LengthProperty(p0)
+    assert np.array_equal(list(p1.vprop), [3, 3, 0, 0, 0])
+
+    # "Unzip" the length value of node 0 into nodes 3 and 4
+    p1.unzip(pid(0), [cid(3), cid(4)], params=None)
+    assert np.array_equal(list(p1.vprop), [3, 3, 0, 3, 3])
+
+    # Add a new vertex
+    g.add_vertex()
+    # And "Press" the length value of nodes [0, 1] into node 5
+    p1.press([pid(0), pid(1)], cid(5), params=None)
+    assert np.array_equal(list(p1.vprop), [3, 3, 0, 3, 3, 6])
+
+
+def test_sequence_property():
+    def pid(i: int) -> ParentID:
+        return cast(ParentID, i)
+
+    def cid(i: int) -> ChildID:
+        return cast(ChildID, i)
+
+    g = gt.Graph()
+
+    g.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4)])
+
+    p0 = g.new_vertex_property("string")
+    assert np.array_equal(list(p0), ["", "", "", "", ""])
+
+    p0[0] = "0"
+    assert np.array_equal(list(p0), ["0", "", "", "", ""])
+
+    for i in range(len(list(p0))):
+        p0[i] = str(i)
+    assert np.array_equal(list(p0), ["0", "1", "2", "3", "4"])
+
+    p1 = SequenceProperty(p0)
+    assert np.array_equal(list(p1.vprop), ["0", "1", "2", "3", "4"])
+
+    # Add vertices with index 5 and 6.
+    g.add_vertex(n=2)
+    assert np.array_equal(list(p1.vprop), ["0", "1", "2", "3", "4", "", ""])
+
+    # "Unzip" the sequence value of node 0 into nodes [5, 6]
+    p1.unzip(pid(0), [cid(5), cid(6)], params=None)
+    assert np.array_equal(list(p1.vprop), ["0", "1", "2", "3", "4", "0", "0"])
+
+    # Add a new vertex
+    g.add_vertex()
+    # And "Press" the sequence value of nodes [0, 1] into node 7
+    p1.press([pid(0), pid(1)], cid(7), params=None)
+    assert np.array_equal(list(p1.vprop), ["0", "1", "2", "3", "4", "0", "0", "0,1"])
