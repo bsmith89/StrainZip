@@ -5,8 +5,11 @@ import numpy as np
 
 from strainzip.vertex_properties import (
     ChildID,
+    DepthProperty,
     LengthProperty,
+    LengthScalar,
     ParentID,
+    SampleDepthScalar,
     SequenceProperty,
 )
 
@@ -91,3 +94,107 @@ def test_sequence_property():
     # And "Press" the sequence value of nodes [0, 1] into node 7
     p1.press([pid(0), pid(1)], cid(7), params=None)
     assert np.array_equal(list(p1.vprop), ["0", "1", "2", "3", "4", "0", "0", "0,1"])
+
+
+def test_depth_property():
+    def pid(i: int) -> ParentID:
+        return cast(ParentID, i)
+
+    def cid(i: int) -> ChildID:
+        return cast(ChildID, i)
+
+    g = gt.Graph()
+
+    g.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4)])
+
+    p0 = g.new_vertex_property("float")
+    assert np.allclose(
+        list(p0), [0.0, 0.0, 0.0, 0.0, 0.0]
+    )  # Value for all vertices initially set to 1.
+    # plt.plot(list(p0))
+
+    p0[0] = 0.1
+    assert np.allclose(list(p0), [0.1, 0.0, 0.0, 0.0, 0.0])
+    # plt.plot(list(p0))
+
+    for i in range(len(list(p0))):
+        p0[i] = np.sqrt(5 + i)
+    assert np.allclose(
+        list(p0),
+        [
+            2.23606797749979,
+            2.449489742783178,
+            2.6457513110645907,
+            2.8284271247461903,
+            3.0,
+        ],
+    )
+    # plt.plot(list(p0))
+
+    p1 = DepthProperty(p0)
+    assert np.allclose(
+        list(p1.vprop),
+        [
+            2.23606797749979,
+            2.449489742783178,
+            2.6457513110645907,
+            2.8284271247461903,
+            3.0,
+        ],
+    )
+    # plt.plot(list(p1.vprop), label=0)
+
+    # Add vertices with index 5 and 6.
+    g.add_vertex(n=2)
+    assert np.allclose(
+        list(p1.vprop),
+        [
+            2.23606797749979,
+            2.449489742783178,
+            2.6457513110645907,
+            2.8284271247461903,
+            3.0,
+            0.0,
+            0.0,
+        ],
+    )
+    # plt.plot(list(p1.vprop), label=1)
+
+    # "Unzip" the depth value of node 0 into nodes [5, 6]
+    p1.unzip(
+        pid(0),
+        [cid(5), cid(6)],
+        params=[SampleDepthScalar(1.0), SampleDepthScalar(1.2)],
+    )
+    assert np.allclose(
+        list(p1.vprop),
+        [
+            0.03606797749978963,
+            2.449489742783178,
+            2.6457513110645907,
+            2.8284271247461903,
+            3.0,
+            1.0,
+            1.2,
+        ],
+    )
+    # plt.plot(list(p1.vprop), label=2)
+
+    # Add a new vertex
+    g.add_vertex()
+    # And "Press" the depth value of nodes [0, 1] into node 7
+    p1.press([pid(3), pid(4)], cid(7), params=[LengthScalar(2), LengthScalar(5)])
+    assert np.allclose(
+        list(p1.vprop),
+        [
+            0.03606797749978963,
+            2.449489742783178,
+            2.6457513110645907,
+            -0.12255205375272116,
+            0.04902082150108855,
+            1.0,
+            1.2,
+            2.9509791784989114,
+        ],
+    )
+    # plt.plot(list(p1.vprop), label=4)
