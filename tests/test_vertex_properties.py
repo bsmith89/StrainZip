@@ -111,11 +111,9 @@ def test_depth_property():
     assert np.allclose(
         list(p0), [0.0, 0.0, 0.0, 0.0, 0.0]
     )  # Value for all vertices initially set to 1.
-    # plt.plot(list(p0))
 
     p0[0] = 0.1
     assert np.allclose(list(p0), [0.1, 0.0, 0.0, 0.0, 0.0])
-    # plt.plot(list(p0))
 
     for i in range(len(list(p0))):
         p0[i] = np.sqrt(5 + i)
@@ -129,7 +127,6 @@ def test_depth_property():
             3.0,
         ],
     )
-    # plt.plot(list(p0))
 
     p1 = DepthProperty(p0)
     assert np.allclose(
@@ -142,7 +139,6 @@ def test_depth_property():
             3.0,
         ],
     )
-    # plt.plot(list(p1.vprop), label=0)
 
     # Add vertices with index 5 and 6.
     g.add_vertex(n=2)
@@ -158,7 +154,6 @@ def test_depth_property():
             0.0,
         ],
     )
-    # plt.plot(list(p1.vprop), label=1)
 
     # "Unzip" the depth value of node 0 into nodes [5, 6]
     p1.unzip(
@@ -178,7 +173,6 @@ def test_depth_property():
             1.2,
         ],
     )
-    # plt.plot(list(p1.vprop), label=2)
 
     # Add a new vertex
     g.add_vertex()
@@ -197,4 +191,3 @@ def test_depth_property():
             2.9509791784989114,
         ],
     )
-    # plt.plot(list(p1.vprop), label=4)

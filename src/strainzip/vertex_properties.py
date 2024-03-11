@@ -1,3 +1,4 @@
+import math
 from typing import Generic, NewType, Self, Sequence, Tuple, TypeVar
 
 import graph_tool as gt
@@ -9,12 +10,27 @@ ChildID = NewType("ChildID", VertexID)
 ParentID = NewType("ParentID", VertexID)
 
 SampleDepthScalar = NewType("SampleDepthScalar", float)
+CoordinateScalar = NewType("CoordinateScalar", float)
+SampleDepthVector = NewType("SampleDepthVector", Sequence[float])
 LengthScalar = NewType("LengthScalar", int)
 SequenceScalar = NewType("SequenceScalar", str)
 
 PropValueT = TypeVar("PropValueT")
 UnzipParamT = TypeVar("UnzipParamT")
 PressParamT = TypeVar("PressParamT")
+
+
+class InfiniteConstantSequence(Sequence[PropValueT]):
+    def __init__(self, constant: PropValueT):
+        self._constant: PropValueT = constant
+
+    # Not clear why this method doesn't type check, but may be related to the
+    # mutability of self.constant.
+    def __getitem__(self, i) -> PropValueT:  # type: ignore[reportIncompatibleMethodOverride]
+        return self._constant
+
+    def __len__(self):
+        raise NotImplementedError
 
 
 class ZipProperty(Generic[PropValueT, UnzipParamT, PressParamT]):
@@ -33,7 +49,7 @@ class ZipProperty(Generic[PropValueT, UnzipParamT, PressParamT]):
 
     @classmethod
     def unzip_vals(
-        cls, parent_val: PropValueT, n: int, params: UnzipParamT
+        cls, parent_val: PropValueT, params: UnzipParamT
     ) -> Tuple[PropValueT, Sequence[PropValueT]]:
         # TODO: Docstring Output should be an sequence of PropValueT type, specifically.
         # Unzip at its most basic takes a parent value and copies it into the sequence of child values.
@@ -42,7 +58,7 @@ class ZipProperty(Generic[PropValueT, UnzipParamT, PressParamT]):
         # to the children is parameterized.
         # For that reason we also accept a kwargs parameter, which parameterizes the unzipping into each child vertex.
         # The classmethod then returns both an updated value for the parent and each of the children.
-        raise NotImplemented
+        raise NotImplementedError
 
     @classmethod
     def press_vals(
@@ -55,7 +71,7 @@ class ZipProperty(Generic[PropValueT, UnzipParamT, PressParamT]):
         # (where the parents all get a depth of 0 assigned after pressing)
         # Also, with depth pressing, it's not a mean, but a weighted mean,
         # weighted by the length, requiring an additional (vector) parameter.
-        raise NotImplemented
+        raise NotImplementedError
 
     def __init__(self, vprop: VertexPropertyMap):
         self.vprop = vprop
@@ -63,9 +79,7 @@ class ZipProperty(Generic[PropValueT, UnzipParamT, PressParamT]):
     def unzip(self, parent: ParentID, children: Sequence[ChildID], params: UnzipParamT):
         """Unzip parent property value out to children."""
         curr_parent_val = self.vprop[parent]
-        new_parent_val, new_child_vals = self.unzip_vals(
-            curr_parent_val, len(children), params
-        )
+        new_parent_val, new_child_vals = self.unzip_vals(curr_parent_val, params)
         self.vprop[parent] = new_parent_val
         for i, c in enumerate(children):
             self.vprop[c] = new_child_vals[i]
@@ -102,13 +116,13 @@ class LengthProperty(ZipProperty[LengthScalar, None, None]):
         super().__init__(length)
 
     @classmethod
-    def unzip_vals(cls, parent_val, n, params):
-        out = np.empty(n, dtype=int)
-        out[:] = parent_val
-        return parent_val, [parent_val] * n
+    def unzip_vals(cls, parent_val, params):
+        "Pass parent value through and share with children."
+        return parent_val, InfiniteConstantSequence(parent_val)
 
     @classmethod
-    def press_vals(cls, parent_vals, params):
+    def press_vals(cls, parent_vals, params=None):
+        "Pass parent values through and sum into children."
         return list(parent_vals), np.sum(parent_vals)
 
 
@@ -117,11 +131,13 @@ class SequenceProperty(ZipProperty[SequenceScalar, None, None]):
         super().__init__(sequence)
 
     @classmethod
-    def unzip_vals(cls, parent_val, n, params):
-        return parent_val, [parent_val] * n
+    def unzip_vals(cls, parent_val, params=None):
+        "Pass parent value through and share with children."
+        return parent_val, InfiniteConstantSequence(parent_val)
 
     @classmethod
-    def press_vals(cls, parent_vals, params):
+    def press_vals(cls, parent_vals, params=None):
+        "Pass parent values through and concatenate into children."
         out = SequenceScalar(",".join(parent_vals))
         return parent_vals, out
 
@@ -133,12 +149,36 @@ class DepthProperty(
         super().__init__(depth)
 
     @classmethod
-    def unzip_vals(cls, parent_val, n, params):
-        return parent_val - np.sum(params), list(params)
+    def unzip_vals(cls, parent_val, params):
+        "Parent value becomes residual after summing arbitrary child values."
+        child_depths = params
+        return parent_val - np.sum(child_depths), child_depths
 
     @classmethod
     def press_vals(cls, parent_vals, params):
+        "Child value is the weighted mean of arbitrary values; parents are the residuals."
         parent_vals = np.asarray(parent_vals)
         lengths = np.asarray(params)
         mean_depth = np.sum(parent_vals * lengths) / np.sum(params)
         return list(parent_vals - mean_depth), mean_depth
+
+
+class CoordinateProperty(
+    ZipProperty[CoordinateScalar, Sequence[CoordinateScalar], Sequence[LengthScalar]]
+):
+    def __init__(self, depth):
+        super().__init__(depth)
+
+    @classmethod
+    def unzip_vals(cls, parent_val, params):
+        "Pass parent value through; children are parent value offset by an arbitrary amount."
+        child_offsets = np.asarray(params)
+        return parent_val, list(parent_val + child_offsets)
+
+    @classmethod
+    def press_vals(cls, parent_vals, params=None):
+        "Pass parent positions through; children are weighted mean of parents."
+        lengths = np.asarray(params)
+        parent_positions = np.asarray(parent_vals)
+        mean_position = (parent_positions * lengths).sum() / lengths.sum()
+        return list(parent_positions), mean_position
