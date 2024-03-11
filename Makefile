@@ -26,7 +26,7 @@ black:
 	black src tests typings
 
 isort:
-	isort src tests typings
+	isort --profile black src tests typings
 
 code-format: black isort
 
