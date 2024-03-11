@@ -1,4 +1,4 @@
-from typing import Any, Generic, List, NewType, Self, Tuple, TypeVar
+from typing import Any, Generic, List, NewType, Sequence, Tuple, TypeVar
 
 from numpy.typing import NDArray
 

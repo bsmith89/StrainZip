@@ -10,17 +10,20 @@ from strainzip.vertex_properties import (
     LengthScalar,
     ParentID,
     SampleDepthScalar,
+    SampleDepthVector,
     SequenceProperty,
 )
 
 
+def _pid(i: int) -> ParentID:
+    return cast(ParentID, i)
+
+
+def _cid(i: int) -> ChildID:
+    return cast(ChildID, i)
+
+
 def test_length_property():
-    def pid(i: int) -> ParentID:
-        return cast(ParentID, i)
-
-    def cid(i: int) -> ChildID:
-        return cast(ChildID, i)
-
     g = gt.Graph()
 
     g.add_edge_list([(0, 1)])
@@ -47,23 +50,17 @@ def test_length_property():
     assert np.array_equal(list(p1.vprop), [3, 3, 0, 0, 0])
 
     # "Unzip" the length value of node 0 into nodes 3 and 4
-    p1.unzip(pid(0), [cid(3), cid(4)], params=None)
+    p1.unzip(_pid(0), [_cid(3), _cid(4)], params=None)
     assert np.array_equal(list(p1.vprop), [3, 3, 0, 3, 3])
 
     # Add a new vertex
     g.add_vertex()
     # And "Press" the length value of nodes [0, 1] into node 5
-    p1.press([pid(0), pid(1)], cid(5), params=None)
+    p1.press([_pid(0), _pid(1)], _cid(5), params=None)
     assert np.array_equal(list(p1.vprop), [3, 3, 0, 3, 3, 6])
 
 
 def test_sequence_property():
-    def pid(i: int) -> ParentID:
-        return cast(ParentID, i)
-
-    def cid(i: int) -> ChildID:
-        return cast(ChildID, i)
-
     g = gt.Graph()
 
     g.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4)])
@@ -86,23 +83,17 @@ def test_sequence_property():
     assert np.array_equal(list(p1.vprop), ["0", "1", "2", "3", "4", "", ""])
 
     # "Unzip" the sequence value of node 0 into nodes [5, 6]
-    p1.unzip(pid(0), [cid(5), cid(6)], params=None)
+    p1.unzip(_pid(0), [_cid(5), _cid(6)], params=None)
     assert np.array_equal(list(p1.vprop), ["0", "1", "2", "3", "4", "0", "0"])
 
     # Add a new vertex
     g.add_vertex()
     # And "Press" the sequence value of nodes [0, 1] into node 7
-    p1.press([pid(0), pid(1)], cid(7), params=None)
+    p1.press([_pid(0), _pid(1)], _cid(7), params=None)
     assert np.array_equal(list(p1.vprop), ["0", "1", "2", "3", "4", "0", "0", "0,1"])
 
 
 def test_depth_property():
-    def pid(i: int) -> ParentID:
-        return cast(ParentID, i)
-
-    def cid(i: int) -> ChildID:
-        return cast(ChildID, i)
-
     g = gt.Graph()
 
     g.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4)])
@@ -157,8 +148,8 @@ def test_depth_property():
 
     # "Unzip" the depth value of node 0 into nodes [5, 6]
     p1.unzip(
-        pid(0),
-        [cid(5), cid(6)],
+        _pid(0),
+        [_cid(5), _cid(6)],
         params=[SampleDepthScalar(1.0), SampleDepthScalar(1.2)],
     )
     assert np.allclose(
@@ -177,7 +168,7 @@ def test_depth_property():
     # Add a new vertex
     g.add_vertex()
     # And "Press" the depth value of nodes [0, 1] into node 7
-    p1.press([pid(3), pid(4)], cid(7), params=[LengthScalar(2), LengthScalar(5)])
+    p1.press([_pid(3), _pid(4)], _cid(7), params=[LengthScalar(2), LengthScalar(5)])
     assert np.allclose(
         list(p1.vprop),
         [
