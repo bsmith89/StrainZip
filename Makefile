@@ -1,7 +1,7 @@
 JUPYTER_PORT=8888
 CLEANUP="build .pytest_cache"
 
-.PHONY: test format clean install-pre-commit black isort code-format pre-commit
+.PHONY: test clean install-pre-commit black isort code-format pre-commit
 .PHONY: install-git-jupyter-notebook-clean-smudge install-jupyter-kernel
 .PHONY: start-jupyter
 
@@ -11,10 +11,6 @@ test:
 
 type-check:
 	pyright
-
-format:
-	python -m black src tests
-	isort --profile black src tests
 
 clean:
 	rm -rf ${CLEANUP}
