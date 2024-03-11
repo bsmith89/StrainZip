@@ -21,8 +21,9 @@ PressParamT = TypeVar("PressParamT")
 class InfiniteConstantSequence(Sequence[PropValueT]):
     """Represents a sequence where every element is the same constant value.
 
-    This class provides an abstraction for sequences that effectively have an
-    infinite length, where each item in the sequence is identical.
+    This class provides an abstraction allowing for access to constant
+    values as though they were sequences, without having to know the
+    length ahead of time nor allocate an object.
 
     Attributes:
         _constant (PropValueT): The constant value returned for any index.
