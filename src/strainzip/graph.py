@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Optional, Self, Sequence, Tuple, TypeAlias, cast
+from typing import Any, Optional, Self, Sequence, Tuple, TypeAlias, cast
 
 import graph_tool as gt
 import graph_tool.draw as gtdraw
