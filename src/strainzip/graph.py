@@ -1,3 +1,4 @@
+from copy import copy
 from typing import Any, Optional, Self, Sequence, Tuple, TypeAlias, cast
 
 import graph_tool as gt
@@ -104,15 +105,49 @@ class BaseZipGraph:
     #     pass
 
 
-class SequenceZipGraph(BaseZipGraph):
-    """A specialized ZipGraph that handles length and sequence properties in addition to an automatic filter.
+class FilterZipGraph(BaseZipGraph):
+    """A specialized ZipGraph that handles an automatic vertex filter.
+
+    Inherits from BaseZipGraph and adds automatic handling of a filter property.
+
+    """
+
+    def __init__(
+        self: Self,
+        graph: gt.Graph,
+        **extra_props: ZipProperty,
+    ):
+        super().__init__(graph, **extra_props)
+
+        # Automatic "filter" property.
+        self.props["filter"] = FilterProperty(
+            self.graph.new_vertex_property("bool", val=True)
+        )
+        # self.graph.set_vertex_filter(self.props['filter'].vprop)
+
+    def unzip(
+        self,
+        parent,
+        paths,
+        **extra_params,
+    ):
+        params = dict(filter=None) | extra_params
+        super().unzip(parent, paths, **params)
+
+    def press(self, parents, **extra_params):
+        params = dict(filter=None) | extra_params
+        super().press(parents, **params)
+
+    @property
+    def fgraph(self):
+        return gt.GraphView(self.graph, vfilt=self.props["filter"].vprop)
+
+
+class SequenceZipGraph(FilterZipGraph):
+    """A specialized ZipGraph that handles length and sequence properties.
 
     Inherits from BaseZipGraph and adds specific handling for length and sequence properties.
 
-    Attributes:
-        length (LengthProperty): The length property associated with the graph's vertices.
-        sequence (SequenceProperty): The sequence property associated with the graph's vertices.
-        filter (FilterProperty): An automatic boolean filter property for vertices.
     """
 
     def __init__(
@@ -132,23 +167,17 @@ class SequenceZipGraph(BaseZipGraph):
         """
         super().__init__(graph, length=length, sequence=sequence, **extra_props)
 
-        # Automatic "filter" property.
-        self.props["filter"] = FilterProperty(
-            self.graph.new_vertex_property("bool", val=True)
-        )
-        self.graph.set_vertex_filter(self.props["filter"].vprop)
-
     def unzip(
         self,
         parent,
         paths,
         **extra_params,
     ):
-        params = dict(length=None, sequence=None, filter=None) | extra_params
+        params = dict(length=None, sequence=None) | extra_params
         super().unzip(parent, paths, **params)
 
     def press(self, parents, **extra_params):
-        params = dict(length=None, sequence=None, filter=None) | extra_params
+        params = dict(length=None, sequence=None) | extra_params
         super().press(parents, **params)
 
 
