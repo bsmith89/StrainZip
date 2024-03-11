@@ -1,25 +1,22 @@
-from typing import (
-    Any,
-    Generic,
-    NewType,
-    Optional,
-    Self,
-    Sequence,
-    Tuple,
-    TypeAlias,
-    TypeVar,
-)
+from typing import Self, Sequence, Tuple, TypeVar, cast
 
 import graph_tool as gt
-import numpy as np
 from graph_tool import VertexPropertyMap
 
 from .vertex_properties import (
+    ChildID,
     DepthProperty,
+    FilterProperty,
     LengthProperty,
+    ParentID,
     SequenceProperty,
+    VertexID,
     ZipProperty,
 )
+
+PropValueT = TypeVar("PropValueT")
+UnzipParamT = TypeVar("UnzipParamT")
+PressParamT = TypeVar("PressParamT")
 
 
 class ZipGraph:
@@ -40,26 +37,49 @@ class ZipGraph:
 
     def unzip(
         self,
-        ParentID,
+        parent: ParentID,
+        paths: Sequence[Tuple[VertexID, VertexID]],
+        params,
     ):
-        # TODO: Add (one or more) new nodes, for each linking one in-edge and one out-edge.
-        # TODO: Update all of the vertex properties using their own unzip methods.
-        # TODO: Filter out the old node
-        pass
+        n = len(paths)
+        num_before = len(self.graph)
+        num_after = num_before + n
+        self.graph.add_vertex(n)
+        children = [cast(ChildID, i) for i in range(num_before, num_after)]
+        new_edge_list = []
+        for (left, right), child in zip(paths, children):
+            new_edge_list.append((left, child))
+            new_edge_list.append((child, right))
+        self.graph.add_edge_list(new_edge_list)
+        for prop in self.props:
+            self.props[prop].unzip(parent, children, params[prop])
 
-    def press(self, *args):
-        # TODO: Add a single new node, connecting the a single in-edge and single out-edge.
-        # TODO: Update all of the vertex properties using their own press methods.
-        # TODO: Filter out the old nodes
-        pass
+    def press(self, parents: Sequence[ParentID], params):
+        child = cast(
+            ChildID, len(self.graph)
+        )  # Infer new node index by size of the graph.
+        self.graph.add_vertex()
+        leftmost_parent = parents[0]
+        rightmost_parent = parents[-1]
+        left_list = self.graph.get_in_neighbors(leftmost_parent)
+        right_list = self.graph.get_out_neighbors(rightmost_parent)
+        new_edge_list = []
+        for left in left_list:
+            new_edge_list.append((left, child))
+        for right in right_list:
+            new_edge_list.append((child, right))
 
-    def batch_unzip(self, *args):
-        # TODO: Implement a multi-unzip method
-        pass
+        for prop in self.props:
+            self.props[prop].press(parents, child, params[prop])
 
-    def batch_press(self, *args):
-        # TODO: Implement a multi-press method
-        pass
+    #
+    # def batch_unzip(self, *args):
+    #     # TODO: Implement a multi-unzip method
+    #     pass
+    #
+    # def batch_press(self, *args):
+    #     # TODO: Implement a multi-press method
+    #     pass
 
 
 class DepthGraph(ZipGraph):
@@ -79,3 +99,8 @@ class DepthGraph(ZipGraph):
         **kwargs: ZipProperty,
     ):
         super().__init__(graph, depth=depth, length=length, sequence=sequence, **kwargs)
+
+        # Automatic "filter" property.
+        self.props["filter"] = FilterProperty(
+            self.graph.new_vertex_property("bool", val=True)
+        )
