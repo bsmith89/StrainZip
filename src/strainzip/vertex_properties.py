@@ -287,9 +287,9 @@ class PositionProperty(
     def unzip_vals(
         cls, parent_val, params
     ) -> Tuple[PositionVector, Sequence[PositionVector]]:
-        """Implements the unzip operation for coordinate properties.
+        """Implements the unzip operation for position properties.
 
-        Children inherit the parent coordinate, offset by an arbitrary amount specified in the parameters.
+        Children inherit the parent position, offset by an arbitrary amount specified in the parameters.
 
         Args:
             parent_val (PositionVector): The position value of the parent vertex.
@@ -309,10 +309,10 @@ class PositionProperty(
 
     @classmethod
     def press_vals(cls, parent_vals, params):
-        """Implements the press operation for coordinate properties.
+        """Implements the press operation for position properties.
 
-        The child's coordinate is the weighted mean of the parent coordinates,
-        using the specified lengths as weights.
+        The child's position is the weighted mean of the parent position,
+        using the specified params (nominally sequence lengths) as weights.
 
         Args:
             parent_vals (Sequence[PositionVector]): The position values of the parent vertices.
