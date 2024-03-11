@@ -28,7 +28,7 @@ black:
 isort:
 	isort src tests typings
 
-codeformat: black isort
+code-format: black isort
 
 pre-commit:
 	pre-commit run --all-files
