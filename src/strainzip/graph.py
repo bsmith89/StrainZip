@@ -2,7 +2,7 @@ from copy import copy
 from typing import Any, Optional, Self, Sequence, Tuple, TypeAlias, cast
 
 import graph_tool as gt
-import graph_tool.draw as gtdraw
+import graph_tool.draw
 import numpy as np
 
 from .exceptions import InvalidCoordValueException
@@ -284,7 +284,7 @@ class VizZipGraph(DepthZipGraph):
             **kwargs: Optional arguments to override sfdp layout parameters for this update.
         """
         sfdp_layout_kwargs = self.sfdp_layout_kwargs | kwargs
-        xyposition = gtdraw.sfdp_layout(
+        xyposition = gt.draw.sfdp_layout(
             self.graph,
             pos=self.props["xyposition"].vprop,
             **sfdp_layout_kwargs,
