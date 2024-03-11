@@ -222,7 +222,11 @@ class SequenceProperty(ZipProperty[SequenceScalar, None, None]):
 
 
 class DepthProperty(
-    ZipProperty[SampleDepthScalar, Sequence[SampleDepthScalar], Sequence[LengthScalar]]
+    ZipProperty[
+        SampleDepthScalar | SampleDepthVector,
+        Sequence[SampleDepthScalar | SampleDepthVector],
+        Sequence[LengthScalar],
+    ]
 ):
     """Property class for handling depth values within the graph's vertices.
 
@@ -244,8 +248,10 @@ class DepthProperty(
             A tuple containing the residual parent depth after distribution to the children,
             and the sequence of child depths as specified in the parameters.
         """
-        child_depths = np.array(params)
-        return parent_val - np.sum(child_depths), list(child_depths)
+        child_depths = np.asarray(params)
+        parent_depth = np.asarray(parent_val)
+        parent_depth = parent_depth.reshape((-1, 1))
+        return parent_val - child_depths.sum(0), list(child_depths)
 
     @classmethod
     def press_vals(cls, parent_vals, params):
@@ -261,9 +267,10 @@ class DepthProperty(
         Returns:
             A tuple containing the list of adjusted parent depths and the weighted mean depth for the child.
         """
-        parent_vals = np.asarray(parent_vals)
-        lengths = np.asarray(params)
-        mean_depth = np.sum(parent_vals * lengths) / np.sum(lengths)
+        lengths = np.asarray(params).reshape((-1, 1))
+        num_parents = lengths.shape[0]
+        parent_vals = np.asarray(parent_vals).reshape((num_parents, -1))
+        mean_depth = np.sum(parent_vals * lengths, axis=0) / np.sum(lengths)
         return list(parent_vals - mean_depth), mean_depth
 
 
