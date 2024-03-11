@@ -317,3 +317,13 @@ class CoordinateProperty(
         parent_positions = np.asarray(parent_vals)
         mean_position = np.sum(parent_positions * lengths) / np.sum(lengths)
         return list(parent_positions), mean_position
+
+
+class FilterProperty(ZipProperty[bool, None, None]):
+    @classmethod
+    def unzip_vals(cls, parent_val, params=None):
+        return False, InfiniteConstantSequence(True)
+
+    @classmethod
+    def press_vals(cls, parent_vals, params=None):
+        return [False] * len(parent_vals), True
