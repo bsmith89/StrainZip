@@ -371,7 +371,7 @@ class FilterProperty(ZipProperty[bool, None, None]):
 
         Args:
             parent_vals (Sequence[bool]): A sequence of boolean values associated with the
-                                          parent vertices. These values are ignored in the
+                                          parent vertices. Besides their length, these values are ignored in the
                                           current implementation.
             params (None): Parameters for the press operation. Currently not used.
 
