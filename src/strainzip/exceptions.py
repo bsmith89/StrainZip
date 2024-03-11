@@ -1,0 +1,2 @@
+class InvalidCoordValueException(Exception):
+    pass

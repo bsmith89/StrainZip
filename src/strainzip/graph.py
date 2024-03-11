@@ -1,10 +1,13 @@
-from typing import Self, Sequence, Tuple, TypeVar, cast
+from typing import Any, Mapping, Optional, Self, Sequence, Tuple, TypeAlias, cast
 
 import graph_tool as gt
-from graph_tool import VertexPropertyMap
+import graph_tool.draw as gtdraw
+import numpy as np
 
+from .exceptions import InvalidCoordValueException
 from .vertex_properties import (
     ChildID,
+    CoordinateProperty,
     DepthProperty,
     FilterProperty,
     LengthProperty,
@@ -14,12 +17,11 @@ from .vertex_properties import (
     ZipProperty,
 )
 
-PropValueT = TypeVar("PropValueT")
-UnzipParamT = TypeVar("UnzipParamT")
-PressParamT = TypeVar("PressParamT")
+AnyUnzipParam: TypeAlias = Any
+AnyPressParam: TypeAlias = Any
 
 
-class ZipGraph:
+class BaseZipGraph:
     """TODO
 
     Handles the unzipping/pressing for the graph itself, while coordinating
@@ -30,19 +32,19 @@ class ZipGraph:
     def __init__(
         self: Self,
         graph: gt.Graph,
-        **props: ZipProperty,
+        **extra_props: ZipProperty,
     ):
         self.graph = graph
-        self.props = props
+        self.props = extra_props
 
     def unzip(
         self,
         parent: ParentID,
         paths: Sequence[Tuple[VertexID, VertexID]],
-        params,
+        **extra_params: AnyUnzipParam,
     ):
         n = len(paths)
-        num_before = len(self.graph)
+        num_before = self.graph.num_vertices(ignore_filter=True)
         num_after = num_before + n
         self.graph.add_vertex(n)
         children = [cast(ChildID, i) for i in range(num_before, num_after)]
@@ -52,11 +54,11 @@ class ZipGraph:
             new_edge_list.append((child, right))
         self.graph.add_edge_list(new_edge_list)
         for prop in self.props:
-            self.props[prop].unzip(parent, children, params[prop])
+            self.props[prop].unzip(parent, children, extra_params[prop])
 
-    def press(self, parents: Sequence[ParentID], params):
+    def press(self, parents: Sequence[ParentID], **extra_params: AnyPressParam):
         child = cast(
-            ChildID, len(self.graph)
+            ChildID, self.graph.num_vertices(ignore_filter=True)
         )  # Infer new node index by size of the graph.
         self.graph.add_vertex()
         leftmost_parent = parents[0]
@@ -68,9 +70,10 @@ class ZipGraph:
             new_edge_list.append((left, child))
         for right in right_list:
             new_edge_list.append((child, right))
+        self.graph.add_edge_list(new_edge_list)
 
         for prop in self.props:
-            self.props[prop].press(parents, child, params[prop])
+            self.props[prop].press(parents, child, extra_params[prop])
 
     #
     # def batch_unzip(self, *args):
@@ -82,25 +85,137 @@ class ZipGraph:
     #     pass
 
 
-class DepthGraph(ZipGraph):
-    """Wraps a filtered graph with embedded depth, weight, and sequence information.
+class SequenceZipGraph(BaseZipGraph):
+    """Wraps a filtered graph with embedded length, and sequence information and and automatic filter."""
 
-    Handles the unzipping/pressing for the graph itself, while coordinating
-    the unzipping/pressing as implemented (potentially differently) for each
-    ZipProperty.
-    """
+    def __init__(
+        self: Self,
+        graph: gt.Graph,
+        length: LengthProperty,
+        sequence: SequenceProperty,
+        **extra_props: ZipProperty,
+    ):
+        super().__init__(graph, length=length, sequence=sequence, **extra_props)
 
+        # Automatic "filter" property.
+        self.props["filter"] = FilterProperty(
+            self.graph.new_vertex_property("bool", val=True)
+        )
+        self.graph.set_vertex_filter(self.props["filter"].vprop)
+
+    def unzip(
+        self,
+        parent,
+        paths,
+        **extra_params,
+    ):
+        params = dict(length=None, sequence=None, filter=None) | extra_params
+        super().unzip(parent, paths, **params)
+
+    def press(self, parents, **extra_params):
+        params = dict(length=None, sequence=None, filter=None) | extra_params
+        super().press(parents, **params)
+
+
+class DepthZipGraph(SequenceZipGraph):
+    def __init__(
+        self: Self,
+        graph: gt.Graph,
+        length: LengthProperty,
+        sequence: SequenceProperty,
+        depth: DepthProperty,
+        **extra_props: ZipProperty,
+    ):
+        super().__init__(
+            graph, length=length, sequence=sequence, depth=depth, **extra_props
+        )
+
+    def unzip(
+        self,
+        parent,
+        paths,
+        **extra_params,
+    ):
+        params = dict() | extra_params
+        super().unzip(parent, paths, **params)
+
+    def press(self, parents, **extra_params):
+        params = dict(depth=self.props["length"].vprop.a[parents]) | extra_params
+        super().press(parents, **params)
+
+
+class VizZipGraph(DepthZipGraph):
     def __init__(
         self: Self,
         graph: gt.Graph,
         depth: DepthProperty,
         length: LengthProperty,
         sequence: SequenceProperty,
-        **kwargs: ZipProperty,
+        xcoord: CoordinateProperty,
+        ycoord: CoordinateProperty,
+        coord_offset_scale=0.1,
+        sfdp_layout_kwargs: Optional[Mapping[str, Any]] = None,
+        **extra_props: ZipProperty,
     ):
-        super().__init__(graph, depth=depth, length=length, sequence=sequence, **kwargs)
 
-        # Automatic "filter" property.
-        self.props["filter"] = FilterProperty(
-            self.graph.new_vertex_property("bool", val=True)
+        if sfdp_layout_kwargs is None:
+            sfdp_layout_kwargs = dict(
+                K=0.5,
+                init_step=0.005,
+                max_iter=1,
+            )
+        self.sfdp_layout_kwargs = sfdp_layout_kwargs
+
+        self.coord_offset_scale = coord_offset_scale
+
+        super().__init__(
+            graph,
+            depth=depth,
+            length=length,
+            sequence=sequence,
+            xcoord=xcoord,
+            ycoord=ycoord,
+            **extra_props,
         )
+        self.update_coords()
+
+    def update_coords(self):
+        coords = gtdraw.sfdp_layout(
+            self.graph,
+            pos=gt.group_vector_property(
+                [self.props["xcoord"].vprop, self.props["ycoord"].vprop]
+            ),
+            **self.sfdp_layout_kwargs,
+        )
+        xcoord, ycoord = gt.ungroup_vector_property(coords, pos=[0, 1])
+        if np.isnan(xcoord.a).any() or np.isnan(ycoord.a).any():
+            raise InvalidCoordValueException(
+                "NaN value in xcoord or ycoord. Maybe your initial values had a symmetry?"
+            )
+
+        self.props["xcoord"] = CoordinateProperty(xcoord)
+        self.props["ycoord"] = CoordinateProperty(ycoord)
+
+    def unzip(
+        self,
+        parent,
+        paths,
+        **extra_params,
+    ):
+        coord_offsets = np.linspace(
+            -self.coord_offset_scale, self.coord_offset_scale, num=len(paths)
+        )
+        params = dict(xcoord=coord_offsets, ycoord=coord_offsets) | extra_params
+        super().unzip(parent, paths, **params)
+        self.update_coords()
+
+    def press(self, parents, **extra_params):
+        params = (
+            dict(
+                xcoord=self.props["length"].vprop.a[parents],
+                ycoord=self.props["length"].vprop.a[parents],
+            )
+            | extra_params
+        )
+        super().press(parents, **params)
+        self.update_coords()
