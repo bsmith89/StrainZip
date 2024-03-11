@@ -320,10 +320,64 @@ class CoordinateProperty(
 
 
 class FilterProperty(ZipProperty[bool, None, None]):
+    """
+    A specialized property for handling boolean filter operations on vertices within a graph.
+
+    This class extends ZipProperty for boolean values, specifically designed to simplify
+    filter-like operations where a parent's value can be 'unzipped' into its children,
+    and children's values can be 'pressed' back into a parent. The unique aspect of this
+    property is its simplistic approach to these operations, tailored to boolean contexts.
+
+    The `unzip_vals` method always generates a constant sequence of `True` values for children,
+    regardless of the parent's original value, effectively 'filtering in' all children.
+    The `press_vals` method, conversely, sets all parent values to `False` and yields `True` for
+    the resultant child, indicating a default inclusion criterion for the press operation.
+
+    This property can be particularly useful in scenarios where a boolean condition needs to
+    be applied across a hierarchy or a structure of vertices, simplifying the propagation of
+    filter criteria.
+    """
+
     @classmethod
     def unzip_vals(cls, parent_val, params=None):
+        """
+        Unzips a boolean value from a parent to its children, setting all children to `True`.
+
+        This method overrides the `unzip_vals` method in ZipProperty to provide specific
+        behavior for boolean properties, ignoring the actual parent value and instead
+        unconditionally enabling (setting to `True`) all child vertices.
+
+        Args:
+            parent_val (bool): The boolean value associated with the parent vertex. This
+                               value is ignored in the current implementation.
+            params (None): Parameters for the unzip operation. Currently not used.
+
+        Returns:
+            A tuple consisting of `False` for the updated parent value (indicating the
+            parent is 'filtered out' post-unzip) and an `InfiniteConstantSequence` of `True`
+            for all child vertices (indicating all children are 'filtered in').
+        """
         return False, InfiniteConstantSequence(True)
 
     @classmethod
     def press_vals(cls, parent_vals, params=None):
+        """
+        Presses boolean values from parents to a child, setting the child to `True`.
+
+        This method overrides the `press_vals` method in ZipProperty to provide specific
+        behavior for boolean properties. It sets the resultant value for the child vertex
+        to `True` unconditionally, while marking all parent vertices as `False`, indicating
+        they are 'filtered out' after the press operation.
+
+        Args:
+            parent_vals (Sequence[bool]): A sequence of boolean values associated with the
+                                          parent vertices. These values are ignored in the
+                                          current implementation.
+            params (None): Parameters for the press operation. Currently not used.
+
+        Returns:
+            A tuple consisting of a list of `False` for each parent (indicating they are
+            'filtered out') and `True` for the resultant child value (indicating the child
+            is 'filtered in').
+        """
         return [False] * len(parent_vals), True
