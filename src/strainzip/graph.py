@@ -22,18 +22,23 @@ AnyPressParam: TypeAlias = Any
 
 
 class BaseZipGraph:
-    """TODO
+    """Base class for handling graph properties through the ZipProperty paradigm.
 
-    Handles the unzipping/pressing for the graph itself, while coordinating
-    the unzipping/pressing as implemented (potentially differently) for each
-    ZipProperty.
+    This class manages a graph and its associated ZipProperty instances,
+    orchestrating the unzip and press operations across all properties.
+
+    Attributes:
+        graph (gt.Graph): The underlying graph_tool graph instance.
+        props (dict[str, ZipProperty]): A dictionary mapping property names to their respective ZipProperty instances.
     """
 
-    def __init__(
-        self: Self,
-        graph: gt.Graph,
-        **extra_props: ZipProperty,
-    ):
+    def __init__(self, graph: gt.Graph, **extra_props: ZipProperty):
+        """Initializes a BaseZipGraph with a graph and optional extra properties.
+
+        Args:
+            graph (gt.Graph): The graph to which the properties are associated.
+            **extra_props: Arbitrary keyword arguments for additional ZipProperty instances.
+        """
         self.graph = graph
         self.props = extra_props
 
@@ -43,6 +48,13 @@ class BaseZipGraph:
         paths: Sequence[Tuple[VertexID, VertexID]],
         **extra_params: AnyUnzipParam,
     ):
+        """Performs the unzip operation on the graph, adding new vertices and adjusting properties accordingly.
+
+        Args:
+            parent (ParentID): The ID of the parent vertex from which to unzip.
+            paths (Sequence[Tuple[VertexID, VertexID]]): A sequence of tuples representing the paths for unzipping.
+            **extra_params: Arbitrary keyword parameters for unzip parameters specific to each property.
+        """
         n = len(paths)
         num_before = self.graph.num_vertices(ignore_filter=True)
         num_after = num_before + n
@@ -57,6 +69,13 @@ class BaseZipGraph:
             self.props[prop].unzip(parent, children, extra_params[prop])
 
     def press(self, parents: Sequence[ParentID], **extra_params: AnyPressParam):
+        """Performs the press operation on the graph, combining vertices and adjusting properties accordingly.
+
+        Args:
+            parents (Sequence[ParentID]): A sequence of parent IDs whose properties are to be pressed into a new child vertex.
+            **extra_params: Arbitrary keyword parameters for press parameters specific to each property.
+        """
+        # Implementation omitted for brevity
         child = cast(
             ChildID, self.graph.num_vertices(ignore_filter=True)
         )  # Infer new node index by size of the graph.
@@ -86,7 +105,15 @@ class BaseZipGraph:
 
 
 class SequenceZipGraph(BaseZipGraph):
-    """Wraps a filtered graph with embedded length, and sequence information and and automatic filter."""
+    """A specialized ZipGraph that handles length and sequence properties in addition to an automatic filter.
+
+    Inherits from BaseZipGraph and adds specific handling for length and sequence properties.
+
+    Attributes:
+        length (LengthProperty): The length property associated with the graph's vertices.
+        sequence (SequenceProperty): The sequence property associated with the graph's vertices.
+        filter (FilterProperty): An automatic boolean filter property for vertices.
+    """
 
     def __init__(
         self: Self,
@@ -95,6 +122,14 @@ class SequenceZipGraph(BaseZipGraph):
         sequence: SequenceProperty,
         **extra_props: ZipProperty,
     ):
+        """Initializes a SequenceZipGraph with length and sequence properties.
+
+        Args:
+            graph (gt.Graph): The underlying graph_tool graph instance.
+            length (LengthProperty): The length property for the graph's vertices.
+            sequence (SequenceProperty): The sequence property for the graph's vertices.
+            **extra_props: Arbitrary keyword arguments for additional ZipProperty instances.
+        """
         super().__init__(graph, length=length, sequence=sequence, **extra_props)
 
         # Automatic "filter" property.
@@ -118,6 +153,12 @@ class SequenceZipGraph(BaseZipGraph):
 
 
 class DepthZipGraph(SequenceZipGraph):
+    """Extends SequenceZipGraph to include depth handling, creating a comprehensive graph property management system.
+
+    Attributes:
+        depth (DepthProperty): The depth property associated with the graph's vertices.
+    """
+
     def __init__(
         self: Self,
         graph: gt.Graph,
@@ -126,6 +167,15 @@ class DepthZipGraph(SequenceZipGraph):
         depth: DepthProperty,
         **extra_props: ZipProperty,
     ):
+        """Initializes a DepthZipGraph with length, sequence, and depth properties.
+
+        Args:
+            graph (gt.Graph): The underlying graph_tool graph instance.
+            length (LengthProperty): The length property for the graph's vertices.
+            sequence (SequenceProperty): The sequence property for the graph's vertices.
+            depth (DepthProperty): The depth property for the graph's vertices.
+            **extra_props: Additional ZipProperty instances.
+        """
         super().__init__(
             graph, length=length, sequence=sequence, depth=depth, **extra_props
         )
@@ -145,6 +195,17 @@ class DepthZipGraph(SequenceZipGraph):
 
 
 class VizZipGraph(DepthZipGraph):
+    """Incorporates visualization capabilities into DepthZipGraph by managing vertex positions for graphical display.
+
+    Attributes:
+        xyposition (PositionProperty): The property for storing the x and y coordinates of each vertex.
+        pos_offset_scale (float): Scale factor for adjusting
+        the offsets during the unzip operation to position children vertices.
+        sfdp_layout_kwargs (Optional[dict[str, Any]]): Parameters for the sfdp layout algorithm used in updating vertex positions.
+
+    This class extends DepthZipGraph by adding a position property and methods to automatically update vertex positions after graph operations, facilitating visualization of the graph's structure.
+    """
+
     def __init__(
         self: Self,
         graph: gt.Graph,
@@ -156,7 +217,18 @@ class VizZipGraph(DepthZipGraph):
         sfdp_layout_kwargs: Optional[dict[str, Any]] = None,
         **extra_props: ZipProperty,
     ):
+        """Initializes a VizZipGraph with properties for depth, length, sequence, and vertex positions.
 
+        Args:
+            graph (gt.Graph): The graph on which operations are performed.
+            depth (DepthProperty): A ZipProperty for managing depth information.
+            length (LengthProperty): A ZipProperty for managing length information.
+            sequence (SequenceProperty): A ZipProperty for managing sequence information.
+            xyposition (PositionProperty): A ZipProperty for managing the x and y coordinates of vertices.
+            pos_offset_scale (float, optional): Scale for adjusting position offsets. Defaults to 0.1.
+            sfdp_layout_kwargs (Optional[dict[str, Any]], optional): Additional arguments for the sfdp layout algorithm. Defaults to None.
+            **extra_props: Additional ZipProperty instances for extending functionality.
+        """
         if sfdp_layout_kwargs is None:
             sfdp_layout_kwargs = {}
         sfdp_layout_kwargs = (
@@ -177,7 +249,11 @@ class VizZipGraph(DepthZipGraph):
         self.update_positions()
 
     def update_positions(self, **kwargs):
-        # Override sfdp_layout_kwargs with any passed as kwargs.
+        """Updates vertex positions using the sfdp layout algorithm with the current position property as an initial layout.
+
+        Args:
+            **kwargs: Optional arguments to override sfdp layout parameters for this update.
+        """
         sfdp_layout_kwargs = self.sfdp_layout_kwargs | kwargs
         xyposition = gtdraw.sfdp_layout(
             self.graph,
@@ -197,6 +273,13 @@ class VizZipGraph(DepthZipGraph):
         paths,
         **extra_params,
     ):
+        """Extends the unzip operation with automatic position updates for new vertices.
+
+        Args:
+            parent: The ID of the parent vertex.
+            paths: A sequence of tuples specifying the paths for unzipping.
+            **extra_params: Additional parameters for customizing the unzip operation.
+        """
         coord_offsets = np.linspace(
             -self.pos_offset_scale, self.pos_offset_scale, num=len(paths)
         )
@@ -207,6 +290,12 @@ class VizZipGraph(DepthZipGraph):
         self.update_positions()
 
     def press(self, parents, **extra_params):
+        """Extends the press operation with automatic position updates for the new vertex.
+
+        Args:
+            parents: A sequence of parent IDs whose properties are to be pressed into a new child vertex.
+            **extra_params: Additional parameters for customizing the press operation.
+        """
         params = (
             dict(
                 xyposition=self.props["length"].vprop.a[parents],
