@@ -322,7 +322,6 @@ def test_vector_depth_property():
 
     # Add vertices with index 5 and 6.
     g.add_vertex(n=2)
-    # print(p1.vprop.get_2d_array(pos=np.arange(nsamples)))
     assert np.allclose(
         p1.vprop.get_2d_array(pos=sample_idx),
         [

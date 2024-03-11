@@ -7,11 +7,11 @@ import numpy as np
 from .exceptions import InvalidCoordValueException
 from .vertex_properties import (
     ChildID,
-    CoordinateProperty,
     DepthProperty,
     FilterProperty,
     LengthProperty,
     ParentID,
+    PositionProperty,
     SequenceProperty,
     VertexID,
     ZipProperty,
@@ -151,50 +151,43 @@ class VizZipGraph(DepthZipGraph):
         depth: DepthProperty,
         length: LengthProperty,
         sequence: SequenceProperty,
-        xcoord: CoordinateProperty,
-        ycoord: CoordinateProperty,
-        coord_offset_scale=0.1,
-        sfdp_layout_kwargs: Optional[Mapping[str, Any]] = None,
+        xyposition: PositionProperty,
+        pos_offset_scale=0.1,
+        sfdp_layout_kwargs: Optional[dict[str, Any]] = None,
         **extra_props: ZipProperty,
     ):
 
         if sfdp_layout_kwargs is None:
-            sfdp_layout_kwargs = dict(
-                K=0.5,
-                init_step=0.005,
-                max_iter=1,
-            )
+            sfdp_layout_kwargs = {}
+        sfdp_layout_kwargs = (
+            dict(K=0.5, init_step=0.005, max_iter=1) | sfdp_layout_kwargs
+        )
         self.sfdp_layout_kwargs = sfdp_layout_kwargs
 
-        self.coord_offset_scale = coord_offset_scale
+        self.pos_offset_scale = pos_offset_scale
 
         super().__init__(
             graph,
             depth=depth,
             length=length,
             sequence=sequence,
-            xcoord=xcoord,
-            ycoord=ycoord,
+            xyposition=xyposition,
             **extra_props,
         )
         self.update_coords()
 
     def update_coords(self):
-        coords = gtdraw.sfdp_layout(
+        xyposition = gtdraw.sfdp_layout(
             self.graph,
-            pos=gt.group_vector_property(
-                [self.props["xcoord"].vprop, self.props["ycoord"].vprop]
-            ),
+            pos=self.props["xyposition"].vprop,
             **self.sfdp_layout_kwargs,
         )
-        xcoord, ycoord = gt.ungroup_vector_property(coords, pos=[0, 1])
-        if np.isnan(xcoord.a).any() or np.isnan(ycoord.a).any():
+        if np.isnan(xyposition.get_2d_array(pos=[0, 1])).any():
             raise InvalidCoordValueException(
                 "NaN value in xcoord or ycoord. Maybe your initial values had a symmetry?"
             )
 
-        self.props["xcoord"] = CoordinateProperty(xcoord)
-        self.props["ycoord"] = CoordinateProperty(ycoord)
+        self.props["xyposition"] = PositionProperty(xyposition)
 
     def unzip(
         self,
@@ -203,17 +196,18 @@ class VizZipGraph(DepthZipGraph):
         **extra_params,
     ):
         coord_offsets = np.linspace(
-            -self.coord_offset_scale, self.coord_offset_scale, num=len(paths)
+            -self.pos_offset_scale, self.pos_offset_scale, num=len(paths)
         )
-        params = dict(xcoord=coord_offsets, ycoord=coord_offsets) | extra_params
+        coord_offsets = np.stack([coord_offsets] * 2)
+
+        params = dict(xyposition=coord_offsets) | extra_params
         super().unzip(parent, paths, **params)
         self.update_coords()
 
     def press(self, parents, **extra_params):
         params = (
             dict(
-                xcoord=self.props["length"].vprop.a[parents],
-                ycoord=self.props["length"].vprop.a[parents],
+                xyposition=self.props["length"].vprop.a[parents],
             )
             | extra_params
         )

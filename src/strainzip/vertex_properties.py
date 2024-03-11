@@ -8,7 +8,7 @@ ChildID = NewType("ChildID", VertexID)
 ParentID = NewType("ParentID", VertexID)
 
 SampleDepthScalar = NewType("SampleDepthScalar", float)
-CoordinateScalar = NewType("CoordinateScalar", float)
+PositionVector = NewType("PositionVector", Sequence[float])
 SampleDepthVector = NewType("SampleDepthVector", Sequence[float])
 LengthScalar = NewType("LengthScalar", int)
 SequenceScalar = NewType("SequenceScalar", str)
@@ -274,30 +274,38 @@ class DepthProperty(
         return list(parent_vals - mean_depth), mean_depth
 
 
-class CoordinateProperty(
-    ZipProperty[CoordinateScalar, Sequence[CoordinateScalar], Sequence[LengthScalar]]
+class PositionProperty(
+    ZipProperty[PositionVector, Sequence[PositionVector], Sequence[LengthScalar]]
 ):
-    """Property class for handling coordinate values within the graph's vertices.
+    """Property class for handling position values within the graph's vertices.
 
-    This class specializes ZipProperty for coordinate properties, facilitating
-    the distribution and aggregation of coordinate values among vertices based on specified offsets or weights.
+    This class specializes ZipProperty for position properties, facilitating
+    the distribution and aggregation of position values among vertices based on specified offsets or weights.
     """
 
     @classmethod
-    def unzip_vals(cls, parent_val, params):
+    def unzip_vals(
+        cls, parent_val, params
+    ) -> Tuple[PositionVector, Sequence[PositionVector]]:
         """Implements the unzip operation for coordinate properties.
 
         Children inherit the parent coordinate, offset by an arbitrary amount specified in the parameters.
 
         Args:
-            parent_val (CoordinateScalar): The coordinate value of the parent vertex.
-            params (Sequence[CoordinateScalar]): The offsets to apply to the parent value for each child.
+            parent_val (PositionVector): The position value of the parent vertex.
+            params (Sequence[PositionVector]): The offsets to apply to the parent value for each child.
 
         Returns:
-            A tuple containing the unchanged parent coordinate and a list of adjusted coordinates for the children.
+            A tuple containing the unchanged parent position and a list of adjusted positions for the children.
         """
-        child_offsets = np.asarray(params)
-        return parent_val, list(parent_val + child_offsets)
+        child_offsets = np.asarray(params).reshape((2, -1))
+        parent_val = np.asarray(parent_val).reshape((2, 1))
+        # assert False
+        # TODO: Figure out why reportIncompatibleMethodOverride
+        child_vals = parent_val + child_offsets
+        return parent_val, list(child_vals.T)  # type: ignore[reportIncompatibleMethodOverride]
+        # TODO: Double check that list(child_depths) returns vectors of length 2 (x+y), not length nchildren.
+        # TODO: Test by splitting into more than two children so nchildren != 2.
 
     @classmethod
     def press_vals(cls, parent_vals, params):
@@ -307,16 +315,16 @@ class CoordinateProperty(
         using the specified lengths as weights.
 
         Args:
-            parent_vals (Sequence[CoordinateScalar]): The coordinate values of the parent vertices.
-            params (Sequence[LengthScalar]): The lengths to use as weights for the coordinate calculation.
+            parent_vals (Sequence[PositionVector]): The position values of the parent vertices.
+            params (Sequence[LengthScalar]): The lengths to use as weights for the position calculation.
 
         Returns:
             A tuple containing a list of the original parent positions and the weighted mean position for the child.
         """
-        lengths = np.asarray(params)
-        parent_positions = np.asarray(parent_vals)
-        mean_position = np.sum(parent_positions * lengths) / np.sum(lengths)
-        return list(parent_positions), mean_position
+        lengths = np.asarray(params).reshape((1, -1))
+        parent_positions = np.asarray(parent_vals).reshape((-1, 2)).T
+        mean_position = np.sum(parent_positions * lengths, axis=1) / np.sum(lengths)
+        return list(parent_positions.T), mean_position
 
 
 class FilterProperty(ZipProperty[bool, None, None]):
