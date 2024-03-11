@@ -174,13 +174,15 @@ class VizZipGraph(DepthZipGraph):
             xyposition=xyposition,
             **extra_props,
         )
-        self.update_coords()
+        self.update_positions()
 
-    def update_coords(self):
+    def update_positions(self, **kwargs):
+        # Override sfdp_layout_kwargs with any passed as kwargs.
+        sfdp_layout_kwargs = self.sfdp_layout_kwargs | kwargs
         xyposition = gtdraw.sfdp_layout(
             self.graph,
             pos=self.props["xyposition"].vprop,
-            **self.sfdp_layout_kwargs,
+            **sfdp_layout_kwargs,
         )
         if np.isnan(xyposition.get_2d_array(pos=[0, 1])).any():
             raise InvalidCoordValueException(
@@ -202,7 +204,7 @@ class VizZipGraph(DepthZipGraph):
 
         params = dict(xyposition=coord_offsets) | extra_params
         super().unzip(parent, paths, **params)
-        self.update_coords()
+        self.update_positions()
 
     def press(self, parents, **extra_params):
         params = (
@@ -212,4 +214,4 @@ class VizZipGraph(DepthZipGraph):
             | extra_params
         )
         super().press(parents, **params)
-        self.update_coords()
+        self.update_positions()
