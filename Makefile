@@ -3,11 +3,14 @@ CLEANUP="build .pytest_cache"
 
 .PHONY: test clean install-pre-commit black isort code-format pre-commit
 .PHONY: install-git-jupyter-notebook-clean-smudge install-jupyter-kernel
-.PHONY: start-jupyter
+.PHONY: start-jupyter debug-test
 
 
 test:
 	python -m pytest
+
+debug-test:
+	python -m pytest --pdb
 
 type-check:
 	pyright
