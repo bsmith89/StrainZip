@@ -23,33 +23,7 @@ UnzipParamT = TypeVar("UnzipParamT")
 PressParamT = TypeVar("PressParamT")
 
 
-class InfiniteConstantSequence(Sequence[PropValueT]):
-    """Represents a sequence where every element is the same constant value.
-
-    This class provides an abstraction allowing for access to constant
-    values as though they were sequences, without having to know the
-    length ahead of time nor allocate an object.
-
-    Attributes:
-        _constant (PropValueT): The constant value returned for any index.
-    """
-
-    def __init__(self, constant: PropValueT):
-        """Initialize the sequence with a constant value."""
-        self._constant: PropValueT = constant
-
-    # Not clear why this method doesn't type check, but may be related to the
-    # mutability of self.constant.
-    def __getitem__(self, i) -> PropValueT:  # type: ignore[reportIncompatibleMethodOverride]
-        """Returns the constant value, regardless of the index."""
-        return self._constant
-
-    def __len__(self):
-        """Raises NotImplementedError as the sequence is conceptually infinite."""
-        raise NotImplementedError
-
-
-class PropertyManager(Generic[PropValueT, UnzipParamT, PressParamT]):
+class BasePropertyManager(Generic[PropValueT, UnzipParamT, PressParamT]):
     """Base class for property handling with unzip and press operations on a graph's vertices.
 
     This class should be subclassed to implement specific behavior for
@@ -78,7 +52,7 @@ class PropertyManager(Generic[PropValueT, UnzipParamT, PressParamT]):
         vprop,
         parent: ParentID,
         children: Sequence[ChildID],
-        **params: UnzipParamT
+        **params: UnzipParamT,
     ):
         """Performs the unzip operation from a parent vertex to its children.
 
@@ -109,22 +83,52 @@ class PropertyManager(Generic[PropValueT, UnzipParamT, PressParamT]):
             vprop[p] = new_parent_vals[i]
         vprop[child] = new_child_val
 
+    def batch_unzip(self, vprop, *args):
+        for parent, children, params in args:
+            self.unzip(vprop, parent, children, **params)
 
-class PropertyNamespace(Generic[PropValueT, UnzipParamT, PressParamT]):
-    @classmethod
+    def batch_press(self, vprop, *args):
+        for parents, child, params in args:
+            self.press(vprop, parents, child, **params)
+
+
+class ArrayablePropertyManager(BasePropertyManager):
     def unzip(
-        cls, parent_val: PropValueT, **params: UnzipParamT
-    ) -> Tuple[PropValueT, Sequence[PropValueT]]:
+        self,
+        vprop,
+        parent: ParentID,
+        children: Sequence[ChildID],
+        **params,
+    ):
+        curr_parent_val = vprop.a[parent]
+        new_parent_val, new_child_vals = self.unzip_vals(curr_parent_val, **params)
+        vprop.a[parent] = new_parent_val
+        vprop.a[children] = new_child_vals
+
+    def press(
+        self,
+        vprop,
+        parents: Sequence[ParentID],
+        child: ChildID,
+        **params,
+    ):
+        curr_parent_vals = vprop.a[parents]
+        new_parent_vals, new_child_val = self.press_vals(curr_parent_vals, **params)
+        vprop.a[parents] = new_parent_vals
+        vprop.a[child] = new_child_val
+
+
+class PropertyNamespace:
+    @classmethod
+    def unzip(cls, parent_val, **params):
         raise NotImplementedError
 
     @classmethod
-    def press(
-        cls, parent_vals: Sequence[PropValueT], **params: PressParamT
-    ) -> Tuple[Sequence[PropValueT], PropValueT]:
+    def press(cls, parent_vals, **params):
         raise NotImplementedError
 
 
-class Length(PropertyNamespace[LengthScalar, None, None]):
+class Length(PropertyNamespace):
     """Property class for handling lengths within the graph's vertices.
 
     This class specializes ZipProperty for length properties, facilitating
@@ -132,7 +136,7 @@ class Length(PropertyNamespace[LengthScalar, None, None]):
     """
 
     @classmethod
-    def unzip(cls, parent_val, **params):
+    def unzip(cls, parent_val, num_children=None, **params):
         """Implements the unzip operation for length properties.
 
         The parent value is passed through unchanged to all children.
@@ -144,7 +148,8 @@ class Length(PropertyNamespace[LengthScalar, None, None]):
             A tuple containing the unchanged parent value and an InfiniteConstantSequence
             of the parent value for the children.
         """
-        return parent_val, InfiniteConstantSequence(parent_val)
+        assert num_children is not None
+        return parent_val, np.ones(num_children, dtype=int) * parent_val
 
     @classmethod
     def press(cls, parent_vals, **params):
@@ -161,7 +166,7 @@ class Length(PropertyNamespace[LengthScalar, None, None]):
         return list(parent_vals), np.sum(parent_vals)
 
 
-class Sequence_(PropertyNamespace[SequenceScalar, None, None]):
+class Sequence_(PropertyNamespace):
     """Property class for handling sequences within the graph's vertices.
 
     This class specializes ZipProperty for sequence properties, facilitating
@@ -169,7 +174,7 @@ class Sequence_(PropertyNamespace[SequenceScalar, None, None]):
     """
 
     @classmethod
-    def unzip(cls, parent_val, **params):
+    def unzip(cls, parent_val, num_children=None, **params):
         """Implements the unzip operation for sequence properties.
 
         The parent value is passed through unchanged to all children.
@@ -181,7 +186,8 @@ class Sequence_(PropertyNamespace[SequenceScalar, None, None]):
             A tuple containing the unchanged parent value and an InfiniteConstantSequence
             of the parent value for the children.
         """
-        return parent_val, InfiniteConstantSequence(parent_val)
+        assert num_children is not None
+        return parent_val, np.array([parent_val] * num_children, dtype=str)
 
     @classmethod
     def press(cls, parent_vals, **params):
@@ -199,13 +205,7 @@ class Sequence_(PropertyNamespace[SequenceScalar, None, None]):
         return parent_vals, out
 
 
-class Depth(
-    PropertyNamespace[
-        SampleDepthScalar | SampleDepthVector,
-        Sequence[SampleDepthScalar | SampleDepthVector],
-        Sequence[LengthScalar],
-    ]
-):
+class Depth(PropertyNamespace):
     """Property class for handling depth values within the graph's vertices.
 
     This class specializes ZipProperty for depth properties, allowing for the
@@ -254,9 +254,7 @@ class Depth(
         return list(parent_vals - mean_depth), mean_depth
 
 
-class Position(
-    PropertyNamespace[PositionVector, Sequence[PositionVector], Sequence[LengthScalar]]
-):
+class Position(PropertyNamespace):
     """Property class for handling position values within the graph's vertices.
 
     This class specializes ZipProperty for position properties, facilitating
@@ -306,7 +304,7 @@ class Position(
         return list(parent_positions.T), mean_position
 
 
-class Filter(PropertyNamespace[bool, None, None]):
+class Filter(PropertyNamespace):
     """
     A specialized property for handling boolean filter operations on vertices within a graph.
 
@@ -326,7 +324,7 @@ class Filter(PropertyNamespace[bool, None, None]):
     """
 
     @classmethod
-    def unzip(cls, parent_val, **params):
+    def unzip(cls, parent_val, num_children=None, **params):
         """
         Unzips a boolean value from a parent to its children, setting all children to `True`.
 
@@ -344,7 +342,8 @@ class Filter(PropertyNamespace[bool, None, None]):
             parent is 'filtered out' post-unzip) and an `InfiniteConstantSequence` of `True`
             for all child vertices (indicating all children are 'filtered in').
         """
-        return False, InfiniteConstantSequence(True)
+        assert num_children is not None
+        return False, np.ones(num_children, dtype=bool)
 
     @classmethod
     def press(cls, parent_vals, **params):
@@ -370,8 +369,8 @@ class Filter(PropertyNamespace[bool, None, None]):
         return [False] * len(parent_vals), True
 
 
-position_manager = PropertyManager.from_namespace(Position)
-sequence_manager = PropertyManager.from_namespace(Sequence_)
-length_manager = PropertyManager.from_namespace(Length)
-depth_manager = PropertyManager.from_namespace(Depth)
-filter_manager = PropertyManager.from_namespace(Filter)
+position_manager = BasePropertyManager.from_namespace(Position)
+sequence_manager = BasePropertyManager.from_namespace(Sequence_)
+length_manager = ArrayablePropertyManager.from_namespace(Length)
+depth_manager = BasePropertyManager.from_namespace(Depth)
+filter_manager = ArrayablePropertyManager.from_namespace(Filter)

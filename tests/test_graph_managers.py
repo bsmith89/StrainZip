@@ -293,3 +293,82 @@ def test_viz_graph_depth():
             ]
         ),
     )
+
+
+def test_batch_operations_topology():
+    _graph = gt.Graph()
+    _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)])
+    # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
+
+    gm = sz.graph.BaseGraphManager()
+    gm.validate_graph(_graph)
+    gm.validate_manager(_graph)
+
+    gm.batch_unzip(_graph, *[(3, [(2, 4)], {})] * 2)
+    # gm.unzip(_graph, 3, [(2, 4)])
+    # gm.unzip(_graph, 3, [(2, 4)]) # Should be equivalent to the above
+
+    assert np.array_equal(_graph.get_in_degrees([2, 4, 7, 8]), [1, 3, 1, 1])
+    assert np.array_equal(_graph.get_out_degrees([2, 4, 7, 8]), [3, 1, 1, 1])
+    # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
+
+    gm.batch_press(_graph, *[([0, 1, 2], {}), ([4, 5, 6], {})])
+    # gm.press(_graph, [0, 1, 2])
+    # gm.press(_graph, [4, 5, 6]) # Should be equivalent to the above
+
+    assert np.array_equal(_graph.get_in_degrees([9, 10]), [0, 3])
+    assert np.array_equal(_graph.get_out_degrees([9, 10]), [3, 0])
+    # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
+
+
+def test_batch_operations_on_position_graph():
+    _graph = gt.Graph()
+    _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)])
+    num_vertices = _graph.num_vertices(ignore_filter=True)
+
+    _length = _graph.new_vertex_property("int", val=1)
+    _sequence = _graph.new_vertex_property("string")
+    _depth = _graph.new_vertex_property("float")
+    _xyposition = _graph.new_vertex_property("vector<float>")
+    _filter = _graph.new_vertex_property("bool", val=1)
+
+    # Initialize position info
+    offset_scale = 0.1
+    xyposition = np.empty((2, num_vertices))
+    xyposition[0, :] = np.arange(num_vertices)
+    xyposition[1, :] = 0
+    _xyposition = _graph.new_vertex_property("vector<float>")
+    _xyposition.set_2d_array(xyposition, pos=[0, 1])
+
+    _graph.vp["depth"] = _depth
+    _graph.vp["length"] = _length
+    _graph.vp["sequence"] = _sequence
+    _graph.vp["xyposition"] = _xyposition
+    _graph.vp["filter"] = _filter
+
+    gm = sz.graph.PositionGraphManager(sfdp_layout_kwargs=dict(init_step=0.0))
+    gm.validate_graph(_graph)
+    gm.validate_manager(_graph)
+    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
+    # print(_graph.vp['xyposition'].get_2d_array(pos=[0, 1]))
+
+    gm.batch_unzip(_graph, *[(3, [(2, 4)], {"path_depths": [0]})] * 2)
+    # gm.unzip(_graph, 3, [(2, 4)], path_depths=[0])
+    # gm.unzip(_graph, 3, [(2, 4)], path_depths=[0]) # Should be equivalent to the above
+    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
+    # print(_graph.vp['xyposition'].get_2d_array(pos=[0, 1]))
+
+    gm.batch_press(_graph, *[([0, 1, 2], {}), ([4, 5, 6], {})])
+    # gm.press(_graph, [0, 1, 2])
+    # gm.press(_graph, [4, 5, 6]) # Should be equivalent to the above
+    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
+    # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
+    assert np.array_equal(
+        _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
+        np.array(
+            [
+                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 2.9, 2.9, 1.0, 5.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1, -0.1, 0.0, 0.0],
+            ]
+        ),
+    )

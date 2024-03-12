@@ -37,7 +37,10 @@ def test_length_property():
     # "Unzip" vertex 2 into two new vertices.
     graph.add_vertex(n=2)
     sz.vertex_properties.length_manager.unzip(
-        graph.vertex_properties["length"], _pid(2), [_cid(5), _cid(6)]
+        graph.vertex_properties["length"],
+        _pid(2),
+        [_cid(5), _cid(6)],
+        num_children=2,
     )
     # print(list(graph.vertex_properties["length"]))
     assert np.array_equal(
@@ -66,7 +69,10 @@ def test_seq_property():
     # "Unzip" vertex 2 into two new vertices.
     graph.add_vertex(n=2)
     sz.vertex_properties.sequence_manager.unzip(
-        graph.vertex_properties["seq"], _pid(2), [_cid(4), _cid(5)]
+        graph.vertex_properties["seq"],
+        _pid(2),
+        [_cid(4), _cid(5)],
+        num_children=2,
     )
     # print(list(graph.vertex_properties["seq"]))
     assert np.array_equal(
@@ -98,6 +104,7 @@ def test_scalar_depth_property():
         graph.vertex_properties["depth"],
         _pid(2),
         [_cid(4), _cid(5)],
+        num_children=2,
         path_depths=[1.2, 1.3],
     )
     # print(list(graph.vertex_properties["depth"]))
@@ -143,6 +150,7 @@ def test_vector_depth_property():
         graph.vertex_properties["depth"],
         _pid(2),
         [_cid(4), _cid(5), _cid(6)],
+        num_children=3,
         path_depths=[[1.2, 2], [1.3, 2], [0, 0]],
     )
     # print(list(graph.vertex_properties["depth"]))

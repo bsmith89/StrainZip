@@ -8,7 +8,7 @@ from . import vertex_properties
 from .exceptions import InvalidCoordValueException
 from .types import ChildID, ParentID, VertexID
 from .vertex_properties import (
-    PropertyManager,
+    BasePropertyManager,
     depth_manager,
     filter_manager,
     length_manager,
@@ -30,15 +30,15 @@ class BaseGraphManager:
         props (dict[str, ZipProperty]): A dictionary mapping property names to their respective ZipProperty instances.
     """
 
-    def __init__(self, **property_managers: PropertyManager):
+    def __init__(self, **property_managers: BasePropertyManager):
         self.property_managers = property_managers
 
-    def validate_manager(self, graph):
+    def validate_graph(self, graph):
         # Confirm all properties are already associated with the graph.
         for k in self.property_managers:
             assert k in graph.vertex_properties
 
-    def validate_graph(self, graph):
+    def validate_manager(self, graph):
         # Confirm all graph properties are associated with the property managers.
         for k in graph.vp:
             assert k in self.property_managers
@@ -98,9 +98,17 @@ class BaseGraphManager:
                 **params,
             )
 
+    def batch_unzip(self, graph, *args):
+        for parent, paths, params in args:
+            self.unzip(graph, parent, paths, **params)
+
+    def batch_press(self, graph, *args):
+        for parents, params in args:
+            self.press(graph, parents, **params)
+
 
 class FilterGraphManager(BaseGraphManager):
-    def __init__(self, **property_managers: PropertyManager):
+    def __init__(self, **property_managers: BasePropertyManager):
         super().__init__(filter=filter_manager, **property_managers)
 
     def unzip(
@@ -108,9 +116,12 @@ class FilterGraphManager(BaseGraphManager):
         graph,
         parent,
         paths,
+        num_children=None,
         **params,
     ):
-        super().unzip(graph, parent, paths, **params)
+        if num_children is None:
+            num_children = len(paths)
+        super().unzip(graph, parent, paths, num_children=num_children, **params)
 
     def press(self, graph, parents, **params):
         super().press(graph, parents, **params)
@@ -132,9 +143,12 @@ class SequenceGraphManager(FilterGraphManager):
         graph,
         parent,
         paths,
+        num_children=None,
         **params,
     ):
-        super().unzip(graph, parent, paths, **params)
+        if num_children is None:
+            num_children = len(paths)
+        super().unzip(graph, parent, paths, num_children=num_children, **params)
 
     def press(self, graph, parents, **params):
         super().press(graph, parents, **params)
@@ -151,7 +165,7 @@ class DepthGraphManager(SequenceGraphManager):
             **property_managers,
         )
 
-    def unzip(
+    def unzip(  # type: ignore[reportIncompatibleMethodOverride]
         self,
         graph,
         parent,
