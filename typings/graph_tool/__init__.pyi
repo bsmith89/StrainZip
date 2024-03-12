@@ -1,4 +1,14 @@
-from typing import Any, Generic, List, NewType, Optional, Sequence, Tuple, TypeVar
+from typing import (
+    Any,
+    Generic,
+    List,
+    MutableMapping,
+    NewType,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+)
 
 from numpy.typing import NDArray
 
@@ -9,6 +19,8 @@ ScalarT = TypeVar("ScalarT", bound=Any)
 class Vertex: ...
 
 class Graph:
+    vertex_properties: MutableMapping[str, VertexPropertyMap]
+    vp: MutableMapping[str, VertexPropertyMap]
     def add_vertex(self, n=1): ...
     def add_edge_list(self, edge_list: List[Tuple[int, int]]) -> None: ...
     def new_vertex_property(
@@ -20,7 +32,7 @@ class Graph:
     def num_vertices(self, ignore_filter=False) -> int: ...
     def set_vertex_filter(self, VertexPropertyMap) -> None: ...
 
-class GraphView:
+class GraphView(Graph):
     def __init__(self, g, vfilt=None, skip_vfilt=False): ...
 
 class PropertyMap(Generic[ScalarT]):

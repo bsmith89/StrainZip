@@ -1,11 +1,16 @@
-from typing import Generic, NewType, Sequence, Tuple, TypeVar
+from typing import Callable, Generic, NewType, Sequence, Tuple, TypeVar
 
 import numpy as np
-from graph_tool import VertexPropertyMap
 
-VertexID = NewType("VertexID", int)
-ChildID = NewType("ChildID", VertexID)
-ParentID = NewType("ParentID", VertexID)
+from .types import ChildID, ParentID
+
+__all__ = [
+    "position_manager",
+    "depth_manager",
+    "length_manager",
+    "filter_manager",
+    "sequence_manager",
+]
 
 SampleDepthScalar = NewType("SampleDepthScalar", float)
 PositionVector = NewType("PositionVector", Sequence[float])
@@ -44,7 +49,7 @@ class InfiniteConstantSequence(Sequence[PropValueT]):
         raise NotImplementedError
 
 
-class ZipProperty(Generic[PropValueT, UnzipParamT, PressParamT]):
+class PropertyManager(Generic[PropValueT, UnzipParamT, PressParamT]):
     """Base class for property handling with unzip and press operations on a graph's vertices.
 
     This class should be subclassed to implement specific behavior for
@@ -56,44 +61,25 @@ class ZipProperty(Generic[PropValueT, UnzipParamT, PressParamT]):
     """
 
     @classmethod
-    def unzip_vals(
-        cls, parent_val: PropValueT, params: UnzipParamT
-    ) -> Tuple[PropValueT, Sequence[PropValueT]]:
-        """Class method to define how to unzip a parent value into child values.
+    def from_namespace(cls, property_namespace):
+        return cls(unzip=property_namespace.unzip, press=property_namespace.press)
 
-        Subclasses must implement this method to specify custom unzipping logic.
+    def __init__(
+        self,
+        unzip,
+        press,
+    ):
+        """Initializes the ZipPropertyManager with functions for unzipping and pressing."""
+        self.unzip_vals = unzip
+        self.press_vals = press
 
-        Args:
-            parent_val (PropValueT): The value associated with the parent vertex.
-            params (UnzipParamT): Parameters that affect how the unzipping is performed.
-
-        Returns:
-            A tuple containing the updated parent value and a sequence of values for the children.
-        """
-        raise NotImplementedError
-
-    @classmethod
-    def press_vals(
-        cls, parent_vals: Sequence[PropValueT], params: PressParamT
-    ) -> tuple[Sequence[PropValueT], PropValueT]:
-        """Class method to define how to press child values into a single parent value.
-
-        Subclasses must implement this method to specify custom pressing logic.
-
-        Args:
-            parent_vals (Sequence[PropValueT]): The values associated with the parent vertices.
-            params (PressParamT): Parameters that affect how the pressing is performed.
-
-        Returns:
-            A tuple containing a sequence of updated parent values and the aggregated child value.
-        """
-        raise NotImplementedError
-
-    def __init__(self, vprop: VertexPropertyMap):
-        """Initializes the ZipProperty with a specific VertexPropertyMap."""
-        self.vprop = vprop
-
-    def unzip(self, parent: ParentID, children: Sequence[ChildID], params: UnzipParamT):
+    def unzip(
+        self,
+        vprop,
+        parent: ParentID,
+        children: Sequence[ChildID],
+        **params: UnzipParamT
+    ):
         """Performs the unzip operation from a parent vertex to its children.
 
         Args:
@@ -101,13 +87,15 @@ class ZipProperty(Generic[PropValueT, UnzipParamT, PressParamT]):
             children (Sequence[ChildID]): A sequence of IDs for the child vertices.
             params (UnzipParamT): Parameters to guide the unzip operation.
         """
-        curr_parent_val = self.vprop[parent]
-        new_parent_val, new_child_vals = self.unzip_vals(curr_parent_val, params)
-        self.vprop[parent] = new_parent_val
+        curr_parent_val = vprop[parent]
+        new_parent_val, new_child_vals = self.unzip_vals(curr_parent_val, **params)
+        vprop[parent] = new_parent_val
         for i, c in enumerate(children):
-            self.vprop[c] = new_child_vals[i]
+            vprop[c] = new_child_vals[i]
 
-    def press(self, parents: Sequence[ParentID], child: ChildID, params: PressParamT):
+    def press(
+        self, vprop, parents: Sequence[ParentID], child: ChildID, **params: PressParamT
+    ):
         """Performs the press operation from parent vertices into a single child.
 
         Args:
@@ -115,38 +103,28 @@ class ZipProperty(Generic[PropValueT, UnzipParamT, PressParamT]):
             child (ChildID): The ID of the child vertex.
             params (PressParamT): Parameters to guide the press operation.
         """
-        curr_parent_vals = [self.vprop[p] for p in parents]
-        new_parent_vals, new_child_val = self.press_vals(curr_parent_vals, params)
+        curr_parent_vals = [vprop[p] for p in parents]
+        new_parent_vals, new_child_val = self.press_vals(curr_parent_vals, **params)
         for i, p in enumerate(parents):
-            self.vprop[p] = new_parent_vals[i]
-        self.vprop[child] = new_child_val
-
-    def batch_unzip(self, *args: Tuple[ParentID, Sequence[ChildID], UnzipParamT]):
-        """Performs the unzip operation in batch for efficiency.
-
-        This method can be overridden by subclasses for more efficient batch processing.
-
-        Args:
-            *args: Variable length argument list of tuples, each containing a parent ID,
-                   a sequence of child IDs, and unzip parameters.
-        """
-        for parent, children, param in args:
-            self.unzip(parent, children, param)
-
-    def batch_press(self, *args: Tuple[Sequence[ParentID], ChildID, PressParamT]):
-        """Performs the press operation in batch for efficiency.
-
-        This method can be overridden by subclasses for more efficient batch processing.
-
-        Args:
-            *args: Variable length argument list of tuples, each containing a sequence of parent IDs,
-                   a child ID, and press parameters.
-        """
-        for parents, child, param in args:
-            self.press(parents, child, param)
+            vprop[p] = new_parent_vals[i]
+        vprop[child] = new_child_val
 
 
-class LengthProperty(ZipProperty[LengthScalar, None, None]):
+class PropertyNamespace(Generic[PropValueT, UnzipParamT, PressParamT]):
+    @classmethod
+    def unzip(
+        cls, parent_val: PropValueT, **params: UnzipParamT
+    ) -> Tuple[PropValueT, Sequence[PropValueT]]:
+        raise NotImplementedError
+
+    @classmethod
+    def press(
+        cls, parent_vals: Sequence[PropValueT], **params: PressParamT
+    ) -> Tuple[Sequence[PropValueT], PropValueT]:
+        raise NotImplementedError
+
+
+class Length(PropertyNamespace[LengthScalar, None, None]):
     """Property class for handling lengths within the graph's vertices.
 
     This class specializes ZipProperty for length properties, facilitating
@@ -154,7 +132,7 @@ class LengthProperty(ZipProperty[LengthScalar, None, None]):
     """
 
     @classmethod
-    def unzip_vals(cls, parent_val, params=None):
+    def unzip(cls, parent_val, **params):
         """Implements the unzip operation for length properties.
 
         The parent value is passed through unchanged to all children.
@@ -169,7 +147,7 @@ class LengthProperty(ZipProperty[LengthScalar, None, None]):
         return parent_val, InfiniteConstantSequence(parent_val)
 
     @classmethod
-    def press_vals(cls, parent_vals, params=None):
+    def press(cls, parent_vals, **params):
         """Implements the press operation for length properties.
 
         The children's values are aggregated (summed) into a single value.
@@ -183,7 +161,7 @@ class LengthProperty(ZipProperty[LengthScalar, None, None]):
         return list(parent_vals), np.sum(parent_vals)
 
 
-class SequenceProperty(ZipProperty[SequenceScalar, None, None]):
+class Sequence_(PropertyNamespace[SequenceScalar, None, None]):
     """Property class for handling sequences within the graph's vertices.
 
     This class specializes ZipProperty for sequence properties, facilitating
@@ -191,7 +169,7 @@ class SequenceProperty(ZipProperty[SequenceScalar, None, None]):
     """
 
     @classmethod
-    def unzip_vals(cls, parent_val, params=None):
+    def unzip(cls, parent_val, **params):
         """Implements the unzip operation for sequence properties.
 
         The parent value is passed through unchanged to all children.
@@ -206,7 +184,7 @@ class SequenceProperty(ZipProperty[SequenceScalar, None, None]):
         return parent_val, InfiniteConstantSequence(parent_val)
 
     @classmethod
-    def press_vals(cls, parent_vals, params=None):
+    def press(cls, parent_vals, **params):
         """Implements the press operation for sequence properties.
 
         The children's values are concatenated into a single sequence value.
@@ -221,8 +199,8 @@ class SequenceProperty(ZipProperty[SequenceScalar, None, None]):
         return parent_vals, out
 
 
-class DepthProperty(
-    ZipProperty[
+class Depth(
+    PropertyNamespace[
         SampleDepthScalar | SampleDepthVector,
         Sequence[SampleDepthScalar | SampleDepthVector],
         Sequence[LengthScalar],
@@ -235,7 +213,7 @@ class DepthProperty(
     """
 
     @classmethod
-    def unzip_vals(cls, parent_val, params):
+    def unzip(cls, parent_val, path_depths=None, **params):
         """Implements the unzip operation for depth properties.
 
         The parent value is reduced by the sum of the specified child depths.
@@ -248,13 +226,14 @@ class DepthProperty(
             A tuple containing the residual parent depth after distribution to the children,
             and the sequence of child depths as specified in the parameters.
         """
-        child_depths = np.asarray(params)
+        assert path_depths is not None
+        child_depths = np.asarray(path_depths)
         parent_depth = np.asarray(parent_val)
         parent_depth = parent_depth.reshape((-1, 1))
         return parent_val - child_depths.sum(0), list(child_depths)
 
     @classmethod
-    def press_vals(cls, parent_vals, params):
+    def press(cls, parent_vals, lengths=None, **params):
         """Implements the press operation for depth properties.
 
         The child's depth is calculated as the weighted mean of the parent depths,
@@ -267,15 +246,16 @@ class DepthProperty(
         Returns:
             A tuple containing the list of adjusted parent depths and the weighted mean depth for the child.
         """
-        lengths = np.asarray(params).reshape((-1, 1))
+        assert lengths is not None
+        lengths = np.asarray(lengths).reshape((-1, 1))
         num_parents = lengths.shape[0]
         parent_vals = np.asarray(parent_vals).reshape((num_parents, -1))
         mean_depth = np.sum(parent_vals * lengths, axis=0) / np.sum(lengths)
         return list(parent_vals - mean_depth), mean_depth
 
 
-class PositionProperty(
-    ZipProperty[PositionVector, Sequence[PositionVector], Sequence[LengthScalar]]
+class Position(
+    PropertyNamespace[PositionVector, Sequence[PositionVector], Sequence[LengthScalar]]
 ):
     """Property class for handling position values within the graph's vertices.
 
@@ -284,8 +264,8 @@ class PositionProperty(
     """
 
     @classmethod
-    def unzip_vals(
-        cls, parent_val, params
+    def unzip(
+        cls, parent_val, pos_offsets=None, **params
     ) -> Tuple[PositionVector, Sequence[PositionVector]]:
         """Implements the unzip operation for position properties.
 
@@ -298,17 +278,15 @@ class PositionProperty(
         Returns:
             A tuple containing the unchanged parent position and a list of adjusted positions for the children.
         """
-        child_offsets = np.asarray(params).reshape((2, -1))
+        assert pos_offsets is not None
+        child_offsets = np.asarray(pos_offsets).reshape((2, -1))
         parent_val = np.asarray(parent_val).reshape((2, 1))
-        # assert False
-        # TODO: Figure out why reportIncompatibleMethodOverride
         child_vals = parent_val + child_offsets
+        # TODO: Figure out why reportIncompatibleMethodOverride
         return parent_val, list(child_vals.T)  # type: ignore[reportIncompatibleMethodOverride]
-        # TODO: Double check that list(child_depths) returns vectors of length 2 (x+y), not length nchildren.
-        # TODO: Test by splitting into more than two children so nchildren != 2.
 
     @classmethod
-    def press_vals(cls, parent_vals, params):
+    def press(cls, parent_vals, lengths=None, **params):
         """Implements the press operation for position properties.
 
         The child's position is the weighted mean of the parent position,
@@ -321,13 +299,14 @@ class PositionProperty(
         Returns:
             A tuple containing a list of the original parent positions and the weighted mean position for the child.
         """
-        lengths = np.asarray(params).reshape((1, -1))
+        assert lengths is not None
+        lengths = np.asarray(lengths).reshape((1, -1))
         parent_positions = np.asarray(parent_vals).reshape((-1, 2)).T
         mean_position = np.sum(parent_positions * lengths, axis=1) / np.sum(lengths)
         return list(parent_positions.T), mean_position
 
 
-class FilterProperty(ZipProperty[bool, None, None]):
+class Filter(PropertyNamespace[bool, None, None]):
     """
     A specialized property for handling boolean filter operations on vertices within a graph.
 
@@ -347,7 +326,7 @@ class FilterProperty(ZipProperty[bool, None, None]):
     """
 
     @classmethod
-    def unzip_vals(cls, parent_val, params=None):
+    def unzip(cls, parent_val, **params):
         """
         Unzips a boolean value from a parent to its children, setting all children to `True`.
 
@@ -368,7 +347,7 @@ class FilterProperty(ZipProperty[bool, None, None]):
         return False, InfiniteConstantSequence(True)
 
     @classmethod
-    def press_vals(cls, parent_vals, params=None):
+    def press(cls, parent_vals, **params):
         """
         Presses boolean values from parents to a child, setting the child to `True`.
 
@@ -389,3 +368,10 @@ class FilterProperty(ZipProperty[bool, None, None]):
             is 'filtered in').
         """
         return [False] * len(parent_vals), True
+
+
+position_manager = PropertyManager.from_namespace(Position)
+sequence_manager = PropertyManager.from_namespace(Sequence_)
+length_manager = PropertyManager.from_namespace(Length)
+depth_manager = PropertyManager.from_namespace(Depth)
+filter_manager = PropertyManager.from_namespace(Filter)
