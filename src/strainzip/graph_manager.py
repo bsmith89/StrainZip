@@ -21,15 +21,6 @@ AnyPressParam: TypeAlias = Any
 
 
 class BaseGraphManager:
-    """Base class for handling graph properties through the ZipProperty paradigm.
-
-    This class manages a graph and its associated ZipProperty instances,
-    orchestrating the unzip and press operations across both the graph topology and all properties.
-
-    Attributes:
-        props (dict[str, ZipProperty]): A dictionary mapping property names to their respective ZipProperty instances.
-    """
-
     def __init__(self, **property_managers: BasePropertyManager):
         self.property_managers = property_managers
 
@@ -181,7 +172,7 @@ class DepthGraphManager(SequenceGraphManager):
         super().press(graph, parents, lengths=lengths, **params)
 
 
-class PositionGraphManager(DepthGraphManager):
+class VizGraphManager(DepthGraphManager):
     def __init__(
         self,
         pos_offset_scale=0.1,

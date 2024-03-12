@@ -39,7 +39,7 @@ def test_viz_graph_positioning():
     _graph.vp["xyposition"] = _xyposition
     _graph.vp["filter"] = _filter
 
-    gm = sz.graph_manager.PositionGraphManager(
+    gm = sz.graph_manager.VizGraphManager(
         pos_offset_scale=offset_scale,
         # init_step = 0 means that the sfdp_layout update steps does nothing to the positions.
         sfdp_layout_kwargs=dict(init_step=0.0, max_iter=1),
@@ -163,7 +163,7 @@ def test_viz_graph_depth():
     _graph.vp["xyposition"] = _xyposition
     _graph.vp["filter"] = _filter
 
-    gm = sz.graph_manager.PositionGraphManager(
+    gm = sz.graph_manager.VizGraphManager(
         pos_offset_scale=offset_scale,
         # init_step = 0 means that the sfdp_layout update steps does nothing to the positions.
         sfdp_layout_kwargs=dict(init_step=0.0, max_iter=1),
@@ -346,7 +346,7 @@ def test_batch_operations_on_position_graph():
     _graph.vp["xyposition"] = _xyposition
     _graph.vp["filter"] = _filter
 
-    gm = sz.graph_manager.PositionGraphManager(sfdp_layout_kwargs=dict(init_step=0.0))
+    gm = sz.graph_manager.VizGraphManager(sfdp_layout_kwargs=dict(init_step=0.0))
     gm.validate_graph(_graph)
     gm.validate_manager(_graph)
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
