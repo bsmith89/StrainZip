@@ -1,3 +1,3 @@
-from . import graph, types, vertex_properties
+from . import graph_manager, property_manager, types
 
 __version__ = "0.1.0"

@@ -4,10 +4,9 @@ from typing import Any, Callable, Optional, Sequence, Tuple, TypeAlias, cast
 import graph_tool as gt
 import numpy as np
 
-from . import vertex_properties
+from . import property_manager
 from .exceptions import InvalidCoordValueException
-from .types import ChildID, ParentID, VertexID
-from .vertex_properties import (
+from .property_manager import (
     BasePropertyManager,
     depth_manager,
     filter_manager,
@@ -15,6 +14,7 @@ from .vertex_properties import (
     position_manager,
     sequence_manager,
 )
+from .types import ChildID, ParentID, VertexID
 
 AnyUnzipParam: TypeAlias = Any
 AnyPressParam: TypeAlias = Any

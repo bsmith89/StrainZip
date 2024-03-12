@@ -36,7 +36,7 @@ def test_length_property():
 
     # "Unzip" vertex 2 into two new vertices.
     graph.add_vertex(n=2)
-    sz.vertex_properties.length_manager.unzip(
+    sz.property_manager.length_manager.unzip(
         graph.vertex_properties["length"],
         _pid(2),
         [_cid(5), _cid(6)],
@@ -49,7 +49,7 @@ def test_length_property():
 
     # "Pres" vertices 3+4 into a new vertex.
     graph.add_vertex()
-    sz.vertex_properties.length_manager.press(
+    sz.property_manager.length_manager.press(
         graph.vertex_properties["length"], [_pid(3), _pid(4)], _cid(7), params=None
     )
     # print(list(graph.vertex_properties["length"]))
@@ -68,7 +68,7 @@ def test_seq_property():
 
     # "Unzip" vertex 2 into two new vertices.
     graph.add_vertex(n=2)
-    sz.vertex_properties.sequence_manager.unzip(
+    sz.property_manager.sequence_manager.unzip(
         graph.vertex_properties["seq"],
         _pid(2),
         [_cid(4), _cid(5)],
@@ -81,7 +81,7 @@ def test_seq_property():
 
     # "Pres" vertices 0+1 into a new vertex.
     graph.add_vertex()
-    sz.vertex_properties.sequence_manager.press(
+    sz.property_manager.sequence_manager.press(
         graph.vertex_properties["seq"], [_pid(0), _pid(1)], _cid(6), params=None
     )
     # print(list(graph.vertex_properties["seq"]))
@@ -100,7 +100,7 @@ def test_scalar_depth_property():
 
     # "Unzip" vertex 2 into two new vertices.
     graph.add_vertex(n=2)
-    sz.vertex_properties.depth_manager.unzip(
+    sz.property_manager.depth_manager.unzip(
         graph.vertex_properties["depth"],
         _pid(2),
         [_cid(4), _cid(5)],
@@ -114,7 +114,7 @@ def test_scalar_depth_property():
 
     # "Pres" vertices 0+1 into a new vertex.
     graph.add_vertex()
-    sz.vertex_properties.depth_manager.press(
+    sz.property_manager.depth_manager.press(
         graph.vertex_properties["depth"], [_pid(0), _pid(1)], _cid(6), lengths=[1, 2]
     )
     # print(list(graph.vertex_properties["depth"]))
@@ -146,7 +146,7 @@ def test_vector_depth_property():
 
     # "Unzip" vertex 2 into two new vertices.
     graph.add_vertex(n=3)
-    sz.vertex_properties.depth_manager.unzip(
+    sz.property_manager.depth_manager.unzip(
         graph.vertex_properties["depth"],
         _pid(2),
         [_cid(4), _cid(5), _cid(6)],
@@ -164,7 +164,7 @@ def test_vector_depth_property():
 
     # "Pres" vertices 0+1 into a new vertex.
     graph.add_vertex()
-    sz.vertex_properties.depth_manager.press(
+    sz.property_manager.depth_manager.press(
         graph.vertex_properties["depth"], [_pid(0), _pid(1)], _cid(7), lengths=[2, 4]
     )
     # print(list(graph.vertex_properties["depth"]))
