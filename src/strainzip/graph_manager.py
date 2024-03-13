@@ -35,15 +35,7 @@ class BaseGraphManager:
         for k in graph.vp:
             assert k in self.property_managers
 
-    def unzip(
-        self,
-        graph,
-        parent: ParentID,
-        paths: Sequence[Tuple[VertexID, VertexID]],
-        **params,
-    ):
-
-        # Unzip vertex.
+    def _unzip_topology(self, graph, parent, paths):
         n = len(paths)
         num_before = graph.num_vertices(ignore_filter=True)
         num_after = num_before + n
@@ -54,8 +46,15 @@ class BaseGraphManager:
             new_edge_list.append((left, child))
             new_edge_list.append((child, right))
         graph.add_edge_list(new_edge_list)
+        return children
 
-        # Manage vertex properties.
+    def _unzip_properties(
+        self,
+        graph,
+        parent,
+        children,
+        **params,
+    ):
         for prop in self.property_managers:
             self.property_managers[prop].unzip(
                 graph.vertex_properties[prop],
@@ -64,8 +63,17 @@ class BaseGraphManager:
                 **params,
             )
 
-    def press(self, graph, parents: Sequence[ParentID], **params):
-        # Press vertices.
+    def unzip(
+        self,
+        graph,
+        parent: ParentID,
+        paths: Sequence[Tuple[VertexID, VertexID]],
+        **params,
+    ):
+        children = self._unzip_topology(graph, parent, paths)
+        self._unzip_properties(graph, parent, children, **params)
+
+    def _press_topology(self, graph, parents):
         child = cast(
             ChildID, graph.num_vertices(ignore_filter=True)
         )  # Infer new node index by size of the graph.
@@ -81,6 +89,9 @@ class BaseGraphManager:
             new_edge_list.append((child, right))
         graph.add_edge_list(new_edge_list)
 
+        return child
+
+    def _press_properties(self, graph, parents, child, **params):
         # Manage vertex properties.
         for prop in self.property_managers:
             self.property_managers[prop].press(
@@ -89,6 +100,10 @@ class BaseGraphManager:
                 child,
                 **params,
             )
+
+    def press(self, graph, parents: Sequence[ParentID], **params):
+        child = self._press_topology(graph, parents)
+        self._press_properties(graph, parents, child, **params)
 
     def batch_unzip(self, graph, *args):
         for parent, paths, params in args:
