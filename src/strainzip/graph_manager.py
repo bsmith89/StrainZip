@@ -225,6 +225,15 @@ class VizGraphManager(DepthGraphManager):
             )
         graph.vertex_properties["xyposition"] = xyposition
 
+    def _unzip(self, graph, parent, paths, pos_offsets=None, **params):
+        if pos_offsets is None:
+            pos_offsets = np.linspace(
+                -self.pos_offset_scale, self.pos_offset_scale, num=len(paths)
+            )
+            pos_offsets = np.stack([pos_offsets] * 2)
+
+        super().unzip(graph, parent, paths, pos_offsets=pos_offsets, **params)
+
     def unzip(
         self,
         graph,
@@ -233,23 +242,29 @@ class VizGraphManager(DepthGraphManager):
         pos_offsets=None,
         **params,
     ):
-        if pos_offsets is None:
-            pos_offsets = np.linspace(
-                -self.pos_offset_scale, self.pos_offset_scale, num=len(paths)
-            )
-            pos_offsets = np.stack([pos_offsets] * 2)
-
-        super().unzip(graph, parent, paths, pos_offsets=pos_offsets, **params)
+        self._unzip(graph, parent, paths, pos_offsets=pos_offsets, **params)
         self.update_positions(graph)
 
-    def press(self, graph, parents, lengths=None, **params):
+    def _press(self, graph, parents, lengths=None, **params):
         if lengths is None:
             lengths = graph.vertex_properties["length"].a[parents]
-
         super().press(
             graph,
             parents,
             lengths=lengths,
             **params,
         )
+
+    def press(self, graph, parents, lengths=None, **params):
+        self._press(graph, parents, lengths=lengths, **params)
+        self.update_positions(graph)
+
+    def batch_unzip(self, graph, *args):
+        for parent, paths, params in args:
+            self._unzip(graph, parent, paths, **params)
+        self.update_positions(graph)
+
+    def batch_press(self, graph, *args):
+        for parents, params in args:
+            self._press(graph, parents, **params)
         self.update_positions(graph)
