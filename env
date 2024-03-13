@@ -1,0 +1,2 @@
+export PROJECT_ROOT=$(PWD)
+[[ -f "env_local" ]] && source env_local
