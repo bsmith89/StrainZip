@@ -21,8 +21,9 @@ AnyPressParam: TypeAlias = Any
 
 
 class BaseGraphManager:
-    def __init__(self, **property_managers: BasePropertyManager):
-        self.property_managers = property_managers
+    def __init__(self, **kwargs: BasePropertyManager):
+        # TODO: Check that all kwargs are actually property managers.
+        self.property_managers = kwargs
 
     def validate_graph(self, graph):
         # Confirm all properties are already associated with the graph.
@@ -99,8 +100,8 @@ class BaseGraphManager:
 
 
 class FilterGraphManager(BaseGraphManager):
-    def __init__(self, **property_managers: BasePropertyManager):
-        super().__init__(filter=filter_manager, **property_managers)
+    def __init__(self, **kwargs):
+        super().__init__(filter=filter_manager, **kwargs)
 
     def unzip(
         self,
@@ -121,12 +122,12 @@ class FilterGraphManager(BaseGraphManager):
 class SequenceGraphManager(FilterGraphManager):
     def __init__(
         self,
-        **property_managers,
+        **kwargs,
     ):
         super().__init__(
             length=length_manager,
             sequence=sequence_manager,
-            **property_managers,
+            **kwargs,
         )
 
     def unzip(
@@ -149,11 +150,11 @@ class DepthGraphManager(SequenceGraphManager):
     def __init__(
         self,
         depth=depth_manager,
-        **property_managers,
+        **kwargs,
     ):
         super().__init__(
             depth=depth,
-            **property_managers,
+            **kwargs,
         )
 
     def unzip(  # type: ignore[reportIncompatibleMethodOverride]
@@ -177,11 +178,11 @@ class VizGraphManager(DepthGraphManager):
         self,
         pos_offset_scale=0.1,
         sfdp_layout_kwargs: Optional[dict[str, Any]] = None,
-        **property_managers,
+        **kwargs,
     ):
         super().__init__(
             xyposition=position_manager,
-            **property_managers,
+            **kwargs,
         )
 
         # Positioning specific parameters.
