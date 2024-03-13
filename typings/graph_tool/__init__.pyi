@@ -12,7 +12,7 @@ from typing import (
 
 from numpy.typing import NDArray
 
-from . import draw
+from . import draw, topology
 
 ScalarT = TypeVar("ScalarT", bound=Any)
 
@@ -37,7 +37,17 @@ class Graph:
     def get_out_degrees(self, vs) -> NDArray: ...
 
 class GraphView(Graph):
-    def __init__(self, g, vfilt=None, skip_vfilt=False): ...
+    def __init__(
+        self,
+        g,
+        vfilt=None,
+        efilt=None,
+        directed=None,
+        reversed=False,
+        skip_properties=False,
+        skip_vfilt=False,
+        skip_efilt=False,
+    ): ...
 
 class PropertyMap(Generic[ScalarT]):
     def copy(self) -> PropertyMap: ...
@@ -51,6 +61,7 @@ class PropertyMap(Generic[ScalarT]):
     def set_2d_array(self, a, pos=None) -> None: ...
 
 class VertexPropertyMap(PropertyMap): ...
+class EdgePropertyMap(PropertyMap): ...
 
 PropMapT = TypeVar("PropMapT", bound=PropertyMap)
 
@@ -59,3 +70,4 @@ def group_vector_property(
 ) -> PropMapT: ...
 def ungroup_vector_property(vprop: PropMapT, pos, props=None) -> List[PropMapT]: ...
 def seed_rng(seed: int) -> None: ...
+def edge_endpoint_property(g, prop, endpoint, eprop=None) -> EdgePropertyMap: ...
