@@ -21,9 +21,17 @@ AnyPressParam: TypeAlias = Any
 
 
 class BaseGraphManager:
-    def __init__(self, **kwargs: BasePropertyManager):
+    def __init__(self):
+        self.property_managers = {}
+        self._register_property_managers(
+            # Empty registration as a template.
+            # Subclass __init__'s should call this method
+            # for additional PMs.
+        )
+
+    def _register_property_managers(self, **kwargs):
         # TODO: Check that all kwargs are actually property managers.
-        self.property_managers = kwargs
+        self.property_managers |= kwargs
 
     def validate_graph(self, graph):
         # Confirm all properties are already associated with the graph.
@@ -48,30 +56,51 @@ class BaseGraphManager:
         graph.add_edge_list(new_edge_list)
         return children
 
+    def _unzip_setup_params(self, graph, parent, children, num_children=None, **kwargs):
+        # Subclasses extend.
+        if num_children is None:
+            kwargs["num_children"] = len(children)
+        return kwargs
+
     def _unzip_properties(
         self,
         graph,
         parent,
         children,
-        **params,
+        **kwargs,
     ):
         for prop in self.property_managers:
             self.property_managers[prop].unzip(
                 graph.vertex_properties[prop],
                 parent,
                 children,
-                **params,
+                **kwargs,
             )
+
+    def _unzip_finalize(self, graph, **kwargs):
+        # Subclasses override
+        pass
 
     def unzip(
         self,
         graph,
         parent: ParentID,
         paths: Sequence[Tuple[VertexID, VertexID]],
-        **params,
+        **kwargs,
     ):
         children = self._unzip_topology(graph, parent, paths)
-        self._unzip_properties(graph, parent, children, **params)
+        kwargs = self._unzip_setup_params(graph, parent, children, **kwargs)
+        self._unzip_properties(graph, parent, children, **kwargs)
+        self._unzip_finalize(graph, **kwargs)
+
+    def batch_unzip(self, graph, *args, **kwargs):
+        for parent, paths, params in args:
+            children = self._unzip_topology(graph, parent, paths)
+            params = self._unzip_setup_params(
+                graph, parent, children, **params, **kwargs
+            )
+            self._unzip_properties(graph, parent, children, **params)
+        self._unzip_finalize(graph, **kwargs)
 
     def _press_topology(self, graph, parents):
         child = cast(
@@ -91,101 +120,73 @@ class BaseGraphManager:
 
         return child
 
-    def _press_properties(self, graph, parents, child, **params):
+    def _press_setup_params(self, graph, parents, child, **kwargs):
+        # Subclasses extend.
+        return kwargs
+
+    def _press_properties(self, graph, parents, child, **kwargs):
         # Manage vertex properties.
         for prop in self.property_managers:
             self.property_managers[prop].press(
                 graph.vertex_properties[prop],
                 parents,
                 child,
-                **params,
+                **kwargs,
             )
 
-    def press(self, graph, parents: Sequence[ParentID], **params):
+    def _press_finalize(self, graph, **kwargs):
+        # Subclasses override
+        pass
+
+    def press(self, graph, parents: Sequence[ParentID], **kwargs):
         child = self._press_topology(graph, parents)
-        self._press_properties(graph, parents, child, **params)
+        kwargs = self._press_setup_params(graph, parents, child, **kwargs)
+        self._press_properties(graph, parents, child, **kwargs)
+        self._press_finalize(graph, **kwargs)
 
-    def batch_unzip(self, graph, *args):
-        for parent, paths, params in args:
-            self.unzip(graph, parent, paths, **params)
-
-    def batch_press(self, graph, *args):
+    def batch_press(self, graph, *args, **kwargs):
         for parents, params in args:
-            self.press(graph, parents, **params)
+            child = self._press_topology(graph, parents)
+            params = self._press_setup_params(graph, parents, child, **params, **kwargs)
+            self._press_properties(graph, parents, child, **params)
+        self._press_finalize(graph, **kwargs)
 
 
 class FilterGraphManager(BaseGraphManager):
-    def __init__(self, **kwargs):
-        super().__init__(filter=filter_manager, **kwargs)
+    def __init__(self):
+        super().__init__()
+        self._register_property_managers(filter=filter_manager)
 
-    def unzip(
-        self,
-        graph,
-        parent,
-        paths,
-        num_children=None,
-        **params,
-    ):
+    def _unzip_setup_params(self, graph, parent, children, num_children=None, **kwargs):
         if num_children is None:
-            num_children = len(paths)
-        super().unzip(graph, parent, paths, num_children=num_children, **params)
-
-    def press(self, graph, parents, **params):
-        super().press(graph, parents, **params)
+            kwargs["num_children"] = len(children)
+        return super()._unzip_setup_params(graph, parent, children, **kwargs)
 
 
 class SequenceGraphManager(FilterGraphManager):
     def __init__(
         self,
-        **kwargs,
     ):
-        super().__init__(
+        super().__init__()
+        self._register_property_managers(
             length=length_manager,
             sequence=sequence_manager,
-            **kwargs,
         )
-
-    def unzip(
-        self,
-        graph,
-        parent,
-        paths,
-        num_children=None,
-        **params,
-    ):
-        if num_children is None:
-            num_children = len(paths)
-        super().unzip(graph, parent, paths, num_children=num_children, **params)
-
-    def press(self, graph, parents, **params):
-        super().press(graph, parents, **params)
 
 
 class DepthGraphManager(SequenceGraphManager):
     def __init__(
         self,
-        depth=depth_manager,
-        **kwargs,
     ):
-        super().__init__(
-            depth=depth,
-            **kwargs,
+        super().__init__()
+        self._register_property_managers(
+            depth=depth_manager,
         )
 
-    def unzip(  # type: ignore[reportIncompatibleMethodOverride]
-        self,
-        graph,
-        parent,
-        paths,
-        **params,
-    ):
-        super().unzip(graph, parent, paths, **params)
-
-    def press(self, graph, parents, lengths=None, **params):
+    def _press_setup_params(self, graph, parents, child, lengths=None, **kwargs):
         if lengths is None:
-            lengths = graph.vertex_properties["length"].a[parents]
-
-        super().press(graph, parents, lengths=lengths, **params)
+            kwargs["lengths"] = graph.vertex_properties["length"].a[parents]
+        return super()._press_setup_params(graph, parents, child, **kwargs)
 
 
 class VizGraphManager(DepthGraphManager):
@@ -193,11 +194,10 @@ class VizGraphManager(DepthGraphManager):
         self,
         pos_offset_scale=0.1,
         sfdp_layout_kwargs: Optional[dict[str, Any]] = None,
-        **kwargs,
     ):
-        super().__init__(
+        super().__init__()
+        self._register_property_managers(
             xyposition=position_manager,
-            **kwargs,
         )
 
         # Positioning specific parameters.
@@ -225,46 +225,26 @@ class VizGraphManager(DepthGraphManager):
             )
         graph.vertex_properties["xyposition"] = xyposition
 
-    def _unzip(self, graph, parent, paths, pos_offsets=None, **params):
-        if pos_offsets is None:
-            pos_offsets = np.linspace(
-                -self.pos_offset_scale, self.pos_offset_scale, num=len(paths)
-            )
-            pos_offsets = np.stack([pos_offsets] * 2)
-
-        super().unzip(graph, parent, paths, pos_offsets=pos_offsets, **params)
-
-    def unzip(
-        self,
-        graph,
-        parent,
-        paths,
-        pos_offsets=None,
-        **params,
+    def _unzip_setup_params(
+        self, graph, parent, children, num_children=None, pos_offsets=None, **kwargs
     ):
-        self._unzip(graph, parent, paths, pos_offsets=pos_offsets, **params)
+        if num_children is None:
+            kwargs["num_children"] = num_children = len(children)
+        if pos_offsets is None:
+            kwargs["pos_offsets"] = np.stack(
+                [
+                    np.linspace(
+                        -self.pos_offset_scale, self.pos_offset_scale, num=num_children
+                    )
+                ]
+                * 2
+            )
+        return super()._unzip_setup_params(graph, parent, children, **kwargs)
+
+    def _unzip_finalize(self, graph, **kwargs):
+        super()._unzip_finalize(graph, **kwargs)
         self.update_positions(graph)
 
-    def _press(self, graph, parents, lengths=None, **params):
-        if lengths is None:
-            lengths = graph.vertex_properties["length"].a[parents]
-        super().press(
-            graph,
-            parents,
-            lengths=lengths,
-            **params,
-        )
-
-    def press(self, graph, parents, lengths=None, **params):
-        self._press(graph, parents, lengths=lengths, **params)
-        self.update_positions(graph)
-
-    def batch_unzip(self, graph, *args):
-        for parent, paths, params in args:
-            self._unzip(graph, parent, paths, **params)
-        self.update_positions(graph)
-
-    def batch_press(self, graph, *args):
-        for parents, params in args:
-            self._press(graph, parents, **params)
+    def _press_finalize(self, graph, **kwargs):
+        super()._unzip_finalize(graph, **kwargs)
         self.update_positions(graph)
