@@ -6,14 +6,6 @@ import numpy as np
 import strainzip as sz
 
 
-def _pid(i: int) -> sz.types.ParentID:
-    return cast(sz.types.ParentID, i)
-
-
-def _cid(i: int) -> sz.types.ChildID:
-    return cast(sz.types.ChildID, i)
-
-
 def test_length_property():
     graph = gt.Graph()
     graph.add_edge_list([(0, 1), (1, 2), (2, 3)])
@@ -36,11 +28,11 @@ def test_length_property():
 
     # "Unzip" vertex 2 into two new vertices.
     graph.add_vertex(n=2)
-    sz.property_manager.length_manager.unzip(
-        graph.vertex_properties["length"],
-        _pid(2),
-        [_cid(5), _cid(6)],
-        num_children=2,
+    length_unzipper = sz.graph_manager.LengthUnzipper()
+    length_unzipper.unzip(
+        graph,
+        2,
+        [5, 6],
     )
     # print(list(graph.vertex_properties["length"]))
     assert np.array_equal(
@@ -49,8 +41,11 @@ def test_length_property():
 
     # "Pres" vertices 3+4 into a new vertex.
     graph.add_vertex()
-    sz.property_manager.length_manager.press(
-        graph.vertex_properties["length"], [_pid(3), _pid(4)], _cid(7), params=None
+    length_presser = sz.graph_manager.LengthPresser()
+    length_presser.press(
+        graph,
+        [3, 4],
+        7,
     )
     # print(list(graph.vertex_properties["length"]))
     assert np.array_equal(
@@ -58,35 +53,40 @@ def test_length_property():
     )
 
 
-def test_seq_property():
+def test_sequence_property():
     graph = gt.Graph()
     graph.add_edge_list([(0, 1), (1, 2), (2, 3)])
-    graph.vertex_properties["seq"] = graph.new_vertex_property(
+    graph.vertex_properties["sequence"] = graph.new_vertex_property(
         "string", vals=["a", "b", "c", "d"]
     )
-    assert np.array_equal(list(graph.vertex_properties["seq"]), ["a", "b", "c", "d"])
+    assert np.array_equal(
+        list(graph.vertex_properties["sequence"]), ["a", "b", "c", "d"]
+    )
 
     # "Unzip" vertex 2 into two new vertices.
     graph.add_vertex(n=2)
-    sz.property_manager.sequence_manager.unzip(
-        graph.vertex_properties["seq"],
-        _pid(2),
-        [_cid(4), _cid(5)],
-        num_children=2,
+    sequence_unzipper = sz.graph_manager.SequenceUnzipper()
+    sequence_unzipper.unzip(
+        graph,
+        2,
+        [4, 5],
     )
-    # print(list(graph.vertex_properties["seq"]))
+    # print(list(graph.vertex_properties["sequence"]))
     assert np.array_equal(
-        list(graph.vertex_properties["seq"]), ["a", "b", "c", "d", "c", "c"]
+        list(graph.vertex_properties["sequence"]), ["a", "b", "c", "d", "c", "c"]
     )
 
     # "Pres" vertices 0+1 into a new vertex.
     graph.add_vertex()
-    sz.property_manager.sequence_manager.press(
-        graph.vertex_properties["seq"], [_pid(0), _pid(1)], _cid(6), params=None
+    sequence_presser = sz.graph_manager.SequencePresser()
+    sequence_presser.press(
+        graph,
+        [0, 1],
+        6,
     )
-    # print(list(graph.vertex_properties["seq"]))
+    # print(list(graph.vertex_properties["sequence"]))
     assert np.array_equal(
-        list(graph.vertex_properties["seq"]), ["a", "b", "c", "d", "c", "c", "a,b"]
+        list(graph.vertex_properties["sequence"]), ["a", "b", "c", "d", "c", "c", "a,b"]
     )
 
 
@@ -100,12 +100,12 @@ def test_scalar_depth_property():
 
     # "Unzip" vertex 2 into two new vertices.
     graph.add_vertex(n=2)
-    sz.property_manager.depth_manager.unzip(
-        graph.vertex_properties["depth"],
-        _pid(2),
-        [_cid(4), _cid(5)],
-        num_children=2,
-        path_depths=[1.2, 1.3],
+    depth_unzipper = sz.graph_manager.ScalarDepthUnzipper()
+    depth_unzipper.unzip(
+        graph,
+        2,
+        [4, 5],
+        ([1.2, 1.3],),
     )
     # print(list(graph.vertex_properties["depth"]))
     assert np.array_equal(
@@ -114,8 +114,15 @@ def test_scalar_depth_property():
 
     # "Pres" vertices 0+1 into a new vertex.
     graph.add_vertex()
-    sz.property_manager.depth_manager.press(
-        graph.vertex_properties["depth"], [_pid(0), _pid(1)], _cid(6), lengths=[1, 2]
+    # ScalarDepthPresser requires graph to have a length property.
+    graph.vertex_properties["length"] = graph.new_vertex_property(
+        "int", vals=[1, 2, 1, 2, 1, 2, 0]
+    )
+    depth_presser = sz.graph_manager.ScalarDepthPresser()
+    depth_presser.press(
+        graph,
+        [0, 1],
+        6,
     )
     # print(list(graph.vertex_properties["depth"]))
     assert np.array_equal(
@@ -134,44 +141,45 @@ def test_scalar_depth_property():
 
 def test_vector_depth_property():
     graph = gt.Graph()
-    graph.add_edge_list([(0, 1), (1, 2), (2, 3)])
+    graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4)])
     graph.vertex_properties["depth"] = graph.new_vertex_property("vector<float>")
     graph.vertex_properties["depth"].set_2d_array(
-        np.array([[1, 2, 3, 4], [5, 6, 7, 8]])
+        np.array([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
     )
     assert np.array_equal(
         graph.vertex_properties["depth"].get_2d_array(pos=[0, 1]),
-        [[1, 2, 3, 4], [5, 6, 7, 8]],
+        [[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]],
     )
 
     # "Unzip" vertex 2 into two new vertices.
     graph.add_vertex(n=3)
-    sz.property_manager.depth_manager.unzip(
-        graph.vertex_properties["depth"],
-        _pid(2),
-        [_cid(4), _cid(5), _cid(6)],
-        num_children=3,
-        path_depths=[[1.2, 2], [1.3, 2], [0, 0]],
+    depth_unzipper = sz.graph_manager.VectorDepthUnzipper()
+    depth_unzipper.unzip(
+        graph,
+        3,
+        [5, 6, 7],
+        ([[1.2, 2], [1.3, 2], [0, 0]],),
     )
     # print(list(graph.vertex_properties["depth"]))
     assert np.array_equal(
         graph.vertex_properties["depth"].get_2d_array(pos=[0, 1]),
         [
-            [1, 2, 0.5, 4, 1.2, 1.3, 0],
-            [5, 6, 3, 8, 2, 2, 0],
+            [0, 1, 2, 0.5, 4, 1.2, 1.3, 0],
+            [5, 6, 7, 4, 9, 2, 2, 0],
         ],
     )
 
     # "Pres" vertices 0+1 into a new vertex.
     graph.add_vertex()
-    sz.property_manager.depth_manager.press(
-        graph.vertex_properties["depth"], [_pid(0), _pid(1)], _cid(7), lengths=[2, 4]
-    )
+    # VectorDepthPresser requires graph to have a length property.
+    graph.vp["length"] = graph.new_vertex_property("int", vals=[2, 4, 1, 1, 1, 1, 1])
+    depth_presser = sz.graph_manager.VectorDepthPresser()
+    depth_presser.press(graph, [0, 1, 2], 8)
     # print(list(graph.vertex_properties["depth"]))
     assert np.allclose(
         graph.vertex_properties["depth"].get_2d_array(pos=[0, 1]),
         [
-            [-0.66666667, 0.33333333, 0.5, 4.0, 1.2, 1.3, 0.0, 1.66666667],
-            [-0.66666667, 0.33333333, 3.0, 8.0, 2.0, 2.0, 0.0, 5.66666667],
+            [-0.85714286, 0.14285714, 1.14285714, 0.5, 4.0, 1.2, 1.3, 0.0, 0.85714286],
+            [-0.85714286, 0.14285714, 1.14285714, 4.0, 9.0, 2.0, 2.0, 0.0, 5.85714286],
         ],
     )

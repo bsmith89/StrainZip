@@ -7,7 +7,7 @@ import numpy as np
 import strainzip as sz
 
 
-def test_viz_graph_positioning():
+def test_graph_positioning():
     _graph = gt.Graph()
     _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)])
     num_vertices = _graph.num_vertices(ignore_filter=True)
@@ -39,13 +39,23 @@ def test_viz_graph_positioning():
     _graph.vp["xyposition"] = _xyposition
     _graph.vp["filter"] = _filter
 
-    gm = sz.graph_manager.VizGraphManager(
-        pos_offset_scale=offset_scale,
-        # init_step = 0 means that the sfdp_layout update steps does nothing to the positions.
-        sfdp_layout_kwargs=dict(init_step=0.0, max_iter=1),
+    gm = sz.graph_manager.GraphManager(
+        unzippers=[
+            sz.graph_manager.FilterUnzipper(),
+            sz.graph_manager.LengthUnzipper(),
+            sz.graph_manager.SequenceUnzipper(),
+            sz.graph_manager.VectorDepthUnzipper(),
+            sz.graph_manager.PositionUnzipper(offset=(0.1, 0.1)),
+        ],
+        pressers=[
+            sz.graph_manager.FilterPresser(),
+            sz.graph_manager.LengthPresser(),
+            sz.graph_manager.SequencePresser(sep=","),
+            sz.graph_manager.VectorDepthPresser(),
+            sz.graph_manager.PositionPresser(),
+        ],
     )
-    gm.validate_graph(_graph)
-    gm.validate_manager(_graph)
+    gm.validate(_graph)
 
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
@@ -68,8 +78,8 @@ def test_viz_graph_positioning():
         _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
         np.array(
             [
-                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.9, 2.0, 2.1],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1, 0.0, 0.1],
+                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.85, 2.0, 2.15],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15],
             ]
         ),
     )
@@ -82,8 +92,8 @@ def test_viz_graph_positioning():
         _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
         np.array(
             [
-                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.9, 2.0, 2.1, 2.0, 2.2],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1, 0.0, 0.1, 0.0, 0.2],
+                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.85, 2.0, 2.15, 2.05, 2.25],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15, 0.05, 0.25],
             ]
         ),
     )
@@ -96,8 +106,8 @@ def test_viz_graph_positioning():
         _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
         np.array(
             [
-                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.9, 2.0, 2.1, 2.0, 2.2, 4.66666667],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1, 0.0, 0.1, 0.0, 0.2, 0.0],
+                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.85, 2.0, 2.15, 2.05, 2.25, 4.66666667],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15, 0.05, 0.25, 0.0],
             ]
         ),
     )
@@ -117,21 +127,21 @@ def test_viz_graph_positioning():
                     3.0,
                     4.0,
                     5.0,
-                    1.9,
+                    1.85,
                     2.0,
-                    2.1,
-                    2.0,
-                    2.2,
+                    2.15,
+                    2.05,
+                    2.25,
                     4.66666667,
                     4.0,
                 ],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1, 0.0, 0.1, 0.0, 0.2, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15, 0.05, 0.25, 0.0, 0.0],
             ]
         ),
     )
 
 
-def test_viz_graph_depth():
+def test_graph_depth():
     _graph = gt.Graph()
     _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)])
     num_vertices = _graph.num_vertices(ignore_filter=True)
@@ -163,13 +173,23 @@ def test_viz_graph_depth():
     _graph.vp["xyposition"] = _xyposition
     _graph.vp["filter"] = _filter
 
-    gm = sz.graph_manager.VizGraphManager(
-        pos_offset_scale=offset_scale,
-        # init_step = 0 means that the sfdp_layout update steps does nothing to the positions.
-        sfdp_layout_kwargs=dict(init_step=0.0, max_iter=1),
+    gm = sz.graph_manager.GraphManager(
+        unzippers=[
+            sz.graph_manager.FilterUnzipper(),
+            sz.graph_manager.LengthUnzipper(),
+            sz.graph_manager.SequenceUnzipper(),
+            sz.graph_manager.VectorDepthUnzipper(),
+            sz.graph_manager.PositionUnzipper(offset=(0.1, 0.1)),
+        ],
+        pressers=[
+            sz.graph_manager.FilterPresser(),
+            sz.graph_manager.LengthPresser(),
+            sz.graph_manager.SequencePresser(sep=","),
+            sz.graph_manager.VectorDepthPresser(),
+            sz.graph_manager.PositionPresser(),
+        ],
     )
-    gm.validate_graph(_graph)
-    gm.validate_manager(_graph)
+    gm.validate(_graph)
 
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
@@ -300,9 +320,8 @@ def test_batch_operations_topology():
     _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)])
     # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
 
-    gm = sz.graph_manager.BaseGraphManager()
-    gm.validate_graph(_graph)
-    gm.validate_manager(_graph)
+    gm = sz.graph_manager.GraphManager()
+    gm.validate(_graph)
 
     gm.batch_unzip(_graph, *[(3, [(2, 4)], {})] * 2)
     # gm.unzip(_graph, 3, [(2, 4)])
@@ -346,9 +365,23 @@ def test_batch_operations_on_position_graph():
     _graph.vp["xyposition"] = _xyposition
     _graph.vp["filter"] = _filter
 
-    gm = sz.graph_manager.VizGraphManager(sfdp_layout_kwargs=dict(init_step=0.0))
-    gm.validate_graph(_graph)
-    gm.validate_manager(_graph)
+    gm = sz.graph_manager.GraphManager(
+        unzippers=[
+            sz.graph_manager.FilterUnzipper(),
+            sz.graph_manager.LengthUnzipper(),
+            sz.graph_manager.SequenceUnzipper(),
+            sz.graph_manager.ScalarDepthUnzipper(),
+            sz.graph_manager.PositionUnzipper(offset=(0.1, 0.1)),
+        ],
+        pressers=[
+            sz.graph_manager.FilterPresser(),
+            sz.graph_manager.LengthPresser(),
+            sz.graph_manager.SequencePresser(sep=","),
+            sz.graph_manager.ScalarDepthPresser(),
+            sz.graph_manager.PositionPresser(),
+        ],
+    )
+    gm.validate(_graph)
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(_graph.vp['xyposition'].get_2d_array(pos=[0, 1]))
 
@@ -367,8 +400,8 @@ def test_batch_operations_on_position_graph():
         _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
         np.array(
             [
-                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 2.9, 2.9, 1.0, 5.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1, -0.1, 0.0, 0.0],
+                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 2.95, 2.95, 1.0, 5.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.05, -0.05, 0.0, 0.0],
             ]
         ),
     )
