@@ -159,6 +159,7 @@ class VectorDepthUnzipper(PropertyUnzipper):
 
     def unzip(self, graph, parent, children, args):
         kwargs = self.name_free_args(args)
+        # TODO: Construct path depths faster than `np.asarray`.
         path_depths = np.asarray(kwargs["path_depths"])
         parent_depth = graph.vp["depth"][parent]
         updated_parent_depth = parent_depth - path_depths.sum(0)
@@ -180,6 +181,7 @@ class VectorDepthPresser(PropertyPresser):
     def press(self, graph, parents, child, args=()):
         kwargs = self.name_free_args(args)
         nparents = len(parents)
+        # TODO: Construct parent depths faster than `np.asarray`.
         parent_depths = np.asarray([graph.vp["depth"][p] for p in parents])
         parent_lengths = graph.vp["length"].a[parents]
         weighted_mean_depth = (
