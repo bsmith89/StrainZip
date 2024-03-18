@@ -35,13 +35,17 @@ class BaseGraphManager:
 
     def validate_graph(self, graph):
         # Confirm all properties are already associated with the graph.
+        validity = {}
         for k in self.property_managers:
-            assert k in graph.vertex_properties
+            validity[k] = k in graph.vertex_properties
+        assert all(validity.values()), validity
 
     def validate_manager(self, graph):
         # Confirm all graph properties are associated with the property managers.
+        validity = {}
         for k in graph.vp:
-            assert k in self.property_managers
+            validity[k] = k in self.property_managers
+        assert all(validity.values()), validity
 
     def _unzip_topology(self, graph, parent, paths):
         n = len(paths)
