@@ -24,9 +24,13 @@ def label_maximal_unitigs(g):
 
 
 def iter_maximal_unitig_paths(g):
+    # FIXME: Fails when any of the unitigs are cycles.
+    # Should be able to drop one edge from each cycle
+    # in the GraphView and get the correct outputs...
+    # Alternatively should be able to run gt.topology.all_circuits
+    # and pre-select the circuits to yield as their own sorted lists.
     labels, counts, g_filt = label_maximal_unitigs(g)
     sort_order = gt.topology.topological_sort(g_filt)
     sort_labels = labels.a[sort_order]
     for i, _ in enumerate(counts):
         yield sort_order[sort_labels == i]
-    # TODO: Construct lists of vertices in topological order.
