@@ -41,7 +41,7 @@ def iter_dbg_edges(kmer_iter):
             yield (left, right)
 
 
-def annotated_dbg(sequence, k, circularize=False, include_rc=False):
+def annotated_dbg(sequence, k, circularize=False, include_rc=False, position=False):
     kmers = iter_kmers(sequence, k=k, circularize=circularize)
     if include_rc:
         kmers = chain(
@@ -61,6 +61,8 @@ def annotated_dbg(sequence, k, circularize=False, include_rc=False):
     graph.vp["depth"] = graph.new_vertex_property(
         "float", vals=[kmer_counts[k] for k in graph.vp["ids"]]
     )
-    graph.vp["xyposition"] = gt.draw.sfdp_layout(graph)
+    if position:
+        graph.vp["xyposition"] = gt.draw.sfdp_layout(graph)
     graph.vp["filter"] = graph.new_vertex_property("bool", val=True)
+    del graph.vp["ids"]
     return graph
