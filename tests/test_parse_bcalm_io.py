@@ -1,0 +1,23 @@
+from io import StringIO
+
+import strainzip as sz
+
+
+def test_bcalm_fn_io():
+    # NOTE: _Real_ BCALM output has a trailing space after each header line for some reason.
+    f = StringIO(
+        """
+>0 LN:i:53 KC:i:6 km:f:2.0   L:+:47189:+ L:-:15297:+
+AAATCCCGTGAGGGGTTTCTGATAGTGGTGCTGTTCTGGACCGTGCTGGGTAG
+>3289 LN:i:86 KC:i:72 km:f:2.0   L:+:47189:-
+GTGGTCAGGCCAGAGAAAGATTCAAAAAACGCATCGGTAATCGTGAGGTTCGGGCTTTCCGAGAAGATAAAAGGGAGCGCACCGAC
+>15297 LN:i:143 KC:i:93 km:f:1.0   L:-:0:+
+CCCAGCACGGTCCAGAACAGCACCACTATCAGAAACCCCTCACGGGATTTCAGTTCGCCCTTCTCTTTACGGTTCGGCCACCACAGCATAGAACCAATGGCGAGGGCGACAAAAAAGGTCTGGGTAAAAGCGCGGCCCGCTCC
+>47189 LN:i:101 KC:i:51 km:f:1.0   L:+:3289:-  L:-:0:-
+TCCCGTGAGGGGTTTCTGATAGTGGTGCTGTTCTGGACCGTGCTGGGTAGCGTCGGTGCGCTCCCTTTTATCTTCTCGGAAAGCCCGAACCTCACGATTAC
+"""
+    )
+    graph, sequences = sz.io.load_graph_and_sequences_from_bcalm(f, k=51)
+    assert graph.num_edges() == 6
+    assert graph.num_vertices() == 8
+    assert len(sequences) == 4
