@@ -4,6 +4,7 @@ import numpy as np
 
 
 def draw_graph(graph, filter_vertices=True, **kwargs):
+    # FIXME: When the graph is filtered, graph.vp inputs for vertex properties fail (sometimes?).
     if filter_vertices:
         graph = gt.GraphView(graph, vfilt=graph.vp["filter"])
 
