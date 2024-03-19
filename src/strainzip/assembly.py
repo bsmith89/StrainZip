@@ -33,4 +33,7 @@ def iter_maximal_unitig_paths(g):
     sort_order = gt.topology.topological_sort(g_filt)
     sort_labels = labels.a[sort_order]
     for i, _ in enumerate(counts):
-        yield sort_order[sort_labels == i]
+        unitig = sort_order[sort_labels == i]
+        if len(unitig) < 2:
+            continue
+        yield unitig
