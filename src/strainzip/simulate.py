@@ -58,11 +58,11 @@ def annotated_dbg(sequence, k, circularize=False, include_rc=False, position=Fal
 
     graph.vp["length"] = graph.new_vertex_property("int", val=1)
     graph.vp["sequence"] = graph.vp["ids"]  # TODO: .copy()?
-    del graph.vp["ids"]
     graph.vp["depth"] = graph.new_vertex_property(
         "float", vals=[kmer_counts[k] for k in graph.vp["ids"]]
     )
     if position:
         graph.vp["xyposition"] = gt.draw.sfdp_layout(graph)
     graph.vp["filter"] = graph.new_vertex_property("bool", val=True)
+    del graph.vp["ids"]  # Drop no-longer-necessary vertex property.
     return graph
