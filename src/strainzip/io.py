@@ -1,14 +1,29 @@
 import graph_tool as gt
+import numpy as np
+
+from .generate import iter_kmers, reverse_complement
 
 
-def parse_bcalm_fasta_entry_header(header, k):
+def bcalm_header_tokenizer(header):
     # for each header, parse out the unitig ID and all the canonical edges.
-    # Each unitig has a + and a - version, with <unitig-ID>+/- vertex IDs.
-    # Create all of the edges for each of these.
     # ><id> LN:i:<length> KC:i:<abundance> km:f:<abundance> L:<+/->:<other id>:<+/-> [..]
     unitig_id_string, length_string, _, _, *edge_strings_list = header.split()
-    unitig_id = unitig_id_string[1:]  # Drop leading >
+    return unitig_id_string, length_string, edge_strings_list
+
+
+def ggcat_header_tokenizer(header):
+    unitig_id_string, length_string, *edge_strings_list = header.split()
+    return unitig_id_string, length_string, edge_strings_list
+
+
+def parse_linked_fasta_entry_header(
+    unitig_id_string, length_string, edge_strings_list, k, header_tokenizer
+):
+    # Each unitig has a + and a - version, with <unitig-ID>+/- vertex IDs.
+    # Create all of the edges for each of these.
+
     length = int(length_string[len("LN:i:") :]) - k + 1  # Overlap of length k-1.
+    unitig_id = unitig_id_string[1:]
 
     edge_list = []
     for edge_string in edge_strings_list:
@@ -49,7 +64,7 @@ def parse_bcalm_fasta_entry_header(header, k):
     return unitig_id, length, edge_list
 
 
-def iter_bcalm_fasta_entries(lines_iter):
+def iter_linked_fasta_entries(lines_iter):
     header = None
     sequence = None
     for line in lines_iter:
@@ -62,20 +77,23 @@ def iter_bcalm_fasta_entries(lines_iter):
     yield (header, sequence)
 
 
-def parse_bcalm_fasta(lines_iter, k):
+def parse_linked_fasta(lines_iter, k, header_tokenizer):
     sequences = {}
     lengths = {}
     all_edge_list = []
-    for header, sequence in iter_bcalm_fasta_entries(lines_iter):
-        unitig_id, length, edge_list = parse_bcalm_fasta_entry_header(header, k=k)
+    for header, sequence in iter_linked_fasta_entries(lines_iter):
+        unitig_id_string, length_string, edge_strings_list = header_tokenizer(header)
+        unitig_id, length, edge_list = parse_linked_fasta_entry_header(
+            unitig_id_string, length_string, edge_strings_list, k, header_tokenizer
+        )
         sequences[unitig_id] = sequence
         lengths[unitig_id] = length
         all_edge_list.extend(edge_list)
     return list(set(all_edge_list)), lengths, sequences
 
 
-def load_graph_and_sequences_from_bcalm(file_handle, k):
-    edge_list, lengths, sequences = parse_bcalm_fasta(file_handle, k=k)
+def load_graph_and_sequences_from_linked_fasta(file_handle, k, header_tokenizer):
+    edge_list, lengths, sequences = parse_linked_fasta(file_handle, k, header_tokenizer)
 
     graph = gt.Graph(set(edge_list), hashed=True, directed=True)
     graph.vp["filter"] = graph.new_vertex_property("bool", val=1)
@@ -87,5 +105,11 @@ def load_graph_and_sequences_from_bcalm(file_handle, k):
     return graph, sequences
 
 
-def load_kmer_depths():
-    pass
+def load_sequence_depth_matrix(con, sequence, k):
+    query = "SELECT * FROM count_ WHERE kmer IN (?, ?)"
+    results = []
+    for kmer in iter_kmers(sequence, k=k, circularize=False):
+        kmer_rc = reverse_complement(kmer)
+        results.extend(con.execute(query, (kmer, kmer_rc)).fetchall())
+    results = np.array([r[1:] for r in results])
+    return results
