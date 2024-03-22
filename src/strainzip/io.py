@@ -1,7 +1,7 @@
 import graph_tool as gt
 import numpy as np
 
-from .generate import iter_kmers, reverse_complement
+from .sequence import iter_kmers, reverse_complement
 
 
 def bcalm_header_tokenizer(header):

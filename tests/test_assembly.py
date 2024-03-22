@@ -7,8 +7,8 @@ import strainzip as sz
 def test_generate_dbg():
     np.random.seed(1)
     gt.seed_rng(1)
-    sequence = sz.generate.random_sequence(1000)
-    graph = sz.generate.annotated_dbg(sequence, k=7, circularize=True, include_rc=True)
+    sequence = sz.sequence.random_sequence(1000)
+    graph = sz.build.annotated_dbg(sequence, k=7, circularize=True, include_rc=True)
     gm = sz.graph_manager.GraphManager(
         unzippers=[
             sz.graph_manager.FilterUnzipper(),
@@ -29,8 +29,8 @@ def test_generate_dbg():
 def test_press_unitigs():
     np.random.seed(1)
     gt.seed_rng(1)
-    sequence = sz.generate.random_sequence(1000)
-    graph = sz.generate.annotated_dbg(sequence, k=5, circularize=True, include_rc=True)
+    sequence = sz.sequence.random_sequence(1000)
+    graph = sz.build.annotated_dbg(sequence, k=5, circularize=True, include_rc=True)
     gm = sz.graph_manager.GraphManager(
         unzippers=[
             sz.graph_manager.FilterUnzipper(),
