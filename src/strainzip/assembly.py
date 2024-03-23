@@ -4,7 +4,6 @@ import graph_tool.topology
 
 def edge_has_no_siblings(g):
     "Check whether upstream or downstream sibling edges exist for every edge."
-    vs = g.get_vertices()
     v_in_degree = g.degree_property_map("in")
     v_out_degree = g.degree_property_map("out")
     e_num_in_siblings = gt.edge_endpoint_property(g, v_in_degree, "target")
