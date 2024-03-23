@@ -1,5 +1,6 @@
 import graph_tool as gt
 import graph_tool.topology
+import numpy as np
 
 
 def edge_has_no_siblings(g):
@@ -36,3 +37,23 @@ def iter_maximal_unitig_paths(g):
         if len(unitig) < 2:
             continue
         yield unitig
+
+
+def find_tips(g):
+    v_degree = g.degree_property_map("total")
+    result = np.where(v_degree.a == 1)[
+        0
+    ]  # np.where returns a tuple (maybe to deal with an N-dimensional mask?).
+    return result
+
+
+def find_junctions(g):
+    v_in_degree = g.degree_property_map("in")
+    v_out_degree = g.degree_property_map("out")
+    result = np.where(
+        ((v_in_degree.a > 1) & (v_out_degree.a >= 1))
+        | ((v_in_degree.a >= 1) & (v_out_degree.a > 1))
+    )[
+        0
+    ]  # np.where returns a tuple (maybe to deal with an N-dimensional mask?).
+    return result

@@ -73,3 +73,33 @@ def test_press_unitigs():
     assert np.array_equal(
         degree_stats1, degree_stats2
     ), "Successive pressing all unitigs should be a NoOp."
+
+
+def test_find_tip():
+    graph = gt.Graph([(0, 4), (1, 4), (4, 2), (4, 3), (3, 5)])
+    tips = sz.assembly.find_tips(graph)
+    assert np.array_equal(tips, [0, 1, 2, 5])
+
+
+def test_find_junctions():
+    graph = gt.Graph([(0, 4), (1, 4), (4, 2), (4, 3), (3, 5)])
+    junctions = sz.assembly.find_junctions(graph)
+    assert np.array_equal(junctions, [4])
+
+
+def test_split_junctions():
+    graph = gt.Graph(
+        [
+            (0, 4),
+            (1, 4),
+            (4, 2),
+            (4, 3),
+            (2, 7),
+            (3, 7),
+            (7, 5),
+            (7, 6),
+            (8, 5),
+            (5, 9),
+            (5, 10),
+        ]
+    )
