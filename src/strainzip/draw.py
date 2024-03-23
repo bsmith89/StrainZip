@@ -3,11 +3,7 @@ import graph_tool.draw
 import numpy as np
 
 
-def draw_graph(graph, filter_vertices=True, **kwargs):
-    # FIXME: When the graph is filtered, graph.vp inputs for vertex properties fail (sometimes?).
-    if filter_vertices:
-        graph = gt.GraphView(graph, vfilt=graph.vp["filter"])
-
+def draw_graph(graph, **kwargs):
     draw_kwargs = dict(
         pos=None, ink_scale=0.35, vertex_shape="square", vertex_text=graph.vertex_index
     )

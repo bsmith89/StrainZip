@@ -6,9 +6,7 @@ def num_unfiltered_nodes(graph):
     return graph.vp["filter"].a.sum()
 
 
-def degree_stats(graph, filtered=True):
-    if filtered:
-        graph = gt.GraphView(graph, vfilt=graph.vp["filter"])
+def degree_stats(graph):
     out = pd.DataFrame(
         dict(
             in_degree=graph.get_in_degrees(graph.get_vertices()),

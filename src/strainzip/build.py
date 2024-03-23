@@ -35,6 +35,7 @@ def annotated_dbg(sequence, k, circularize=False, include_rc=False):
     )
     graph.vp["filter"] = graph.new_vertex_property("bool", val=True)
     del graph.vp["ids"]  # Drop no-longer-necessary vertex property.
+    graph.set_vertex_filter(graph.vp["filter"])
     return graph
 
 

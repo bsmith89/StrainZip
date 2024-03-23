@@ -48,13 +48,7 @@ def test_press_unitigs():
     gm.validate(graph)
     degree_stats0 = sz.stats.degree_stats(graph)
     gm.batch_press(
-        graph,
-        *[
-            (path, {})
-            for path in sz.assembly.iter_maximal_unitig_paths(
-                gt.GraphView(graph, vfilt=graph.vp["filter"])
-            )
-        ]
+        graph, *[(path, {}) for path in sz.assembly.iter_maximal_unitig_paths(graph)]
     )
     degree_stats1 = sz.stats.degree_stats(graph)
     vertex_stats1 = graph.get_vertices(
