@@ -1,6 +1,16 @@
 import numpy as np
 
 
+def assert_vertex_unfiltered(graph, v):
+    vp, inv = graph.get_vertex_filter()
+    assert vp.a[v] == (not inv)
+
+
+def assert_all_vertices_unfiltered(graph, vs):
+    vp, inv = graph.get_vertex_filter()
+    assert (vp.a[vs] == (not inv)).all()
+
+
 class PropertyUnzipper:
     mutates = []
     requires = []
@@ -294,6 +304,10 @@ class GraphManager:
             ), f"Graph vertex property '{prop}' missing from presser targets."
 
     def unzip(self, graph, parent, paths, **kwargs):
+        # NOTE: Caution!!! Paths built from an old graph may
+        # be outdated! Unzipping them may cause problems.
+        # I try to check for this with assert_vertex_unfiltered, but who knows.
+        assert_vertex_unfiltered(graph, parent)
         n = len(paths)
         num_before = graph.num_vertices(ignore_filter=True)
         num_after = num_before + n
@@ -301,6 +315,7 @@ class GraphManager:
         children = list(range(num_before, num_after))
         new_edge_list = []
         for (left, right), child in zip(paths, children):
+            assert_all_vertices_unfiltered(graph, [child, left, right])
             new_edge_list.append((left, child))
             new_edge_list.append((child, right))
         graph.add_edge_list(new_edge_list)
@@ -322,6 +337,8 @@ class GraphManager:
         rightmost_parent = parents[-1]
         left_list = graph.get_in_neighbors(leftmost_parent)
         right_list = graph.get_out_neighbors(rightmost_parent)
+        assert_all_vertices_unfiltered(graph, [child] + left_list + right_list)
+
         new_edge_list = []
         for left in left_list:
             new_edge_list.append((left, child))
@@ -338,6 +355,10 @@ class GraphManager:
             )
 
     def batch_unzip(self, graph, *args):
+        # Args should be a tuple: (parent, paths, kwargs)
+        # FIXME: If any of the vertices named in paths are also found in any
+        # of the parent entries of args, then these need to be updated, because
+        # they will no longer exist after the unzip operation on that vertex.
         for parent, paths, kwargs in args:
             self.unzip(graph, parent, paths, **kwargs)
 

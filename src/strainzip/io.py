@@ -102,6 +102,8 @@ def load_graph_and_sequences_from_linked_fasta(file_handle, k, header_tokenizer)
         graph.vp["length"].a[i] = lengths[_hash[:-1]]
     graph.vp["sequence"] = graph.vp["ids"]
     del graph.vp["ids"]
+
+    graph.set_vertex_filter(graph.vp["filter"])
     return graph, sequences
 
 
