@@ -37,7 +37,3 @@ def annotated_dbg(sequence, k, circularize=False, include_rc=False):
     del graph.vp["ids"]  # Drop no-longer-necessary vertex property.
     graph.set_vertex_filter(graph.vp["filter"])
     return graph
-
-
-def annotate_xypositions(graph, layout=gt.draw.sfdp_layout):
-    graph.vp["xyposition"] = layout(graph)

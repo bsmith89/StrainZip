@@ -3,6 +3,15 @@ import graph_tool.draw
 import numpy as np
 
 
+def update_xypositions(graph, layout=gt.draw.sfdp_layout, **kwargs):
+    if "xyposition" in graph.vp:
+        init_pos = graph.vp["xyposition"]
+    else:
+        init_pos = None
+
+    graph.vp["xyposition"] = layout(graph, pos=init_pos, **kwargs)
+
+
 def draw_graph(graph, **kwargs):
     draw_kwargs = dict(
         pos=None, ink_scale=0.35, vertex_shape="square", vertex_text=graph.vertex_index
