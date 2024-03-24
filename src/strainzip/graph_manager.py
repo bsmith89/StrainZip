@@ -331,6 +331,7 @@ class GraphManager:
                 children,
                 tuple(kwargs[arg] for arg in uz.free_args),
             )
+        return children
 
     def press(self, graph, parents, **kwargs):
         child = graph.num_vertices(
@@ -359,15 +360,20 @@ class GraphManager:
                 child,
                 tuple(kwargs[arg] for arg in pr.free_args),
             )
+        return child
 
     def batch_unzip(self, graph, *args):
         # Args should be a tuple: (parent, paths, kwargs)
         # FIXME: If any of the vertices named in paths are also found in any
         # of the parent entries of args, then these need to be updated, because
         # they will no longer exist after the unzip operation on that vertex.
+        children = []
         for parent, paths, kwargs in args:
-            self.unzip(graph, parent, paths, **kwargs)
+            children.extend(self.unzip(graph, parent, paths, **kwargs))
+        return children
 
     def batch_press(self, graph, *args):
+        children = []
         for parents, kwargs in args:
-            self.press(graph, parents, **kwargs)
+            children.append(self.press(graph, parents, **kwargs))
+        return children
