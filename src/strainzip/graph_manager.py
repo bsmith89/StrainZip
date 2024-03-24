@@ -248,10 +248,14 @@ class PositionPresser(PropertyPresser):
 
 class GraphManager:
     def __init__(self, unzippers=[], pressers=[]):
-        self.unzippers = unzippers
-        self.pressers = pressers
+        # Implicit FilterUnzipper and FilterPresser
+        self.unzippers = [FilterUnzipper()] + unzippers
+        self.pressers = [FilterPresser()] + pressers
         self.unzipper_free_args = self.collect_unzipper_args()
         self.presser_free_args = self.collect_presser_args()
+
+    def assert_vertex_unfiltered(self, graph, v):
+        assert graph.vp["filter"][v]
 
     def collect_unzipper_args(self):
         free_args = set()
@@ -337,7 +341,9 @@ class GraphManager:
         rightmost_parent = parents[-1]
         left_list = graph.get_in_neighbors(leftmost_parent)
         right_list = graph.get_out_neighbors(rightmost_parent)
-        assert_all_vertices_unfiltered(graph, [child] + left_list + right_list)
+        assert_all_vertices_unfiltered(
+            graph, [child] + list(left_list) + list(right_list)
+        )
 
         new_edge_list = []
         for left in left_list:

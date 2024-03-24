@@ -11,13 +11,11 @@ def test_generate_dbg():
     graph = sz.build.annotated_dbg(sequence, k=7, circularize=True, include_rc=True)
     gm = sz.graph_manager.GraphManager(
         unzippers=[
-            sz.graph_manager.FilterUnzipper(),
             sz.graph_manager.LengthUnzipper(),
             sz.graph_manager.SequenceUnzipper(),
             sz.graph_manager.ScalarDepthUnzipper(),
         ],
         pressers=[
-            sz.graph_manager.FilterPresser(),
             sz.graph_manager.LengthPresser(),
             sz.graph_manager.SequencePresser(sep=","),
             sz.graph_manager.ScalarDepthPresser(),
@@ -33,13 +31,11 @@ def test_press_unitigs():
     graph = sz.build.annotated_dbg(sequence, k=5, circularize=True, include_rc=True)
     gm = sz.graph_manager.GraphManager(
         unzippers=[
-            sz.graph_manager.FilterUnzipper(),
             sz.graph_manager.LengthUnzipper(),
             sz.graph_manager.SequenceUnzipper(),
             sz.graph_manager.ScalarDepthUnzipper(),
         ],
         pressers=[
-            sz.graph_manager.FilterPresser(),
             sz.graph_manager.LengthPresser(),
             sz.graph_manager.SequencePresser(sep=","),
             sz.graph_manager.ScalarDepthPresser(),

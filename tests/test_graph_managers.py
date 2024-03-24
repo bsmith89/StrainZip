@@ -43,14 +43,12 @@ def test_graph_positioning():
 
     gm = sz.graph_manager.GraphManager(
         unzippers=[
-            sz.graph_manager.FilterUnzipper(),
             sz.graph_manager.LengthUnzipper(),
             sz.graph_manager.SequenceUnzipper(),
             sz.graph_manager.VectorDepthUnzipper(),
             sz.graph_manager.PositionUnzipper(offset=(0.1, 0.1)),
         ],
         pressers=[
-            sz.graph_manager.FilterPresser(),
             sz.graph_manager.LengthPresser(),
             sz.graph_manager.SequencePresser(sep=","),
             sz.graph_manager.VectorDepthPresser(),
@@ -179,14 +177,12 @@ def test_graph_depth():
 
     gm = sz.graph_manager.GraphManager(
         unzippers=[
-            sz.graph_manager.FilterUnzipper(),
             sz.graph_manager.LengthUnzipper(),
             sz.graph_manager.SequenceUnzipper(),
             sz.graph_manager.VectorDepthUnzipper(),
             sz.graph_manager.PositionUnzipper(offset=(0.1, 0.1)),
         ],
         pressers=[
-            sz.graph_manager.FilterPresser(),
             sz.graph_manager.LengthPresser(),
             sz.graph_manager.SequencePresser(sep=","),
             sz.graph_manager.VectorDepthPresser(),
@@ -327,10 +323,7 @@ def test_unzip_topology():
     _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
     _graph.set_vertex_filter(_graph.vp["filter"])
 
-    gm = sz.graph_manager.GraphManager(
-        unzippers=[sz.graph_manager.FilterUnzipper()],
-        pressers=[sz.graph_manager.FilterPresser()],
-    )
+    gm = sz.graph_manager.GraphManager()
     gm.validate(_graph)
 
     gm.unzip(_graph, 3, [(2, 4), (2, 4)])
@@ -373,10 +366,7 @@ def test_batch_unzip_topology():
     _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
     _graph.set_vertex_filter(_graph.vp["filter"])
 
-    gm = sz.graph_manager.GraphManager(
-        unzippers=[sz.graph_manager.FilterUnzipper()],
-        pressers=[sz.graph_manager.FilterPresser()],
-    )
+    gm = sz.graph_manager.GraphManager()
     gm.validate(_graph)
 
     gm.batch_unzip(
@@ -413,7 +403,7 @@ def test_batch_unzip_topology():
 #     _graph.vp['filter'] = _graph.new_vertex_property('bool', val=True)
 #     _graph.set_vertex_filter(_graph.vp['filter'])
 #
-#     gm = sz.graph_manager.GraphManager(unzippers=[sz.graph_manager.FilterUnzipper()], pressers=[sz.graph_manager.FilterPresser()])
+#     gm = sz.graph_manager.GraphManager()
 #     gm.validate(_graph)
 #
 #     gm.batch_unzip(_graph, (3, [(2, 4), (2, 4)], {}), (5, [(4, 6), (4, 6)]))
@@ -460,14 +450,12 @@ def test_batch_operations_on_position_graph():
 
     gm = sz.graph_manager.GraphManager(
         unzippers=[
-            sz.graph_manager.FilterUnzipper(),
             sz.graph_manager.LengthUnzipper(),
             sz.graph_manager.SequenceUnzipper(),
             sz.graph_manager.ScalarDepthUnzipper(),
             sz.graph_manager.PositionUnzipper(offset=(0.1, 0.1)),
         ],
         pressers=[
-            sz.graph_manager.FilterPresser(),
             sz.graph_manager.LengthPresser(),
             sz.graph_manager.SequencePresser(sep=","),
             sz.graph_manager.ScalarDepthPresser(),
