@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import cast
 
 import graph_tool as gt
@@ -5,6 +6,14 @@ import graph_tool.draw
 import numpy as np
 
 import strainzip as sz
+
+
+@contextmanager
+def unfiltered(graph):
+    filt = graph.get_vertex_filter()
+    graph.set_vertex_filter(None)
+    yield
+    graph.set_vertex_filter(*filt)
 
 
 def test_graph_positioning():
@@ -60,10 +69,11 @@ def test_graph_positioning():
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
-    assert np.allclose(
-        _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
-        np.array([[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]),
-    )
+    with unfiltered(_graph):
+        assert np.allclose(
+            _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
+            np.array([[0.0, 1.0, 2.0, 3.0, 4.0, 5.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]),
+        )
 
     gm.unzip(
         _graph,
@@ -74,71 +84,102 @@ def test_graph_positioning():
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
-    assert np.allclose(
-        _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
-        np.array(
-            [
-                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.85, 2.0, 2.15],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15],
-            ]
-        ),
-    )
+    with unfiltered(_graph):
+        assert np.allclose(
+            _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
+            np.array(
+                [
+                    [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.85, 2.0, 2.15],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15],
+                ]
+            ),
+        )
 
     gm.unzip(_graph, 8, [(1, 3), (1, 3)], path_depths=[[0.3, 0], [0.1, 0]])
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
-    assert np.allclose(
-        _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
-        np.array(
-            [
-                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.85, 2.0, 2.15, 2.05, 2.25],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15, 0.05, 0.25],
-            ]
-        ),
-    )
+    with unfiltered(_graph):
+        assert np.allclose(
+            _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
+            np.array(
+                [
+                    [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.85, 2.0, 2.15, 2.05, 2.25],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15, 0.05, 0.25],
+                ]
+            ),
+        )
 
     gm.press(_graph, parents=[4, 5])
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
-    assert np.allclose(
-        _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
-        np.array(
-            [
-                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 1.85, 2.0, 2.15, 2.05, 2.25, 4.66666667],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15, 0.05, 0.25, 0.0],
-            ]
-        ),
-    )
+    with unfiltered(_graph):
+        assert np.allclose(
+            _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
+            np.array(
+                [
+                    [
+                        0.0,
+                        1.0,
+                        2.0,
+                        3.0,
+                        4.0,
+                        5.0,
+                        1.85,
+                        2.0,
+                        2.15,
+                        2.05,
+                        2.25,
+                        4.66666667,
+                    ],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15, 0.05, 0.25, 0.0],
+                ]
+            ),
+        )
 
     gm.press(_graph, parents=[3, 11])
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
-    assert np.allclose(
-        _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
-        np.array(
-            [
+    with unfiltered(_graph):
+        assert np.allclose(
+            _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
+            np.array(
                 [
-                    0.0,
-                    1.0,
-                    2.0,
-                    3.0,
-                    4.0,
-                    5.0,
-                    1.85,
-                    2.0,
-                    2.15,
-                    2.05,
-                    2.25,
-                    4.66666667,
-                    4.0,
-                ],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.15, 0.0, 0.15, 0.05, 0.25, 0.0, 0.0],
-            ]
-        ),
-    )
+                    [
+                        0.0,
+                        1.0,
+                        2.0,
+                        3.0,
+                        4.0,
+                        5.0,
+                        1.85,
+                        2.0,
+                        2.15,
+                        2.05,
+                        2.25,
+                        4.66666667,
+                        4.0,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        -0.15,
+                        0.0,
+                        0.15,
+                        0.05,
+                        0.25,
+                        0.0,
+                        0.0,
+                    ],
+                ]
+            ),
+        )
 
 
 def test_graph_depth():
@@ -194,10 +235,11 @@ def test_graph_depth():
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
-    assert np.allclose(
-        _graph.vp["depth"].get_2d_array(pos=[0, 1]),
-        np.array([[0.0, 0.0, 1.0, 0.0, 1.0, 0.0], [1.0, 1.0, 0.0, 0.0, 0.0, 1.0]]),
-    )
+    with unfiltered(_graph):
+        assert np.allclose(
+            _graph.vp["depth"].get_2d_array(pos=[0, 1]),
+            np.array([[0.0, 0.0, 1.0, 0.0, 1.0, 0.0], [1.0, 1.0, 0.0, 0.0, 0.0, 1.0]]),
+        )
 
     gm.unzip(
         _graph,
@@ -208,111 +250,115 @@ def test_graph_depth():
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
-    assert np.allclose(
-        _graph.vp["depth"].get_2d_array(pos=[0, 1]),
-        np.array(
-            [
-                [0.0, 0.0, 0.01, 0.0, 1.0, 0.0, 0.33, 0.33, 0.33],
-                [1.0, 1.0, -0.2, 0.0, 0.0, 1.0, 0.0, 0.0, 0.2],
-            ]
-        ),
-    )
+    with unfiltered(_graph):
+        assert np.allclose(
+            _graph.vp["depth"].get_2d_array(pos=[0, 1]),
+            np.array(
+                [
+                    [0.0, 0.0, 0.01, 0.0, 1.0, 0.0, 0.33, 0.33, 0.33],
+                    [1.0, 1.0, -0.2, 0.0, 0.0, 1.0, 0.0, 0.0, 0.2],
+                ]
+            ),
+        )
 
     gm.unzip(_graph, 8, [(1, 3), (1, 3)], path_depths=[[0.3, 0], [0.1, 0]])
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
-    assert np.allclose(
-        _graph.vp["depth"].get_2d_array(pos=[0, 1]),
-        np.array(
-            [
-                [0.0, 0.0, 0.01, 0.0, 1.0, 0.0, 0.33, 0.33, -0.07, 0.3, 0.1],
-                [1.0, 1.0, -0.2, 0.0, 0.0, 1.0, 0.0, 0.0, 0.2, 0.0, 0.0],
-            ]
-        ),
-    )
+    with unfiltered(_graph):
+        assert np.allclose(
+            _graph.vp["depth"].get_2d_array(pos=[0, 1]),
+            np.array(
+                [
+                    [0.0, 0.0, 0.01, 0.0, 1.0, 0.0, 0.33, 0.33, -0.07, 0.3, 0.1],
+                    [1.0, 1.0, -0.2, 0.0, 0.0, 1.0, 0.0, 0.0, 0.2, 0.0, 0.0],
+                ]
+            ),
+        )
 
     gm.press(_graph, parents=[4, 5])
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
-    assert np.allclose(
-        _graph.vp["depth"].get_2d_array(pos=[0, 1]),
-        np.array(
-            [
+    with unfiltered(_graph):
+        assert np.allclose(
+            _graph.vp["depth"].get_2d_array(pos=[0, 1]),
+            np.array(
                 [
-                    0.0,
-                    0.0,
-                    0.01,
-                    0.0,
-                    0.66666667,
-                    -0.33333333,
-                    0.33,
-                    0.33,
-                    -0.07,
-                    0.3,
-                    0.1,
-                    0.33333333,
-                ],
-                [
-                    1.0,
-                    1.0,
-                    -0.2,
-                    0.0,
-                    -0.66666667,
-                    0.33333333,
-                    0.0,
-                    0.0,
-                    0.2,
-                    0.0,
-                    0.0,
-                    0.66666667,
-                ],
-            ]
-        ),
-    )
+                    [
+                        0.0,
+                        0.0,
+                        0.01,
+                        0.0,
+                        0.66666667,
+                        -0.33333333,
+                        0.33,
+                        0.33,
+                        -0.07,
+                        0.3,
+                        0.1,
+                        0.33333333,
+                    ],
+                    [
+                        1.0,
+                        1.0,
+                        -0.2,
+                        0.0,
+                        -0.66666667,
+                        0.33333333,
+                        0.0,
+                        0.0,
+                        0.2,
+                        0.0,
+                        0.0,
+                        0.66666667,
+                    ],
+                ]
+            ),
+        )
 
     gm.press(_graph, parents=[3, 11])
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
-    assert np.allclose(
-        _graph.vp["depth"].get_2d_array(pos=[0, 1]),
-        np.array(
-            [
+    with unfiltered(_graph):
+        assert np.allclose(
+            _graph.vp["depth"].get_2d_array(pos=[0, 1]),
+            np.array(
                 [
-                    0.0,
-                    0.0,
-                    0.01,
-                    -0.2,
-                    0.66666667,
-                    -0.33333333,
-                    0.33,
-                    0.33,
-                    -0.07,
-                    0.3,
-                    0.1,
-                    0.13333333,
-                    0.2,
-                ],
-                [
-                    1.0,
-                    1.0,
-                    -0.2,
-                    -0.4,
-                    -0.66666667,
-                    0.33333333,
-                    0.0,
-                    0.0,
-                    0.2,
-                    0.0,
-                    0.0,
-                    0.26666667,
-                    0.4,
-                ],
-            ]
-        ),
-    )
+                    [
+                        0.0,
+                        0.0,
+                        0.01,
+                        -0.2,
+                        0.66666667,
+                        -0.33333333,
+                        0.33,
+                        0.33,
+                        -0.07,
+                        0.3,
+                        0.1,
+                        0.13333333,
+                        0.2,
+                    ],
+                    [
+                        1.0,
+                        1.0,
+                        -0.2,
+                        -0.4,
+                        -0.66666667,
+                        0.33333333,
+                        0.0,
+                        0.0,
+                        0.2,
+                        0.0,
+                        0.0,
+                        0.26666667,
+                        0.4,
+                    ],
+                ]
+            ),
+        )
 
 
 def test_unzip_topology():
@@ -421,9 +467,9 @@ def test_batch_unzip_topology():
 #     # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
 
 
-def test_batch_operations_on_position_graph():
+def test_batch_operations_on_properties():
     _graph = gt.Graph()
-    _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)])
+    _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7)])
     num_vertices = _graph.num_vertices(ignore_filter=True)
 
     _length = _graph.new_vertex_property("int", val=1)
@@ -466,23 +512,72 @@ def test_batch_operations_on_position_graph():
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(_graph.vp['xyposition'].get_2d_array(pos=[0, 1]))
 
-    gm.batch_unzip(_graph, *[(3, [(2, 4)], {"path_depths": [0]})] * 2)
+    gm.batch_unzip(
+        _graph,
+        (3, [(2, 4), (2, 4)], {"path_depths": [0, 0]}),
+        (5, [(4, 6), (4, 6)], {"path_depths": [0, 0]}),
+    )
     # gm.unzip(_graph, 3, [(2, 4)], path_depths=[0])
     # gm.unzip(_graph, 3, [(2, 4)], path_depths=[0]) # Should be equivalent to the above
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(_graph.vp['xyposition'].get_2d_array(pos=[0, 1]))
+    with unfiltered(_graph):
+        assert np.array_equal(
+            _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
+            np.array(
+                [
+                    [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 2.9, 3.1, 4.9, 5.1],
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1, 0.1, -0.1, 0.1],
+                ]
+            ),
+        )
 
-    gm.batch_press(_graph, *[([0, 1, 2], {}), ([4, 5, 6], {})])
+    gm.batch_press(
+        _graph,
+        ([0, 1, 2], {}),
+        ([6, 7], {}),
+    )
     # gm.press(_graph, [0, 1, 2])
-    # gm.press(_graph, [4, 5, 6]) # Should be equivalent to the above
+    # gm.press(_graph, [6, 7]) # Should be equivalent to the above
     # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
-    assert np.array_equal(
-        _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
-        np.array(
-            [
-                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 2.95, 2.95, 1.0, 5.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.05, -0.05, 0.0, 0.0],
-            ]
-        ),
-    )
+    with unfiltered(_graph):
+        assert np.array_equal(
+            _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
+            np.array(
+                [
+                    [
+                        0.0,
+                        1.0,
+                        2.0,
+                        3.0,
+                        4.0,
+                        5.0,
+                        6.0,
+                        7.0,
+                        2.9,
+                        3.1,
+                        4.9,
+                        5.1,
+                        1.0,
+                        6.5,
+                    ],
+                    [
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        -0.1,
+                        0.1,
+                        -0.1,
+                        0.1,
+                        0.0,
+                        0.0,
+                    ],
+                ]
+            ),
+        )
