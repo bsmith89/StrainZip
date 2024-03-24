@@ -1,8 +1,6 @@
-from collections import Counter, defaultdict
-from itertools import chain, product
+from collections import defaultdict
+from itertools import product
 
-import graph_tool as gt
-import graph_tool.draw
 import numpy as np
 
 COMPLEMENTARY_BASE = {"A": "T", "C": "G", "G": "C", "T": "A"}
