@@ -27,7 +27,7 @@ def draw_graph(graph, **kwargs):
         if graph.vp["depth"].value_type() == "double":
             draw_kwargs["vertex_fill_color"] = graph.vp["depth"]
 
-    gt.draw.graph_draw(
+    return gt.draw.graph_draw(
         graph,
         **(draw_kwargs | kwargs),
     )
