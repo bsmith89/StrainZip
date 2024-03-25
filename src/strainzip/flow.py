@@ -9,7 +9,8 @@ def estimate_flow(graph, depth, weight, eps=0.001, maxiter=1000):
     source_vertex_weight = gt.edge_endpoint_property(graph, weight, "source")
     flow = graph.new_edge_property("float", val=1)
     loss_hist = [np.finfo("float").max]
-    for _ in range(maxiter):
+    i = 0
+    for i in range(1, maxiter + 1):
         # Inflow error
         total_in_flow = gt.incident_edges_op(graph, "in", "sum", flow)
         in_flow_error = graph.new_vertex_property(
@@ -66,4 +67,11 @@ def estimate_flow(graph, depth, weight, eps=0.001, maxiter=1000):
         flow = graph.new_edge_property("float", vals=flow.a + mean_flow_error.a)
     else:
         warn("Reached maxiter. Flow estimates did not converge.")
-    return flow
+
+    # Calculate final residuals
+    total_in_flow = gt.incident_edges_op(graph, "in", "sum", flow)
+    in_flow_error = depth.a - total_in_flow.a
+    total_out_flow = gt.incident_edges_op(graph, "out", "sum", flow)
+    out_flow_error = depth.a - total_out_flow.a
+    mean_residual_vertex_flow = (in_flow_error + out_flow_error) / 2
+    return flow, mean_residual_vertex_flow, i
