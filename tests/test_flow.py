@@ -17,7 +17,7 @@ def test_estimate_flow_convergence_warning():
     depth.a[3] = 2
 
     with pytest.warns(UserWarning):
-        flow, resid, iters = sz.flow.estimate_flow(
+        flow, resid, hist = sz.flow.estimate_flow(
             graph, depth=depth, weight=length, eps=0.001, maxiter=3
         )
 
@@ -31,7 +31,7 @@ def test_estimate_flow_cycle():
     depth = graph.new_vertex_property("float", val=1)
     depth.a[0] = 2
 
-    flow, resid, iters = sz.flow.estimate_flow(
+    flow, resid, hist = sz.flow.estimate_flow(
         graph, depth=depth, weight=length, eps=0.001, maxiter=1000
     )
     assert flow[(0, 1)] == 1.5
@@ -49,7 +49,7 @@ def test_estimate_flow_minor_depth():
     depth = graph.new_vertex_property("float", val=1)
     depth.a[4] = 1e-5
 
-    flow, resid, iters = sz.flow.estimate_flow(
+    flow, resid, hist = sz.flow.estimate_flow(
         graph, depth=depth, weight=length, eps=0.001, maxiter=1000
     )
     assert flow[(0, 1)] < 1.0
@@ -67,14 +67,14 @@ def test_estimate_flow_filtered_graph():
     depth = graph.new_vertex_property("float", val=1)
     depth.a[4] = 1
 
-    flow, resid, iters = sz.flow.estimate_flow(
+    flow, resid, hist = sz.flow.estimate_flow(
         graph, depth=depth, weight=length, eps=0.001, maxiter=1000
     )
     assert flow[(0, 1)] < 1.0
     assert flow[(0, 4)] < 1.0
 
     filter.a[4] = 0
-    flow, resid, iters = sz.flow.estimate_flow(
+    flow, resid, hist = sz.flow.estimate_flow(
         graph, depth=depth, weight=length, eps=0.001, maxiter=1000
     )
     assert flow[(0, 1)] == 1.0

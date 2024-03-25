@@ -81,4 +81,4 @@ def estimate_flow(graph, depth, weight, eps=0.001, maxiter=1000):
     total_out_flow = gt.incident_edges_op(graph, "out", "sum", flow)
     out_flow_error = depth.a - total_out_flow.a
     mean_residual_vertex_flow = (in_flow_error + out_flow_error) / 2
-    return flow, mean_residual_vertex_flow, i
+    return flow, mean_residual_vertex_flow, loss_hist
