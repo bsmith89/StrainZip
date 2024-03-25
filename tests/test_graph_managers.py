@@ -404,7 +404,7 @@ def test_unzip_topology():
     )
 
 
-def test_batch_unzip_topology():
+def test_batch_unzip_topology_simple():
     _graph = gt.Graph()
     _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)])
     # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
@@ -419,12 +419,10 @@ def test_batch_unzip_topology():
         _graph,
         (3, [(2, 4), (2, 4)], {}),
         (5, [(4, 6), (4, 6)], {}),
-        (4, [(3, 5)], {}),
     )
     # Should be equivalent to:
     # gm.unzip(_graph, 3, [(2, 4), (2, 4)])
     # gm.unzip(_graph, 5, [(4, 6), (4, 6)])
-    # gm.unzip(_graph, 4, [(7, 9), (7, 10), (8, 9), (8, 10)])
     # Because splitting the middle node (4) now has 2*2 paths that it can traverse.
 
     # sz.draw.draw_graph(_graph)
@@ -433,38 +431,67 @@ def test_batch_unzip_topology():
         sz.stats.degree_stats(_graph).reset_index().values,
         [
             [1.0, 1.0, 5.0],
-            [1.0, 2.0, 3.0],
-            [2.0, 1.0, 2.0],
             [0.0, 1.0, 1.0],
+            [1.0, 2.0, 1.0],
             [2.0, 0.0, 1.0],
+            [2.0, 2.0, 1.0],
         ],
     )
 
 
-# def test_batch_operations_topology():
-#     _graph = gt.Graph()
-#     _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)])
-#     # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
-#
-#     _graph.vp['filter'] = _graph.new_vertex_property('bool', val=True)
-#     _graph.set_vertex_filter(_graph.vp['filter'])
-#
-#     gm = sz.graph_manager.GraphManager()
-#     gm.validate(_graph)
-#
-#     gm.batch_unzip(_graph, (3, [(2, 4), (2, 4)], {}), (5, [(4, 6), (4, 6)]))
-#
-#     assert np.array_equal(_graph.degree_property_map('in').a, [0, 1, 1, 0, 2, 0, 2, 1, 1, 1, 1])
-#     assert np.array_equal(_graph.degree_property_map('out').a, [1, 1, 2, 0, 2, 0, 0, 1, 1, 1, 1])
-#     # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
-#
-#     gm.batch_press(_graph, *[([0, 1, 2], {}), ([4, 5, 6], {})])
-#     # gm.press(_graph, [0, 1, 2])
-#     # gm.press(_graph, [4, 5, 6]) # Should be equivalent to the above
-#
-#     assert np.array_equal(_graph.get_in_degrees([9, 10]), [0, 3])
-#     assert np.array_equal(_graph.get_out_degrees([9, 10]), [3, 0])
-#     # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
+def test_batch_unzip_topology_complex1():
+    _graph = gt.Graph()
+    _graph.add_edge_list([(0, 1), (1, 2), (3, 1), (2, 4), (2, 5)])
+
+    _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
+    _graph.set_vertex_filter(_graph.vp["filter"])
+
+    gm = sz.graph_manager.GraphManager()
+    gm.validate(_graph)
+
+    gm.batch_unzip(
+        _graph,
+        (2, [(1, 5), (1, 4)], {}),
+        (1, [(0, 2), (3, 2)], {}),
+    )
+
+    assert np.array_equal(
+        sz.stats.degree_stats(_graph).reset_index().values,
+        [[0.0, 1.0, 2.0], [1.0, 0.0, 2.0], [1.0, 2.0, 2.0], [2.0, 1.0, 2.0]],
+    )
+
+
+def test_batch_unzip_topology_complex2():
+    _graph = gt.Graph()
+    _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)])
+    # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
+
+    _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
+    _graph.set_vertex_filter(_graph.vp["filter"])
+
+    gm = sz.graph_manager.GraphManager()
+    gm.validate(_graph)
+
+    gm.batch_unzip(
+        _graph,
+        (3, [(2, 4), (2, 4)], {}),
+        (5, [(4, 6), (4, 6)], {}),
+        (4, [(3, 5), (3, 5)], {}),
+    )
+
+    # sz.draw.draw_graph(_graph)
+    # print(repr(sz.stats.degree_stats(_graph).reset_index().values))
+    assert np.array_equal(
+        sz.stats.degree_stats(_graph).reset_index().values,
+        [
+            [1.0, 2.0, 3.0],
+            [2.0, 1.0, 2.0],
+            [2.0, 2.0, 2.0],
+            [0.0, 1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [2.0, 0.0, 1.0],
+        ],
+    )
 
 
 def test_batch_operations_on_properties():
@@ -479,7 +506,6 @@ def test_batch_operations_on_properties():
     _filter = _graph.new_vertex_property("bool", val=1)
 
     # Initialize position info
-    offset_scale = 0.1
     xyposition = np.empty((2, num_vertices))
     xyposition[0, :] = np.arange(num_vertices)
     xyposition[1, :] = 0
@@ -509,27 +535,36 @@ def test_batch_operations_on_properties():
         ],
     )
     gm.validate(_graph)
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
-    # print(_graph.vp['xyposition'].get_2d_array(pos=[0, 1]))
 
     gm.batch_unzip(
         _graph,
         (3, [(2, 4), (2, 4)], {"path_depths": [0, 0]}),
+        (4, [(3, 5), (3, 5)], {"path_depths": [0, 0]}),
         (5, [(4, 6), (4, 6)], {"path_depths": [0, 0]}),
     )
-    # gm.unzip(_graph, 3, [(2, 4)], path_depths=[0])
-    # gm.unzip(_graph, 3, [(2, 4)], path_depths=[0]) # Should be equivalent to the above
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
-    # print(_graph.vp['xyposition'].get_2d_array(pos=[0, 1]))
+
     with unfiltered(_graph):
         assert np.array_equal(
             _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
-            np.array(
+            [
+                [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 2.9, 3.1, 3.9, 4.1, 4.9, 5.1],
                 [
-                    [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 2.9, 3.1, 4.9, 5.1],
-                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.1, 0.1, -0.1, 0.1],
-                ]
-            ),
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    -0.1,
+                    0.1,
+                    -0.1,
+                    0.1,
+                    -0.1,
+                    0.1,
+                ],
+            ],
         )
 
     gm.batch_press(
@@ -537,10 +572,6 @@ def test_batch_operations_on_properties():
         ([0, 1, 2], {}),
         ([6, 7], {}),
     )
-    # gm.press(_graph, [0, 1, 2])
-    # gm.press(_graph, [6, 7]) # Should be equivalent to the above
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
-    # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
         assert np.array_equal(
             _graph.vp["xyposition"].get_2d_array(pos=[0, 1]),
@@ -557,6 +588,8 @@ def test_batch_operations_on_properties():
                         7.0,
                         2.9,
                         3.1,
+                        3.9,
+                        4.1,
                         4.9,
                         5.1,
                         1.0,
@@ -571,6 +604,8 @@ def test_batch_operations_on_properties():
                         0.0,
                         0.0,
                         0.0,
+                        -0.1,
+                        0.1,
                         -0.1,
                         0.1,
                         -0.1,

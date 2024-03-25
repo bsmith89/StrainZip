@@ -367,10 +367,44 @@ class GraphManager:
         # FIXME: If any of the vertices named in paths are also found in any
         # of the parent entries of args, then these need to be updated, because
         # they will no longer exist after the unzip operation on that vertex.
-        children = []
+        all_children = []
+        updated = {}
         for parent, paths, kwargs in args:
-            children.extend(self.unzip(graph, parent, paths, **kwargs))
-        return children
+            assert_vertex_unfiltered(graph, parent)
+            n = len(paths)
+            num_before = graph.num_vertices(ignore_filter=True)
+            num_after = num_before + n
+            graph.add_vertex(n)
+            children = list(range(num_before, num_after))
+            updated[parent] = children
+            new_edge_list = []
+            for (left, right), child in zip(paths, children):
+                if left in updated:
+                    left_list = updated[left]
+                else:
+                    left_list = [left]
+                if right in updated:
+                    right_list = updated[right]
+                else:
+                    right_list = [right]
+                assert_all_vertices_unfiltered(graph, [child] + left_list + right_list)
+
+                for new_left in left_list:
+                    new_edge_list.append((new_left, child))
+                for new_right in right_list:
+                    new_edge_list.append((child, new_right))
+            graph.add_edge_list(new_edge_list)
+
+            for uz in self.unzippers:
+                uz.unzip(
+                    graph,
+                    parent,
+                    children,
+                    tuple(kwargs[arg] for arg in uz.free_args),
+                )
+
+            all_children.extend(children)
+        return all_children
 
     def batch_press(self, graph, *args):
         children = []
