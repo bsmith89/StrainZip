@@ -78,3 +78,17 @@ def test_estimate_flow_filtered_graph():
         graph, depth=depth, weight=length, eps=0.001, maxiter=1000
     )
     assert flow[(0, 1)] == 1.0
+
+
+def test_flow_on_graph_with_tips():
+    np.random.seed(1)
+    gt.seed_rng(1)
+    sequence = sz.sequence.random_sequence(1000)
+    graph = sz.build.annotated_dbg(sequence, k=7, circularize=False, include_rc=True)
+    flow, resid, hist = sz.flow.estimate_flow(
+        graph,
+        depth=graph.vp["depth"],
+        weight=graph.vp["length"],
+        eps=0.001,
+        maxiter=1000,
+    )
