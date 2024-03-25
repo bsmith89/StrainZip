@@ -115,3 +115,11 @@ def load_sequence_depth_matrix(con, sequence, k):
         results.extend(con.execute(query, (kmer, kmer_rc)).fetchall())
     results = np.array([r[1:] for r in results])
     return results
+
+
+def dump_graph(graph, path):
+    graph.save(path)
+
+
+def load_graph(path):
+    return gt.load_graph(path)
