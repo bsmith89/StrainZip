@@ -1,4 +1,5 @@
 import logging
+import os
 import sqlite3
 import sys
 
@@ -104,7 +105,7 @@ class App:
         and must return an argparse.Namespace for usage during execution.
 
         """
-        raise NotImplementedError
+        return args
 
     def execute(self, args):
         """Implement all remaining work for the specific application.
@@ -140,20 +141,23 @@ class EstimateUnitigDepth(App):
     """Estimate mean kmer depth of sequences."""
 
     def add_custom_cli_args(self):
-        self.parser.add_argument("COUNTSDB", help="SQLite3 DB of kmer counts")
-        self.parser.add_argument("K", type=int, help="Kmer length")
-        self.parser.add_argument("FASTA", help="FASTA of sequences to be quantified")
+        self.parser.add_argument("counts_inpath", help="SQLite3 DB of kmer counts")
+        self.parser.add_argument("k", type=int, help="Kmer length")
+        self.parser.add_argument(
+            "fasta_inpath", help="FASTA of sequences to be quantified"
+        )
 
     def execute(self, args):
         print("Start loading counts DB.", file=sys.stderr)
-        disk_con = sqlite3.connect(args.countsdb)
+        assert os.path.exists(args.counts_inpath)
+        disk_con = sqlite3.connect(args.counts_inpath)
         con = sqlite3.connect(":memory:")
         disk_con.backup(con)
         disk_con.close()
         print("Finished loading counts DB.", file=sys.stderr)
 
         print("Start calculating depths.")
-        with open(args.fasta) as f:
+        with open(args.fasta_inpath) as f:
             for header, sequence in sz.io.iter_linked_fasta_entries(f):
                 unitig_id_string, *_ = sz.io.ggcat_header_tokenizer(header)
                 unitig_id = unitig_id_string[1:]
@@ -168,13 +172,13 @@ class LoadGraph(App):
     """Load GGCAT to StrainZip graph file."""
 
     def add_custom_cli_args(self):
-        self.parser.add_argument("K", type=int, help="Kmer length")
-        self.parser.add_argument("FASTA", help="FASTA from GGCAT")
-        self.parser.add_argument("OUTPUT")
+        self.parser.add_argument("k", type=int, help="Kmer length")
+        self.parser.add_argument("fasta_inpath", help="FASTA from GGCAT")
+        self.parser.add_argument("outpath")
 
     def execute(self, args):
-        with open(args.fasta) as f:
+        with open(args.fasta_inpath) as f:
             graph, _ = sz.io.load_graph_and_sequences_from_linked_fasta(
                 f, k=args.k, header_tokenizer=sz.io.ggcat_header_tokenizer
             )
-        sz.io.dump_graph(graph, args.output)
+        sz.io.dump_graph(graph, args.outpath)
