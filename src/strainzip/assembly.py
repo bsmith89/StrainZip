@@ -1,4 +1,5 @@
 import graph_tool as gt
+import graph_tool.search
 import graph_tool.topology
 import numpy as np
 
@@ -57,3 +58,22 @@ def find_junctions(g):
         0
     ]  # np.where returns a tuple (maybe to deal with an N-dimensional mask?).
     return result
+
+
+def backlinked_graph(graph):
+    out = graph.copy()
+    edges = graph.get_edges()
+    rev_edges = edges[:, [1, 0]]
+    out.add_edge_list(rev_edges)
+    return out
+
+
+def get_shortest_distance(graph, root, weights, max_length=None):
+    original_graph = graph
+    graph = backlinked_graph(graph)
+    weights = graph.own_property(weights)
+    edge_weights = gt.edge_endpoint_property(graph, weights, "source")
+    dist = gt.topology.shortest_distance(
+        graph, root, weights=edge_weights, directed=True, max_dist=max_length
+    )
+    return original_graph.own_property(dist)
