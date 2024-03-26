@@ -73,7 +73,7 @@ def iter_linked_fasta_entries(lines_iter):
                 yield (header, sequence)
             header = line
         else:
-            sequence = line
+            sequence = line.strip()
     yield (header, sequence)
 
 
