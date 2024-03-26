@@ -1,4 +1,5 @@
 import logging
+import sqlite3
 import sys
 
 import strainzip as sz
@@ -133,3 +134,47 @@ class Example(App):
                 print("Foo!")
         else:
             print("Nope, that's a bar.")
+
+
+class EstimateUnitigDepth(App):
+    """Estimate mean kmer depth of sequences."""
+
+    def add_custom_cli_args(self):
+        self.parser.add_argument("COUNTSDB", help="SQLite3 DB of kmer counts")
+        self.parser.add_argument("K", type=int, help="Kmer length")
+        self.parser.add_argument("FASTA", help="FASTA of sequences to be quantified")
+
+    def execute(self, args):
+        print("Start loading counts DB.", file=sys.stderr)
+        disk_con = sqlite3.connect(args.countsdb)
+        con = sqlite3.connect(":memory:")
+        disk_con.backup(con)
+        disk_con.close()
+        print("Finished loading counts DB.", file=sys.stderr)
+
+        print("Start calculating depths.")
+        with open(args.fasta) as f:
+            for header, sequence in sz.io.iter_linked_fasta_entries(f):
+                unitig_id_string, *_ = sz.io.ggcat_header_tokenizer(header)
+                unitig_id = unitig_id_string[1:]
+                depths_matrix = sz.io.load_sequence_depth_matrix(
+                    con, sequence, k=args.k
+                )
+                depths_mean = depths_matrix.mean(0)
+                print(unitig_id, "\t".join(depths_mean), file=sys.stdout)
+
+
+class LoadGraph(App):
+    """Load GGCAT to StrainZip graph file."""
+
+    def add_custom_cli_args(self):
+        self.parser.add_argument("K", type=int, help="Kmer length")
+        self.parser.add_argument("FASTA", help="FASTA from GGCAT")
+        self.parser.add_argument("OUTPUT")
+
+    def execute(self, args):
+        with open(args.fasta) as f:
+            graph, _ = sz.io.load_graph_and_sequences_from_linked_fasta(
+                f, k=args.k, header_tokenizer=sz.io.ggcat_header_tokenizer
+            )
+        sz.io.dump_graph(graph, args.output)

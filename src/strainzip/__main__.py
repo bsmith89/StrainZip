@@ -3,7 +3,7 @@ import sys
 
 from . import app
 
-APPLICATIONS = {"foo": app.Example}
+APPLICATIONS = {"depth": app.EstimateUnitigDepth, "load_graph": app.LoadGraph}
 
 
 def main():
