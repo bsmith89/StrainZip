@@ -3,15 +3,22 @@ from itertools import product
 
 import numpy as np
 
-COMPLEMENTARY_BASE = {"A": "T", "C": "G", "G": "C", "T": "A"}
-
 
 def random_sequence(length):
     return "".join(np.random.choice(["A", "C", "G", "T"], size=length, replace=True))
 
 
 def base_pair(b):
-    return COMPLEMENTARY_BASE[b]
+    if b == "A":
+        return "T"
+    elif b == "C":
+        return "G"
+    elif b == "G":
+        return "C"
+    elif b == "T":
+        return "A"
+    else:
+        raise ValueError("'{b}' is not a valid base.")
 
 
 def reverse_complement(s):
