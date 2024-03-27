@@ -3,6 +3,9 @@ import os
 import sqlite3
 import sys
 
+import pandas as pd
+from tqdm import tqdm
+
 import strainzip as sz
 
 
@@ -146,6 +149,7 @@ class EstimateUnitigDepth(App):
         self.parser.add_argument(
             "fasta_inpath", help="FASTA of sequences to be quantified"
         )
+        self.parser.add_argument("outpath")
 
     def execute(self, args):
         print("Start loading counts DB.", file=sys.stderr)
@@ -157,15 +161,18 @@ class EstimateUnitigDepth(App):
         print("Finished loading counts DB.", file=sys.stderr)
 
         print("Start calculating depths.")
+        results = {}
         with open(args.fasta_inpath) as f:
-            for header, sequence in sz.io.iter_linked_fasta_entries(f):
+            for header, sequence in tqdm(sz.io.iter_linked_fasta_entries(f)):
                 unitig_id_string, *_ = sz.io.ggcat_header_tokenizer(header)
                 unitig_id = unitig_id_string[1:]
                 depths_matrix = sz.io.load_sequence_depth_matrix(
                     con, sequence, k=args.k
                 )
                 depths_mean = depths_matrix.mean(0)
-                print(unitig_id, "\t".join(depths_mean), file=sys.stdout)
+                results[unitig_id] = depths_mean
+        results = pd.DataFrame(results.values(), index=results.keys())  # type: ignore[reportArgumentType]
+        results.to_xarray().dump(args.outpath)
 
 
 class LoadGraph(App):
