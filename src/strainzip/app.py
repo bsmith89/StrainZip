@@ -170,9 +170,12 @@ class EstimateUnitigDepth(App):
                     con, sequence, k=args.k
                 )
                 depths_mean = depths_matrix.mean(0)
-                results[unitig_id] = depths_mean
+                results[int(unitig_id)] = depths_mean
         results = pd.DataFrame(results.values(), index=results.keys())  # type: ignore[reportArgumentType]
-        results.to_xarray().dump(args.outpath)
+        results = (
+            results.rename_axis(index="unitig", columns="sample").stack().to_xarray()
+        )
+        results.to_netcdf(args.outpath)
 
 
 class LoadGraph(App):
