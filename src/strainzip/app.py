@@ -162,8 +162,8 @@ class EstimateUnitigDepth(App):
 
         print("Start calculating depths.")
         results = {}
-        with open(args.fasta_inpath) as f:
-            for header, sequence in tqdm(sz.io.iter_linked_fasta_entries(f)):
+        with open(args.fasta_inpath) as f, tqdm(mininterval=1) as pbar:
+            for header, sequence in sz.io.iter_linked_fasta_entries(f):
                 unitig_id_string, *_ = sz.io.ggcat_header_tokenizer(header)
                 unitig_id = unitig_id_string[1:]
                 depths_matrix = sz.io.load_sequence_depth_matrix(
@@ -171,6 +171,7 @@ class EstimateUnitigDepth(App):
                 )
                 depths_mean = depths_matrix.mean(0)
                 results[int(unitig_id)] = depths_mean
+                pbar.update(depths_mean.shape[0])
         results = pd.DataFrame(results.values(), index=results.keys())  # type: ignore[reportArgumentType]
         results = (
             results.rename_axis(index="unitig", columns="sample").stack().to_xarray()
