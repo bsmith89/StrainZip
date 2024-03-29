@@ -411,3 +411,6 @@ class GraphManager:
         for parents, kwargs in args:
             children.append(self.press(graph, parents, **kwargs))
         return children
+
+    def batch_trim(self, graph, parents):
+        graph.vp.filter.a[parents] = 0
