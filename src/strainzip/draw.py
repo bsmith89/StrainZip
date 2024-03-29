@@ -19,13 +19,11 @@ def draw_graph(graph, **kwargs):
 
     if "xyposition" in graph.vp:
         draw_kwargs["pos"] = graph.vp["xyposition"]
-    if "length" in graph.vp:
-        vertex_aspect = graph.vp["length"].copy()
-        vertex_aspect.a[:] = np.sqrt(vertex_aspect.a)
-        draw_kwargs["vertex_aspect"] = vertex_aspect
     if "depth" in graph.vp:
         if graph.vp["depth"].value_type() == "double":
             draw_kwargs["vertex_fill_color"] = graph.vp["depth"]
+        elif "length" in graph.vp:
+            draw_kwargs["vertex_fill_color"] = graph.vp["length"]
 
     return gt.draw.graph_draw(
         graph,
