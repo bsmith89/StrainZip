@@ -5,12 +5,17 @@ import numpy as np
 from tqdm import tqdm
 
 
-def estimate_flow(graph, depth, weight, eps=0.001, maxiter=1000, verbose=False):
+def estimate_flow(
+    graph, depth, weight, eps=0.001, maxiter=1000, verbose=False, flow_init=None
+):
     target_vertex_weight = gt.edge_endpoint_property(graph, weight, "target")
     source_vertex_weight = gt.edge_endpoint_property(graph, weight, "source")
 
     # Allocate PropertyMaps
-    flow = graph.new_edge_property("float", val=1)
+    if flow_init is not None:
+        flow = flow_init
+    else:
+        flow = graph.new_edge_property("float", val=1)
     # In / Target
     total_in_flow = graph.new_vertex_property("float")
     in_flow_error = graph.new_vertex_property("float")
@@ -26,7 +31,7 @@ def estimate_flow(graph, depth, weight, eps=0.001, maxiter=1000, verbose=False):
     source_vertex_alloc = np.empty_like(flow.a)
     source_vertex_alloc_error = np.empty_like(flow.a)
 
-    loss_hist = [np.finfo("float").max]
+    loss_hist = []
     i = 0
     pbar = tqdm(
         range(maxiter),
@@ -79,10 +84,11 @@ def estimate_flow(graph, depth, weight, eps=0.001, maxiter=1000, verbose=False):
         )
         if loss_hist[-1] == 0:
             break  # This should only happen if d is all 0's.
-        loss_ratio = (loss_hist[-2] - loss_hist[-1]) / loss_hist[-2]
-        pbar.set_postfix({"improvement": loss_ratio})
-        if loss_ratio < eps:
-            break
+        if i > 1:
+            loss_ratio = (loss_hist[-2] - loss_hist[-1]) / loss_hist[-2]
+            pbar.set_postfix({"loss": loss_hist[-1], "improvement": loss_ratio})
+            if loss_ratio < eps:
+                break
 
         # NOTE: Some values of (source_vertex_weight.a + target_vertex_weight.a)
         # are 0 because these two edge_properties include edge indices
