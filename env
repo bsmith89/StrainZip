@@ -1,2 +1,2 @@
-export PROJECT_ROOT=$(PWD)
+export PROJECT_ROOT=$(pwd)
 [[ -f "env_local" ]] && source env_local
