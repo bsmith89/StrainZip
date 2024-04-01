@@ -32,7 +32,7 @@ def residual_flow(path_weights, design, observed):
     return resid
 
 
-def aic(resid, k):
+def aic_score(resid, k):
     rss = np.sum(resid**2)
     n = resid.shape[0] + resid.shape[1]
     df = n - k
@@ -40,32 +40,48 @@ def aic(resid, k):
     return n * np.log(rss / n) + 2 * k
 
 
-def optimal_path_weights(design, observed, **kwargs):
+def optimize_path_weights(
+    design, observed, solver="cd", max_iter=20_000, random_state=0, **kwargs
+):
     k = design.shape[0]
-    default_kwargs: dict[str, Any] = dict(solver="cd", max_iter=2_000)
     W, _, _ = non_negative_factorization(
         observed,
         H=design.astype(float),
         update_H=False,
         n_components=k,
-        **(default_kwargs | kwargs),
+        solver=solver,
+        max_iter=max_iter,
+        random_state=random_state,
+        **kwargs,
     )
     return W
 
 
-def fit_sparse_paths_exhaustive(
-    full_design, observed, return_all_results=False, **kwargs
+def fit_paths_exhaustive(
+    full_design,
+    observed,
+    fit_func=optimize_path_weights,
+    score_func=aic_score,
+    return_all_results=False,
+    fit_kwargs=None,
+    score_kwargs=None,
 ):
+    if fit_kwargs is None:
+        fit_kwargs = {}
+    if score_kwargs is None:
+        score_kwargs = {}
+
     full_k = full_design.shape[0]
     results = {}
-    for k in range(1, full_k):
+    for k in range(1, full_k + 1):
         for paths in combinations(range(full_k), k):
             _paths = list(paths)
             reduced_design = np.zeros_like(full_design)
             reduced_design[_paths] = full_design[_paths]
-            weights = optimal_path_weights(reduced_design, observed, **kwargs)
+            weights = fit_func(reduced_design, observed, **fit_kwargs)
             resid = residual_flow(weights, full_design, observed)
-            score = aic(resid, len(paths))
+            score = score_func(resid, len(paths), **score_kwargs)
+            # import pdb; pdb.set_trace()
             results[paths] = (score, weights)
     scores, ranked = zip(*sorted([(results[k][0], k) for k in results]))
     if return_all_results:
@@ -73,18 +89,18 @@ def fit_sparse_paths_exhaustive(
     return scores[0] - scores[1], ranked[0], results[ranked[0]][1]
 
 
-def estimate_path_weights(in_vertices, in_flows, out_vertices, out_flows):
+def estimate_path_weights(in_vertices, in_flows, out_vertices, out_flows, **kwargs):
     n = len(in_vertices)
     m = len(out_vertices)
     design, observed, labels = formulate_path_decomposition(in_flows, out_flows)
-    delta_aic, paths, weights = fit_sparse_paths_exhaustive(design, observed)
+    delta_aic, paths, weights = fit_paths_exhaustive(design, observed, **kwargs)
 
     named_paths = []
     depths = []
-    for path_idx, d in zip(paths, weights.T):
+    for path_idx in paths:
         left = in_vertices[labels[path_idx][0]]
         right = out_vertices[labels[path_idx][1]]
         named_paths.append((left, right))
-        depths.append(d)
+        depths.append(weights[:, path_idx])
 
     return delta_aic, named_paths, depths
