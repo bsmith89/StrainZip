@@ -2,8 +2,9 @@ import argparse
 import sys
 
 from . import app
+from .app_depth import EstimateUnitigDepth
 
-APPLICATIONS = {"depth": app.EstimateUnitigDepth, "load_graph": app.LoadGraph}
+APPLICATIONS = {"load_graph": app.LoadGraph, "depth": EstimateUnitigDepth}
 
 
 def main():

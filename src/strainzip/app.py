@@ -2,7 +2,9 @@ import logging
 import os
 import sqlite3
 import sys
+from multiprocessing.pool import Pool
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
