@@ -3,11 +3,9 @@ import graph_tool.draw
 import numpy as np
 
 
-def update_xypositions(graph, layout=gt.draw.sfdp_layout, **kwargs):
-    if "xyposition" in graph.vp:
+def update_xypositions(graph, layout=gt.draw.sfdp_layout, init_pos=None, **kwargs):
+    if ("xyposition" in graph.vp) and (init_pos is None):
         init_pos = graph.vp["xyposition"]
-    else:
-        init_pos = None
 
     graph.vp["xyposition"] = layout(graph, pos=init_pos, **kwargs)
 
