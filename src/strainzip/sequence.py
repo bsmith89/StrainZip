@@ -25,6 +25,14 @@ def reverse_complement(s):
     return "".join(map(base_pair, reversed(s)))
 
 
+def canonical_kmer(kmer):
+    kmer_rc = reverse_complement(kmer)
+    if kmer_rc > kmer:
+        return kmer
+    else:
+        return kmer_rc
+
+
 def iter_kmers(s, k, circularize=False):
     if circularize:
         # Append a k-1-prefix of sequence s to the end of s.
