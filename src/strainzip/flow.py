@@ -109,3 +109,27 @@ def estimate_flow(
     out_flow_error = depth.a - total_out_flow.a
     mean_residual_vertex_flow = (in_flow_error + out_flow_error) / 2
     return flow, mean_residual_vertex_flow, loss_hist
+
+
+def smooth_depth(
+    graph, depth, weight, num_iter=1, inertia=0, eps=0.001, maxiter=1000, verbose=False
+):
+    depth = depth.copy()
+    initial_totals = depth.a * weight.a
+
+    change = 0
+    for i in range(num_iter):
+        flow = graph.new_edge_property("float", val=1)
+        flow, resid, _ = estimate_flow(
+            graph,
+            depth,
+            weight,
+            eps=eps,
+            maxiter=maxiter,
+            verbose=False,
+            flow_init=flow,
+        )
+        depth.a[:] = depth.a - (resid / (weight.a**inertia))
+        change = np.abs(initial_totals - depth.a * weight.a).sum()
+
+    return depth, change / initial_totals.sum()
