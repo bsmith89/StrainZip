@@ -362,6 +362,11 @@ class GraphManager:
             )
         return child
 
+    # def burst(self, graph, parents, *kwargs):
+    #     # TODO: Treatment for bubbles and tips, putting all the depth
+    #     # into the context sequence.
+    #     pass
+
     def batch_unzip(self, graph, *args):
         # Args should be a tuple: (parent, paths, kwargs)
         # FIXME: If any of the vertices named in paths are also found in any
