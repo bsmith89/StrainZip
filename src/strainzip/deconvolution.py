@@ -40,6 +40,11 @@ def aic_score(resid, k):
     return n * np.log(rss / n) + 2 * k
 
 
+def adhoc_score(resid, k, penalty=2):
+    absolute_sum_of_residuals = np.sum(np.abs(resid))
+    return absolute_sum_of_residuals + k * penalty
+
+
 def optimize_path_weights(
     design, observed, solver="cd", max_iter=20_000, random_state=0, **kwargs
 ):
