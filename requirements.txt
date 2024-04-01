@@ -1,5 +1,6 @@
 black
 cython
+graph-tool
 ipython
 isort
 jupyterlab
@@ -12,11 +13,11 @@ numba
 numpy
 pandas
 patsy
+pip
 pre-commit
 pynvim
 pyright
 pytest
-# graph_tool
 scipy
 tqdm
 xarray

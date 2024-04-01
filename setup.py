@@ -33,9 +33,11 @@ setuptools.setup(
     packages=setuptools.find_packages("src"),
     package_dir={"": "src"},
     install_requires=[
-        # "graph-tool>=2.59",  # This can't be installed with pip...womp womp.
-        "pandas>=2",
-        "scipy>=1",
+        # "graph-tool",  # This can't be installed with pip...womp womp.
+        "pandas",
+        "scipy",
+        "tqdm",
+        "numpy",
     ],
     dependency_links=[],
     entry_points={"console_scripts": ["strainzip = strainzip.__main__:main"]},
