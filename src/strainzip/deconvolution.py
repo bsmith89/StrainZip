@@ -51,7 +51,7 @@ def simulate_active_paths(n, m, excess=0):
     return sorted(active_paths)
 
 
-def formulate_path_decomposition(in_flows, out_flows):
+def formulate_path_deconvolution(in_flows, out_flows):
     n, m = in_flows.shape[0], out_flows.shape[0]
     s = in_flows.shape[1]
     assert in_flows.shape[1] == out_flows.shape[1]
@@ -198,7 +198,7 @@ def deconvolve_junction(
     backward_stop=0.01,
     **kwargs,
 ):
-    X, y, labels = formulate_path_decomposition(in_flows, out_flows)
+    X, y, labels = formulate_path_deconvolution(in_flows, out_flows)
     (
         selected_paths,
         beta_est,

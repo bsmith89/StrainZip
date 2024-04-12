@@ -4,7 +4,7 @@ import strainzip as sz
 
 
 def test_deconvolution_problem_formulation():
-    X, y, labels = sz.deconvolution.formulate_path_decomposition(
+    X, y, labels = sz.deconvolution.formulate_path_deconvolution(
         np.array([[100, 20, 50], [0, 0, 0]]),
         np.array([[100, 10, 0], [0, 10, 50], [0, 0, 0]]),
     )
