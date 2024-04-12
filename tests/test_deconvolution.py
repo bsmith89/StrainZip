@@ -188,7 +188,7 @@ def test_predefined_deconvolution():
     assert np.allclose(sigma_stderr, np.array([[0.07006839]]))
 
 
-def test_model_selection_procedure():
+def test_model_selection_procedure_3x4():
     seed = 0
     alpha = 1e-0  # Small offset for handling 0s in depths
     n, m = 3, 4  # In-edges / out-edges
@@ -196,6 +196,57 @@ def test_model_selection_procedure():
     sigma = 1e-1  # Scale of the multiplicative noise
     depth_multiplier = 1  # Scaling factor for depths
     num_excess_paths = 1  # How many extra paths to include beyond correct ones.
+
+    np.random.seed(seed)
+
+    r_edges, p_paths = (n + m, n * m)
+    X = sz.deconvolution.design_paths(n, m)[0]
+    assert X.shape == (r_edges, p_paths)
+
+    # Select which pairs of in/out edges are "real" and assign them weights across samples.
+    active_paths = sz.deconvolution.simulate_active_paths(n, m, excess=num_excess_paths)
+    active_paths = [i for i, _ in active_paths]
+    beta = np.zeros((p_paths, s_samples))
+    beta[active_paths, :] = np.random.lognormal(
+        mean=-5, sigma=7, size=(len(active_paths), s_samples)
+    )
+    beta = beta.round(1)  # Structural zeros
+
+    # Simulate the observed depth of each edge.
+    expect = X @ (beta * depth_multiplier)
+    log_noise = np.random.normal(loc=0, scale=1, size=expect.shape)
+    y_obs = expect * np.exp(log_noise * sigma)
+
+    # Select paths and estimate depth
+    (
+        selected_paths,
+        beta_est,
+        beta_stderr,
+        sigma_est,
+        sigma_stderr,
+        inv_hessian,
+        fit,
+    ) = sz.deconvolution.estimate_paths(
+        X,
+        y_obs,
+        model=sz.depth_model,
+        forward_stop=0.2,
+        backward_stop=0.01,
+        alpha=alpha,
+    )
+
+    assert set(selected_paths) == set(active_paths)
+
+
+# FIXME: Parameterize the previous test instead of making this nearly identical test.
+def test_model_selection_procedure_2x1():
+    seed = 0
+    alpha = 1e-0  # Small offset for handling 0s in depths
+    n, m = 2, 1  # In-edges / out-edges
+    s_samples = 4
+    sigma = 1e-1  # Scale of the multiplicative noise
+    depth_multiplier = 1  # Scaling factor for depths
+    num_excess_paths = 0  # How many extra paths to include beyond correct ones.
 
     np.random.seed(seed)
 

@@ -139,6 +139,7 @@ def estimate_paths(
 
     prev_loglik = float("-inf")
     forward_selected_paths = []
+    active_paths = []
     for active_paths, loglik in iter_forward_greedy_path_selection(
         X, y, model, **kwargs
     ):
@@ -155,8 +156,13 @@ def estimate_paths(
                 )
             forward_selected_paths = active_paths
             break
+    else:
+        if verbose >= 1:
+            print("All paths added in forward pass without stopping.")
+        forward_selected_paths = active_paths
 
     selected_paths = forward_selected_paths
+    reduced_paths = []
     for reduced_paths, loglik in iter_backward_greedy_path_selection(
         X, y, model, active_paths=forward_selected_paths, **kwargs
     ):
@@ -170,6 +176,9 @@ def estimate_paths(
             break
         else:
             selected_paths = reduced_paths
+    else:
+        print("All paths removed in backward pass without stopping.")
+        selected_paths = reduced_paths
 
     X_selected = X[:, selected_paths]
     beta_est, sigma_est, fit = model.fit(y, X_selected, **kwargs)
