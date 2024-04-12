@@ -6,6 +6,7 @@ from . import (
     flow,
     graph_manager,
     io,
+    model_zoo,
     sequence,
     stats,
 )

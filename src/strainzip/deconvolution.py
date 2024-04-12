@@ -1,9 +1,8 @@
 from functools import cache
-from itertools import combinations, product
-from typing import Any
+from itertools import product
 
 import numpy as np
-from sklearn.decomposition import non_negative_factorization
+from scipy.stats import chi2
 
 
 @cache
@@ -18,6 +17,39 @@ def design_paths(n, m):
     return design, list(label_products)
 
 
+def simulate_active_paths(n, m, excess=0):
+    def raveled_coords(i, j, n, m):
+        assert i < n
+        assert j < m
+        return i * m + j
+
+    a = min(n, m)
+    b = max(n, m) - a
+
+    # Pick initial pairs by picking a subset of columns in a permutation matrix
+    perm_mat = np.eye(a)[:, np.random.choice(a, replace=False, size=a)]
+    # Pick additional pairs by adding additional columns from a second permutation matrix.
+    edge = np.eye(a)[:, np.random.choice(a, replace=False, size=b)]
+    mapping = np.concatenate([perm_mat, edge], axis=1)
+    mapping = list(enumerate(np.argmax(mapping, axis=0)))
+
+    # Add additional mappings beyond minimal.
+    excess_pairs = [
+        (i, j) for i, j in product(range(a + b), range(a)) if (i, j) not in mapping
+    ]
+    mapping += [
+        excess_pairs[i]
+        for i in np.random.choice(len(excess_pairs), replace=False, size=excess)
+    ]
+
+    if n < m:
+        active_paths = [(raveled_coords(i, j, n, m), (i, j + n)) for j, i in mapping]
+    else:
+        active_paths = [(raveled_coords(i, j, n, m), (i, j + n)) for i, j in mapping]
+
+    return sorted(active_paths)
+
+
 def formulate_path_decomposition(in_flows, out_flows):
     n, m = in_flows.shape[1], out_flows.shape[1]
     assert in_flows.shape[0] == out_flows.shape[0]
@@ -26,86 +58,153 @@ def formulate_path_decomposition(in_flows, out_flows):
     return design, observed, labels
 
 
-def residual_flow(path_weights, design, observed):
-    expect = path_weights @ design
-    resid = observed - expect
-    return resid
+def iter_forward_greedy_path_selection(X, y, model, active_paths=None, **kwargs):
+    e_edges, p_paths = X.shape
+    _e_edges, s_samples = y.shape
+    assert e_edges == _e_edges
+
+    if active_paths is None:
+        active_paths = set()
+    else:
+        active_paths = set(active_paths)
+    inactive_paths = set(range(p_paths)) - active_paths
+
+    while inactive_paths:
+        scores = []
+        for p in inactive_paths:
+            trial_paths = list(active_paths | {p})
+            X_trial = X[:, trial_paths]
+            beta_est, sigma_est, fit = model.fit(y, X_trial, **kwargs)
+            loglik = -model.negloglik(beta_est, sigma_est, y, X_trial, **kwargs)
+            scores.append((loglik, p))
+        best_loglik, best_p = sorted(scores, reverse=True)[0]
+        active_paths |= {best_p}
+        inactive_paths -= {best_p}
+        yield list(sorted(active_paths)), best_loglik
 
 
-def aic_score(resid, k):
-    rss = np.sum(resid**2)
-    n = resid.shape[0] + resid.shape[1]
-    df = n - k
-    assert rss > 0
-    return n * np.log(rss / n) + 2 * k
+def iter_backward_greedy_path_selection(X, y, model, active_paths=None, **kwargs):
+    e_edges, p_paths = X.shape
+    _e_edges, s_samples = y.shape
+    assert e_edges == _e_edges
+
+    if active_paths is None:
+        active_paths = set(range(p_paths))
+    else:
+        active_paths = set(active_paths)
+    inactive_paths = set(range(p_paths)) - active_paths
+
+    while active_paths:
+        scores = []
+        for p in active_paths:
+            trial_paths = list(active_paths - {p})
+            X_trial = X[:, trial_paths]
+            beta_est, sigma_est, fit = model.fit(y, X_trial, **kwargs)
+            loglik = -model.negloglik(beta_est, sigma_est, y, X_trial, **kwargs)
+            scores.append((loglik, p))
+        best_loglik, best_p = sorted(scores, reverse=True)[0]
+        inactive_paths |= {best_p}
+        active_paths -= {best_p}
+        yield list(sorted(active_paths)), best_loglik
 
 
-def adhoc_score(resid, k, penalty=2):
-    absolute_sum_of_residuals = np.sum(np.abs(resid))
-    return absolute_sum_of_residuals + k * penalty
+def likelihood_ratio_test(delta_loglik, delta_df):
+    """
+    Performs a likelihood ratio test given a difference in log-likelihoods and degrees of freedom.
+
+    Parameters:
+    delta_loglik (float): The difference in log-likelihoods between the complex and simple models.
+    delta_df (int): The difference in degrees of freedom between the complex and simple models.
+
+    Returns:
+    float: The p-value from the chi-square distribution for the test statistic.
+
+    Credit: ChatGPT
+    """
+    # Calculate the test statistic
+    test_statistic = 2 * delta_loglik
+
+    # Compute the p-value using the chi-square distribution
+    p_value = chi2.sf(test_statistic, delta_df)
+
+    return p_value
 
 
-def optimize_path_weights(
-    design, observed, solver="cd", max_iter=20_000, random_state=0, **kwargs
+def estimate_paths(
+    X, y, model, forward_stop=0.2, backward_stop=0.01, verbose=0, **kwargs
 ):
-    k = design.shape[0]
-    W, _, _ = non_negative_factorization(
-        observed,
-        H=design.astype(float),
-        update_H=False,
-        n_components=k,
-        solver=solver,
-        max_iter=max_iter,
-        random_state=random_state,
+    s_samples = y.shape[1]
+
+    prev_loglik = float("-inf")
+    forward_selected_paths = []
+    for active_paths, loglik in iter_forward_greedy_path_selection(
+        X, y, model, **kwargs
+    ):
+        pvalue = likelihood_ratio_test(
+            delta_loglik=loglik - prev_loglik, delta_df=s_samples
+        )
+        prev_loglik = loglik
+        if verbose >= 2:
+            print(active_paths, pvalue)
+        if pvalue > forward_stop:
+            if verbose >= 1:
+                print(
+                    f"Stop forward selection with {active_paths} and pvalue: {pvalue}"
+                )
+            forward_selected_paths = active_paths
+            break
+
+    selected_paths = forward_selected_paths
+    for reduced_paths, loglik in iter_backward_greedy_path_selection(
+        X, y, model, active_paths=forward_selected_paths, **kwargs
+    ):
+        pvalue = likelihood_ratio_test(prev_loglik - loglik, delta_df=s_samples)
+        prev_loglik = loglik
+        if verbose >= 2:
+            print(reduced_paths, pvalue)
+        if pvalue < backward_stop:
+            if verbose >= 1:
+                print(f"Stop backwards selection with pvalue: {pvalue}")
+            break
+        else:
+            selected_paths = reduced_paths
+
+    X_selected = X[:, selected_paths]
+    beta_est, sigma_est, fit = model.fit(y, X_selected, **kwargs)
+    beta_stderr, sigma_stderr, inv_beta_hessian = model.estimate_stderr(
+        y, X_selected, beta_est, sigma_est, **kwargs
+    )
+
+    return (
+        selected_paths,
+        beta_est,
+        beta_stderr,
+        sigma_est,
+        sigma_stderr,
+        inv_beta_hessian,
+        fit,
+    )
+
+
+def deconvolve_junction(
+    in_flows, out_flows, model, forward_stop=0.2, backward_stop=0.01, **kwargs
+):
+    X, y, labels = formulate_path_decomposition(in_flows, out_flows)
+    (
+        selected_paths,
+        beta_est,
+        beta_stderr,
+        sigma_est,
+        sigma_stderr,
+        inv_beta_hessian,
+        fit,
+    ) = estimate_paths(
+        X,
+        y,
+        model=model,
+        forward_stop=forward_stop,
+        backward_stop=backward_stop,
         **kwargs,
     )
-    return W
-
-
-def fit_paths_exhaustive(
-    full_design,
-    observed,
-    fit_func=optimize_path_weights,
-    score_func=aic_score,
-    return_all_results=False,
-    fit_kwargs=None,
-    score_kwargs=None,
-):
-    if fit_kwargs is None:
-        fit_kwargs = {}
-    if score_kwargs is None:
-        score_kwargs = {}
-
-    full_k = full_design.shape[0]
-    results = {}
-    for k in range(1, full_k + 1):
-        for paths in combinations(range(full_k), k):
-            _paths = list(paths)
-            reduced_design = np.zeros_like(full_design)
-            reduced_design[_paths] = full_design[_paths]
-            weights = fit_func(reduced_design, observed, **fit_kwargs)
-            resid = residual_flow(weights, full_design, observed)
-            score = score_func(resid, len(paths), **score_kwargs)
-            # import pdb; pdb.set_trace()
-            results[paths] = (score, weights)
-    scores, ranked = zip(*sorted([(results[k][0], k) for k in results]))
-    if return_all_results:
-        return results
-    return scores[0] - scores[1], ranked[0], results[ranked[0]][1]
-
-
-def estimate_path_weights(in_vertices, in_flows, out_vertices, out_flows, **kwargs):
-    n = len(in_vertices)
-    m = len(out_vertices)
-    design, observed, labels = formulate_path_decomposition(in_flows, out_flows)
-    delta_aic, paths, weights = fit_paths_exhaustive(design, observed, **kwargs)
-
-    named_paths = []
-    depths = []
-    for path_idx in paths:
-        left = in_vertices[labels[path_idx][0]]
-        right = out_vertices[labels[path_idx][1]]
-        named_paths.append((left, right))
-        depths.append(weights[:, path_idx])
-
-    return delta_aic, named_paths, depths
+    # TODO: format results
+    pass

@@ -3,6 +3,8 @@ cython
 graph-tool
 ipython
 isort
+jax
+jaxopt
 jupyterlab
 line_profiler
 lz4
