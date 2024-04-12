@@ -4,33 +4,33 @@ import strainzip as sz
 
 
 def test_deconvolution_problem_formulation():
-    design, observed, labels = sz.deconvolution.formulate_path_decomposition(
-        np.array([[100, 0], [20, 0], [50, 0]]),
-        np.array([[100, 0, 0], [10, 10.0, 0], [0, 50.0, 0.0]]),
+    X, y, labels = sz.deconvolution.formulate_path_decomposition(
+        np.array([[100, 20, 50], [0, 0, 0]]),
+        np.array([[100, 10, 0], [0, 10, 50], [0, 0, 0]]),
     )
     assert np.array_equal(
-        design,
+        X,
         [
-            [1, 0, 1, 0, 0],
-            [1, 0, 0, 1, 0],
-            [1, 0, 0, 0, 1],
-            [0, 1, 1, 0, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 0, 1],
+            [1, 1, 1, 0, 0, 0],
+            [0, 0, 0, 1, 1, 1],
+            [1, 0, 0, 1, 0, 0],
+            [0, 1, 0, 0, 1, 0],
+            [0, 0, 1, 0, 0, 1],
         ],
     )
     assert np.array_equal(
-        observed,
+        y,
         [
-            [100.0, 0.0, 100.0, 0.0, 0.0],
-            [20.0, 0.0, 10.0, 10.0, 0.0],
-            [50.0, 0.0, 0.0, 50.0, 0.0],
+            [100, 20, 50],
+            [0, 0, 0],
+            [100, 10, 0],
+            [0, 10, 50],
+            [0, 0, 0],
         ],
     )
 
 
 def test_well_specified_deconvolution():
-    model = sz.depth_model
     seed = 0
     alpha = 1e-5  # Small offset for handling 0s in depths
     n, m = 2, 3  # In-edges / out-edges
@@ -42,7 +42,7 @@ def test_well_specified_deconvolution():
     np.random.seed(seed)
 
     r_edges, p_paths = (n + m, n * m)
-    X = sz.deconvolution.design_paths(n, m)[0].T
+    X = sz.deconvolution.design_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
     # Select which pairs of in/out edges are "real" and assign them weights across samples.
@@ -76,14 +76,16 @@ def test_well_specified_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    beta_est, sigma_est, _ = model.fit(y_obs, X_reduced, alpha=alpha)
+    beta_est, sigma_est, _ = sz.depth_model.fit(y_obs, X_reduced, alpha=alpha)
 
     # Calculate likelihood
-    loglik = -model.negloglik(beta_est, sigma_est, y_obs, X_reduced, alpha=alpha)
+    loglik = -sz.depth_model.negloglik(
+        beta_est, sigma_est, y_obs, X_reduced, alpha=alpha
+    )
     assert np.isfinite(loglik)
 
     # Estimate standard errors.
-    beta_stderr, sigma_stderr, inv_beta_hessian = model.estimate_stderr(
+    beta_stderr, sigma_stderr, inv_beta_hessian = sz.depth_model.estimate_stderr(
         y_obs,
         X_reduced,
         beta_est,
@@ -97,7 +99,6 @@ def test_well_specified_deconvolution():
 
 
 def test_predefined_deconvolution():
-    model = sz.depth_model
     seed = 0
     alpha = 1e-5  # Small offset for handling 0s in depths
     n, m = 2, 3  # In-edges / out-edges
@@ -107,7 +108,7 @@ def test_predefined_deconvolution():
     num_excess_paths = 0  # How many extra paths to include beyond correct ones.
 
     r_edges, p_paths = (n + m, n * m)
-    X = sz.deconvolution.design_paths(n, m)[0].T
+    X = sz.deconvolution.design_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
     # Select which pairs of in/out edges are "real" and assign them weights across samples.
@@ -141,7 +142,7 @@ def test_predefined_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    beta_reduced_est, sigma_est, _ = model.fit(y_obs, X_reduced, alpha=alpha)
+    beta_reduced_est, sigma_est, _ = sz.depth_model.fit(y_obs, X_reduced, alpha=alpha)
     # Check estimates.
     assert np.allclose(
         beta_reduced_est,
@@ -156,13 +157,17 @@ def test_predefined_deconvolution():
     assert np.allclose(sigma_est, np.array([0.3837776]))
 
     # Check likelihood
-    loglik = -model.negloglik(
+    loglik = -sz.depth_model.negloglik(
         beta_reduced_est, sigma_est, y_obs, X_reduced, alpha=alpha
     )
     assert np.allclose(loglik, -6.918624)
 
     # Estimate standard errors.
-    beta_reduced_stderr, sigma_stderr, inv_beta_hessian = model.estimate_stderr(
+    (
+        beta_reduced_stderr,
+        sigma_stderr,
+        inv_beta_hessian,
+    ) = sz.depth_model.estimate_stderr(
         y_obs,
         X_reduced,
         beta_reduced_est,
@@ -184,7 +189,6 @@ def test_predefined_deconvolution():
 
 
 def test_model_selection_procedure():
-    model = sz.depth_model
     seed = 0
     alpha = 1e-0  # Small offset for handling 0s in depths
     n, m = 3, 4  # In-edges / out-edges
@@ -196,7 +200,7 @@ def test_model_selection_procedure():
     np.random.seed(seed)
 
     r_edges, p_paths = (n + m, n * m)
-    X = sz.deconvolution.design_paths(n, m)[0].T
+    X = sz.deconvolution.design_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
     # Select which pairs of in/out edges are "real" and assign them weights across samples.

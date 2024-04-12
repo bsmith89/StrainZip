@@ -12,7 +12,8 @@ def design_paths(n, m):
     design_products = product(in_designs, out_designs)
     label_products = product(range(n), range(m))
     design = np.stack(
-        [np.concatenate([in_row, out_row]) for in_row, out_row in design_products]
+        [np.concatenate([in_row, out_row]) for in_row, out_row in design_products],
+        axis=1,
     )
     return design, list(label_products)
 
@@ -51,11 +52,12 @@ def simulate_active_paths(n, m, excess=0):
 
 
 def formulate_path_decomposition(in_flows, out_flows):
-    n, m = in_flows.shape[1], out_flows.shape[1]
-    assert in_flows.shape[0] == out_flows.shape[0]
-    design, labels = design_paths(n, m)
-    observed = np.concatenate([in_flows, out_flows], axis=1)
-    return design, observed, labels
+    n, m = in_flows.shape[0], out_flows.shape[0]
+    s = in_flows.shape[1]
+    assert in_flows.shape[1] == out_flows.shape[1]
+    X, labels = design_paths(n, m)
+    y = np.concatenate([in_flows, out_flows], axis=0)
+    return X, y, labels
 
 
 def iter_forward_greedy_path_selection(X, y, model, active_paths=None, **kwargs):
@@ -187,7 +189,14 @@ def estimate_paths(
 
 
 def deconvolve_junction(
-    in_flows, out_flows, model, forward_stop=0.2, backward_stop=0.01, **kwargs
+    in_vertices,
+    in_flows,
+    out_vertices,
+    out_flows,
+    model,
+    forward_stop=0.2,
+    backward_stop=0.01,
+    **kwargs,
 ):
     X, y, labels = formulate_path_decomposition(in_flows, out_flows)
     (
@@ -206,5 +215,12 @@ def deconvolve_junction(
         backward_stop=backward_stop,
         **kwargs,
     )
-    # TODO: format results
-    pass
+    named_paths = []
+    depths = []
+    for path_idx in selected_paths:
+        left = in_vertices[labels[path_idx][0]]
+        right = out_vertices[labels[path_idx][1]]
+        named_paths.append((left, right))
+        depths.append(beta_est[:, path_idx])
+
+    return inv_beta_hessian, named_paths, depths
