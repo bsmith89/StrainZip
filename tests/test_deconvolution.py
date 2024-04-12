@@ -99,7 +99,6 @@ def test_well_specified_deconvolution():
 
 
 def test_predefined_deconvolution():
-    seed = 0
     alpha = 1e-5  # Small offset for handling 0s in depths
     n, m = 2, 3  # In-edges / out-edges
     s_samples = 3
