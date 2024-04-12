@@ -2,11 +2,11 @@ from . import (
     assembly,
     build,
     deconvolution,
+    depth_model,
     draw,
     flow,
     graph_manager,
     io,
-    model_zoo,
     sequence,
     stats,
 )

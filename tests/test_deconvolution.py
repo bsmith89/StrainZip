@@ -30,7 +30,7 @@ def test_deconvolution_problem_formulation():
 
 
 def test_well_specified_deconvolution():
-    model = sz.model_zoo.multiplicative_gaussian_noise
+    model = sz.depth_model
     seed = 0
     alpha = 1e-5  # Small offset for handling 0s in depths
     n, m = 2, 3  # In-edges / out-edges
@@ -97,7 +97,7 @@ def test_well_specified_deconvolution():
 
 
 def test_predefined_deconvolution():
-    model = sz.model_zoo.multiplicative_gaussian_noise
+    model = sz.depth_model
     seed = 0
     alpha = 1e-5  # Small offset for handling 0s in depths
     n, m = 2, 3  # In-edges / out-edges
@@ -184,7 +184,7 @@ def test_predefined_deconvolution():
 
 
 def test_model_selection_procedure():
-    model = sz.model_zoo.multiplicative_gaussian_noise
+    model = sz.depth_model
     seed = 0
     alpha = 1e-0  # Small offset for handling 0s in depths
     n, m = 3, 4  # In-edges / out-edges
@@ -225,7 +225,7 @@ def test_model_selection_procedure():
     ) = sz.deconvolution.estimate_paths(
         X,
         y_obs,
-        model=sz.model_zoo.multiplicative_gaussian_noise,
+        model=sz.depth_model,
         forward_stop=0.2,
         backward_stop=0.01,
         alpha=alpha,
