@@ -185,6 +185,9 @@ def estimate_paths(
         print("All paths removed in backward pass without stopping.")
         selected_paths = reduced_paths
 
+    if verbose >= 2:
+        print(selected_paths)
+
     X_selected = X[:, selected_paths]
     beta_est, sigma_est, fit = model.fit(y, X_selected, **kwargs)
     beta_stderr, sigma_stderr, inv_beta_hessian = model.estimate_stderr(
@@ -220,9 +223,11 @@ def deconvolve_junction(
     model,
     forward_stop=0.2,
     backward_stop=0.01,
+    verbose=False,
     **kwargs,
 ):
     X, y, labels = formulate_path_deconvolution(in_flows, out_flows)
+
     (
         selected_paths,
         beta_est,
@@ -238,6 +243,7 @@ def deconvolve_junction(
         model=model,
         forward_stop=forward_stop,
         backward_stop=backward_stop,
+        verbose=verbose,
         **kwargs,
     )
     named_paths = []
