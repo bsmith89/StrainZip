@@ -225,6 +225,7 @@ def test_model_selection_procedure_3x4():
         sigma_stderr,
         inv_hessian,
         fit,
+        delta_aic,
     ) = sz.deconvolution.estimate_paths(
         X,
         y_obs,
@@ -276,6 +277,7 @@ def test_model_selection_procedure_2x1():
         sigma_stderr,
         inv_hessian,
         fit,
+        delta_aic,
     ) = sz.deconvolution.estimate_paths(
         X,
         y_obs,

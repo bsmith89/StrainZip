@@ -138,6 +138,7 @@ def estimate_paths(
     s_samples = y.shape[1]
 
     prev_loglik = float("-inf")
+    model_aic = {}
     forward_selected_paths = []
     active_paths = []
     for active_paths, loglik in iter_forward_greedy_path_selection(
@@ -146,6 +147,7 @@ def estimate_paths(
         pvalue = likelihood_ratio_test(
             delta_loglik=loglik - prev_loglik, delta_df=s_samples
         )
+        model_aic[tuple(active_paths)] = 2 * s_samples * len(active_paths) - 2 * loglik
         prev_loglik = loglik
         if verbose >= 2:
             print(active_paths, pvalue)
@@ -167,6 +169,9 @@ def estimate_paths(
         X, y, model, active_paths=forward_selected_paths, **kwargs
     ):
         pvalue = likelihood_ratio_test(prev_loglik - loglik, delta_df=s_samples)
+        model_aic[tuple(reduced_paths)] = (
+            2 * s_samples * len(reduced_paths) - 2 * loglik
+        )
         prev_loglik = loglik
         if verbose >= 2:
             print(reduced_paths, pvalue)
@@ -186,6 +191,15 @@ def estimate_paths(
         y, X_selected, beta_est, sigma_est, **kwargs
     )
 
+    # Calculate the delta-AIC relative to the runner-up.
+    if verbose >= 2:
+        print(model_aic)
+    # FIXME: Collect a bunch of model AICs from both the forward and backword selection process.
+    # Make sure that the best model is much better.
+    best_aic = model_aic.pop(tuple(selected_paths))
+    second_best_aic = min(model_aic.values())
+    delta_aic = best_aic - second_best_aic
+
     return (
         selected_paths,
         beta_est,
@@ -194,6 +208,7 @@ def estimate_paths(
         sigma_stderr,
         inv_beta_hessian,
         fit,
+        delta_aic,
     )
 
 
@@ -216,6 +231,7 @@ def deconvolve_junction(
         sigma_stderr,
         inv_beta_hessian,
         fit,
+        delta_aic,
     ) = estimate_paths(
         X,
         y,
@@ -232,4 +248,4 @@ def deconvolve_junction(
         named_paths.append((left, right))
         depths.append(beta_est[:, path_idx])
 
-    return inv_beta_hessian, named_paths, depths
+    return inv_beta_hessian, named_paths, depths, delta_aic
