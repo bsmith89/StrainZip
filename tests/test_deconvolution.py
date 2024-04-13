@@ -95,7 +95,7 @@ def test_well_specified_deconvolution():
 
     # Check model identifiable.
     assert np.isfinite(beta_stderr).all()
-    assert np.isfinite(sigma_stderr)
+    assert np.isfinite(sigma_stderr).all()
 
 
 def test_predefined_deconvolution():
@@ -147,19 +147,19 @@ def test_predefined_deconvolution():
         beta_reduced_est,
         np.array(
             [
-                [4.5331750e00, 9.9224597e02, -3.8744474e-10],
-                [1.9078610e02, -3.6834535e-10, 1.9270270e04],
-                [1.0395310e02, 1.4642865e-10, 2.1371894e05],
+                [4.5332198e00, 9.9224072e02, -8.1854523e-11],
+                [1.9077873e02, 3.6379788e-12, 1.9270121e04],
+                [1.0395216e02, 3.6379788e-12, 2.1372383e05],
             ]
         ),
     )
-    assert np.allclose(sigma_est, np.array([0.3837776]))
+    assert np.allclose(sigma_est, np.array([0.5422841, 0.06206167, 0.379378]))
 
     # Check likelihood
     loglik = -sz.depth_model.negloglik(
         beta_reduced_est, sigma_est, y_obs, X_reduced, alpha=alpha
     )
-    assert np.allclose(loglik, -6.918624)
+    assert np.allclose(loglik, 0.52001405)
 
     # Estimate standard errors.
     (
@@ -178,13 +178,13 @@ def test_predefined_deconvolution():
         beta_reduced_stderr,
         np.array(
             [
-                [1.7567477e00, 2.6926828e02, 3.8375520e-06],
-                [5.2658543e01, 3.8375629e-06, 5.2294214e03],
-                [2.8209854e01, 2.7137764e-06, 5.7996836e04],
+                [2.4823506e00, 4.3543732e01, 3.7937325e-06],
+                [7.4403160e01, 6.2061696e-07, 5.1694121e03],
+                [3.9860443e01, 4.3884245e-07, 5.7333934e04],
             ]
         ),
     )
-    assert np.allclose(sigma_stderr, np.array([[0.07006839]]))
+    assert np.allclose(sigma_stderr, np.array([0.17148595, 0.01962585, 0.11996878]))
 
 
 def test_model_selection_procedure_3x4():
