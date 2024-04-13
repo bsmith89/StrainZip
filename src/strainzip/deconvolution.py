@@ -252,6 +252,6 @@ def deconvolve_junction(
         left = in_vertices[labels[path_idx][0]]
         right = out_vertices[labels[path_idx][1]]
         named_paths.append((left, right))
-        depths.append(beta_est[:, path_idx])
+        depths.append(beta_est[path_idx, :])
 
     return inv_beta_hessian, named_paths, depths, delta_aic
