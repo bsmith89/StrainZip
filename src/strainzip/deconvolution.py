@@ -2,7 +2,6 @@ from functools import cache
 from itertools import product
 
 import numpy as np
-from scipy.stats import chi2
 
 
 @cache
@@ -60,28 +59,25 @@ def formulate_path_deconvolution(in_flows, out_flows):
     return X, y, labels
 
 
-def aic_score(loglik, p_paths, e_edges, s_samples):
-    n = e_edges * s_samples
-    k = p_paths * s_samples
-    # TODO?
-    # See https://en.wikipedia.org/wiki/Akaike_information_criterion#Modification_for_small_sample_size
-    # FIXME: Figure out if this is actually the correct formula.
-    # aicc = -2 * loglik + 2 * k + (2 * k**2 + 2*k) / (n - k - 1)
-    # return aicc
-    return -2 * loglik + 2 * k
+# def aic_score(loglik, p_paths, e_edges, s_samples):
+#     n = e_edges * s_samples
+#     k = p_paths * s_samples
+#     # TODO?
+#     # See https://en.wikipedia.org/wiki/Akaike_information_criterion#Modification_for_small_sample_size
+#     # FIXME: Figure out if this is actually the correct formula.
+#     # aicc = -2 * loglik + 2 * k + (2 * k**2 + 2*k) / (n - k - 1)
+#     # return aicc
+#     return -2 * loglik + 2 * k
 
 
-def iter_forward_greedy_path_selection(X, y, model, active_paths=None, **kwargs):
-    e_edges, p_paths = X.shape
-    _e_edges, s_samples = y.shape
-    assert e_edges == _e_edges
-
+def iter_forward_greedy_path_selection(X, y, model, init_paths=None, **kwargs):
+    p_paths = X.shape[1]
     all_paths = set(range(p_paths))
 
-    if active_paths is None:
+    if init_paths is None:
         active_paths = set()
     else:
-        active_paths = set(active_paths)
+        active_paths = set(init_paths)
     inactive_paths = all_paths - active_paths
 
     while inactive_paths:
@@ -89,134 +85,71 @@ def iter_forward_greedy_path_selection(X, y, model, active_paths=None, **kwargs)
         for p in inactive_paths:
             trial_paths = active_paths | {p}
             X_trial = X[:, list(trial_paths)]
-            beta_est, sigma_est, fit = model.fit(y, X_trial, **kwargs)
-            loglik = -model.negloglik(beta_est, sigma_est, y, X_trial, **kwargs)
-            aic = aic_score(loglik, len(trial_paths), e_edges, s_samples)
-            scores.append((loglik, aic, trial_paths))
-        best_loglik, best_aic, best_paths = sorted(scores, reverse=True)[0]
+            fit = model.fit(y, X_trial, **kwargs)
+            scores.append((fit.score, trial_paths))
+        _, best_paths = sorted(scores, reverse=True)[0]
         active_paths = best_paths
         inactive_paths = all_paths - active_paths
-        yield list(sorted(active_paths)), best_loglik, {
-            tuple(sorted(pp)): a for _, a, pp in scores
-        }
+        yield tuple(sorted(active_paths)), {tuple(sorted(pp)): s for s, pp in scores}
 
 
-def iter_backward_greedy_path_selection(X, y, model, active_paths=None, **kwargs):
-    e_edges, p_paths = X.shape
-    _e_edges, s_samples = y.shape
-    assert e_edges == _e_edges
-
+def iter_backward_greedy_path_selection(X, y, model, init_paths=None, **kwargs):
+    p_paths = X.shape[1]
     all_paths = set(range(p_paths))
 
-    if active_paths is None:
+    if init_paths is None:
         active_paths = set(all_paths)
     else:
-        active_paths = set(active_paths)
+        active_paths = set(init_paths)
 
     while active_paths:
         scores = []
         for p in active_paths:
             trial_paths = active_paths - {p}
             X_trial = X[:, list(trial_paths)]
-            beta_est, sigma_est, fit = model.fit(y, X_trial, **kwargs)
-            loglik = -model.negloglik(beta_est, sigma_est, y, X_trial, **kwargs)
-            aic = aic_score(loglik, len(trial_paths), e_edges, s_samples)
-            scores.append((loglik, aic, trial_paths))
-        best_loglik, best_aic, best_paths = sorted(scores, reverse=True)[0]
+            fit = model.fit(y, X_trial, **kwargs)
+            scores.append((fit.score, trial_paths))
+        _, best_paths = sorted(scores, reverse=True)[0]
         active_paths = best_paths
-        yield list(sorted(active_paths)), best_loglik, {
-            tuple(sorted(pp)): a for _, a, pp in scores
-        }
+        yield tuple(sorted(active_paths)), {tuple(sorted(pp)): s for s, pp in scores}
 
 
-def likelihood_ratio_test(delta_loglik, delta_df):
-    test_statistic = 2 * delta_loglik
-    p_value = chi2.sf(test_statistic, delta_df)
-    return p_value
-
-
-def estimate_paths(
-    X, y, model, forward_stop=0.2, backward_stop=0.01, verbose=0, **kwargs
-):
-    s_samples = y.shape[1]
-
-    prev_loglik = float("-inf")
-    all_aic = {}
-    forward_selected_paths = []
-    active_paths = []
-    for active_paths, loglik, multi_aic in iter_forward_greedy_path_selection(
-        X, y, model, **kwargs
+def select_paths(X, y, model, forward_stop, backward_stop, **kwargs):
+    curr_score = np.nan
+    all_scores = {}
+    active_paths = ()
+    for active_paths, multi_scores in iter_forward_greedy_path_selection(
+        X, y, model, init_paths=[], **kwargs
     ):
-        pvalue = likelihood_ratio_test(
-            delta_loglik=loglik - prev_loglik, delta_df=s_samples
-        )
-        all_aic |= multi_aic
-        prev_loglik = loglik
-        if verbose >= 2:
-            print(active_paths, pvalue)
-        if verbose >= 3:
-            print(multi_aic)
-        if pvalue > forward_stop:
-            if verbose >= 1:
-                print(
-                    f"Stop forward selection with {active_paths} and pvalue: {pvalue}"
-                )
-            forward_selected_paths = active_paths
+        all_scores |= multi_scores
+        prev_score = curr_score
+        curr_score = all_scores[active_paths]
+        delta_score = curr_score - prev_score
+        if delta_score < forward_stop:
             break
-    else:
-        if verbose >= 1:
-            print("All paths added in forward pass without stopping.")
-        forward_selected_paths = active_paths
 
-    selected_paths = forward_selected_paths
-    reduced_paths = []
-    for reduced_paths, loglik, multi_aic in iter_backward_greedy_path_selection(
-        X, y, model, active_paths=forward_selected_paths, **kwargs
+    prev_active_paths = active_paths
+    for active_paths, multi_scores in iter_backward_greedy_path_selection(
+        X, y, model, init_paths=active_paths, **kwargs
     ):
-        pvalue = likelihood_ratio_test(prev_loglik - loglik, delta_df=s_samples)
-        all_aic |= multi_aic
-        prev_loglik = loglik
-        if verbose >= 2:
-            print(reduced_paths, pvalue)
-        if verbose >= 3:
-            print(multi_aic)
-        if pvalue < backward_stop:
-            if verbose >= 1:
-                print(f"Stop backwards selection with pvalue: {pvalue}")
+        all_scores |= multi_scores
+        prev_score = curr_score
+        curr_score = all_scores[active_paths]
+        delta_score = curr_score - prev_score
+        if delta_score < backward_stop:
+            active_paths = prev_active_paths  # Backtrack
             break
         else:
-            selected_paths = reduced_paths
-    else:
-        if verbose >= 1:
-            print("All paths removed in backward pass without stopping.")
-        selected_paths = reduced_paths
+            prev_active_paths = active_paths
 
-    if verbose >= 2:
-        print(selected_paths)
-
-    X_selected = X[:, selected_paths]
-    beta_est, sigma_est, fit = model.fit(y, X_selected, **kwargs)
-    beta_stderr, sigma_stderr, inv_beta_hessian = model.estimate_stderr(
-        y, X_selected, beta_est, sigma_est, **kwargs
-    )
-
-    # Calculate the delta-AIC relative to the runner-up.
-    if verbose >= 4:
-        print(all_aic)
-    # Make sure that the best model is much better.
-    best_aic = all_aic.pop(tuple(selected_paths))
-    second_best_aic = min(all_aic.values())
-    delta_aic = best_aic - second_best_aic
+    # How does this compare to the best model seen?
+    curr_score = all_scores.pop(active_paths)
+    compare_score = max(all_scores.values())
+    delta_score = curr_score - compare_score
 
     return (
-        selected_paths,
-        beta_est,
-        beta_stderr,
-        sigma_est,
-        sigma_stderr,
-        inv_beta_hessian,
-        fit,
-        delta_aic,
+        active_paths,
+        delta_score,
     )
 
 
@@ -226,29 +159,18 @@ def deconvolve_junction(
     out_vertices,
     out_flows,
     model,
-    forward_stop=0.2,
-    backward_stop=0.01,
-    verbose=False,
+    forward_stop=0,
+    backward_stop=0,
     **kwargs,
 ):
     X, y, labels = formulate_path_deconvolution(in_flows, out_flows)
 
-    (
-        selected_paths,
-        beta_est,
-        beta_stderr,
-        sigma_est,
-        sigma_stderr,
-        inv_beta_hessian,
-        fit,
-        delta_aic,
-    ) = estimate_paths(
+    selected_paths, delta_aic = select_paths(
         X,
         y,
         model=model,
         forward_stop=forward_stop,
         backward_stop=backward_stop,
-        verbose=verbose,
         **kwargs,
     )
     named_paths = []
@@ -257,4 +179,6 @@ def deconvolve_junction(
         right = out_vertices[labels[path_idx][1]]
         named_paths.append((left, right))
 
-    return inv_beta_hessian, named_paths, beta_est, delta_aic
+    fit = model.fit(y, X[:, selected_paths], **kwargs)
+
+    return fit, named_paths, delta_aic

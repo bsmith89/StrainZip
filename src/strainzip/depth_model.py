@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import Any
+
 import jax.numpy as jnp
 import jaxopt
 import numpy as np
@@ -14,45 +17,120 @@ def _inv_stable_log(x, alpha):
     return jnp.exp(x) - alpha
 
 
-def negloglik(beta, sigma, y, X, alpha):
+def loglik(beta, sigma, y, X, alpha):
     expect = X @ beta
     slog_y = _stable_log(y, alpha=alpha)
     slog_expect = _stable_log(expect, alpha=alpha)
-    return -NormalLogPDF(slog_y, loc=slog_expect, scale=sigma).sum()
+    return NormalLogPDF(slog_y, loc=slog_expect, scale=sigma).sum()
 
 
-def _packed_unbounded_negloglik(params, y, X, alpha):
+def _negloglik(*args, **kwargs):
+    return -1 * loglik(*args, **kwargs)
+
+
+def _score(beta, sigma, y, X, alpha):
+    e_edges, s_samples = y.shape
+    _, p_paths = X.shape
+
+    ll = loglik(beta, sigma, y, X, alpha)
+    n = e_edges * s_samples
+    k = p_paths * s_samples + s_samples
+    # NOTE: This parameter count is only correct if fitting both beta and sigma.
+    # However, it shouldn't matter for inter-comparison of this same depth model.
+    # bic = -2 * ll + 2 * k * jnp.log(n)  # TODO: Consier using BIC instead?
+    aic = -2 * ll + 2 * k
+    return -aic  # Higher is better.
+
+
+def _pack_params(beta, sigma, alpha):
+    slog_beta = _stable_log(beta, alpha)
+    log_sigma = jnp.log(sigma)
+    return slog_beta, log_sigma
+
+
+def _unpack_params(params, alpha):
     slog_beta, log_sigma = params
-    beta = _inv_stable_log(slog_beta, alpha=alpha)
+    beta = _inv_stable_log(slog_beta, alpha)
     sigma = jnp.exp(log_sigma)
-    return negloglik(beta, sigma, y, X, alpha=alpha)
+    return beta, sigma
 
 
 @jit
-def fit(y, X, alpha):
-    slog_beta_init = jnp.zeros((X.shape[1], y.shape[1]))
-    log_sigma_init = jnp.zeros((y.shape[1],))
-    fit = jaxopt.LBFGS(Partial(_packed_unbounded_negloglik, y=y, X=X, alpha=alpha)).run(
-        init_params=(slog_beta_init, log_sigma_init)
+def _optimize_beta(init_params, fixed_sigma, y, X, alpha):
+    def objective(params, y, X, alpha):
+        beta, _ = _unpack_params(params, alpha)
+        return -loglik(beta, fixed_sigma, y, X, alpha=alpha)
+
+    opt = jaxopt.LBFGS(Partial(objective, y=y, X=X, alpha=alpha)).run(
+        init_params=init_params
     )
-    slog_beta, log_sigma = fit.params
-    return _inv_stable_log(slog_beta, alpha), jnp.exp(log_sigma), fit
+    return opt
 
 
-def estimate_stderr(y, X, beta_est, sigma_est, alpha):
-    p_paths, s_samples = beta_est.shape
-    model_hessian = hessian(Partial(negloglik, y=y, X=X, alpha=alpha), argnums=[0, 1])
-    (beta_beta_hess, beta_sigma_hess), (
-        sigm_beta_hess,
-        sigma_sigma_hess,
-    ) = model_hessian(beta_est, sigma_est)
-    beta_hess_flat = beta_beta_hess.reshape((p_paths * s_samples, p_paths * s_samples))
-    beta_var_covar_matrix = jnp.linalg.inv(beta_hess_flat)
-    beta_variance = np.diag(beta_var_covar_matrix).reshape((p_paths, s_samples))
-    beta_stderr = np.sqrt(beta_variance)
+@jit
+def _optimize_sigma(init_params, fixed_beta, y, X, alpha):
+    def objective(params, y, X, alpha):
+        _, sigma = _unpack_params(params, alpha)
+        return -loglik(fixed_beta, sigma, y, X, alpha=alpha)
 
-    sigma_var_covar_matrix = jnp.linalg.inv(sigma_sigma_hess)
-    sigma_variance = np.diag(sigma_var_covar_matrix)
-    sigma_stderr = np.sqrt(sigma_variance)
+    opt = jaxopt.LBFGS(Partial(objective, y=y, X=X, alpha=alpha)).run(
+        init_params=init_params
+    )
+    return opt
 
-    return beta_stderr, sigma_stderr, beta_var_covar_matrix
+
+@dataclass
+class FitResult:
+    beta: Any
+    sigma: Any
+    score: float
+    hessian_func: Any
+    X: Any
+    y: Any
+
+    @property
+    def hessian_beta(self):
+        p_paths, s_samples = self.beta.shape
+        k_params = p_paths * s_samples
+        return self.hessian_func(self.beta, self.sigma)[0][0].reshape(
+            (k_params, k_params)
+        )
+
+    @property
+    def covariance_beta(self):
+        cov = jnp.linalg.inv(self.hessian_beta)
+        return cov
+
+    @property
+    def stderr_beta(self):
+        return jnp.sqrt(jnp.diag(self.covariance_beta)).reshape(self.beta.shape)
+
+    @property
+    def residual(self):
+        return self.y - self.X @ self.beta
+
+
+def fit(y, X, alpha):
+    e_edges, s_samples = y.shape
+    e_edges, p_paths = X.shape
+    init_beta = jnp.ones((p_paths, s_samples))
+    init_sigma = jnp.ones((s_samples,))
+    init_params = _pack_params(init_beta, init_sigma, alpha)
+
+    opt1 = _optimize_beta(init_params, fixed_sigma=1, y=y, X=X, alpha=alpha)
+    est_beta, _ = _unpack_params(opt1.params, alpha)
+    opt2 = _optimize_sigma(init_params, fixed_beta=est_beta, y=y, X=X, alpha=alpha)
+    _, est_sigma = _unpack_params(opt2.params, alpha=alpha)
+
+    # NOTE: Hessian of the *negative* log likelihood, because this is what's being
+    # minimized? (How does this make sense??)
+    hessian_func = hessian(Partial(_negloglik, y=y, X=X, alpha=alpha), argnums=[0, 1])
+    fit_result = FitResult(
+        est_beta,
+        est_sigma,
+        _score(est_beta, est_sigma, y, X, alpha),
+        hessian_func=hessian_func,
+        X=X,
+        y=y,
+    )
+    return fit_result
