@@ -9,19 +9,19 @@ from jax.scipy.stats.norm import logpdf as NormalLogPDF
 from jax.tree_util import Partial
 
 
-def _stable_log(x, alpha):
+def _trsfm(x, alpha):
     return jnp.log(x + alpha)
 
 
-def _inv_stable_log(x, alpha):
-    return jnp.exp(x) - alpha
+def _inv_trsfm(y, alpha):
+    return jnp.exp(y) - alpha
 
 
 def loglik(beta, sigma, y, X, alpha):
     expect = X @ beta
-    slog_y = _stable_log(y, alpha=alpha)
-    slog_expect = _stable_log(expect, alpha=alpha)
-    return NormalLogPDF(slog_y, loc=slog_expect, scale=sigma).sum()
+    trsfm_y = _trsfm(y, alpha=alpha)
+    trsfm_expect = _trsfm(expect, alpha=alpha)
+    return NormalLogPDF(trsfm_y, loc=trsfm_expect, scale=sigma).sum()
 
 
 def _negloglik(*args, **kwargs):
@@ -43,14 +43,14 @@ def _score(beta, sigma, y, X, alpha):
 
 
 def _pack_params(beta, sigma, alpha):
-    slog_beta = _stable_log(beta, alpha)
+    trsfm_beta = _trsfm(beta, alpha)
     log_sigma = jnp.log(sigma)
-    return slog_beta, log_sigma
+    return trsfm_beta, log_sigma
 
 
 def _unpack_params(params, alpha):
-    slog_beta, log_sigma = params
-    beta = _inv_stable_log(slog_beta, alpha)
+    trsfm_beta, log_sigma = params
+    beta = _inv_trsfm(trsfm_beta, alpha)
     sigma = jnp.exp(log_sigma)
     return beta, sigma
 
