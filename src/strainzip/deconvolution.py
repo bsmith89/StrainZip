@@ -114,7 +114,7 @@ def iter_backward_greedy_path_selection(X, y, model, init_paths=None, **kwargs):
         yield tuple(sorted(active_paths)), {tuple(sorted(pp)): s for s, pp in scores}
 
 
-def select_paths(X, y, model, forward_stop, backward_stop, **kwargs):
+def select_paths(X, y, model, forward_stop, backward_stop, verbose=False, **kwargs):
     curr_score = np.nan
     all_scores = {}
     active_paths = ()
@@ -124,6 +124,8 @@ def select_paths(X, y, model, forward_stop, backward_stop, **kwargs):
         all_scores |= multi_scores
         prev_score = curr_score
         curr_score = all_scores[active_paths]
+        if verbose:
+            print(active_paths, curr_score)
         delta_score = curr_score - prev_score
         if delta_score < forward_stop:
             break
@@ -135,6 +137,8 @@ def select_paths(X, y, model, forward_stop, backward_stop, **kwargs):
         all_scores |= multi_scores
         prev_score = curr_score
         curr_score = all_scores[active_paths]
+        if verbose:
+            print(active_paths, curr_score)
         delta_score = curr_score - prev_score
         if delta_score < backward_stop:
             active_paths = prev_active_paths  # Backtrack
@@ -181,4 +185,4 @@ def deconvolve_junction(
 
     fit = model.fit(y, X[:, selected_paths], **kwargs)
 
-    return fit, named_paths, delta_aic
+    return fit, selected_paths, named_paths, delta_aic

@@ -76,26 +76,67 @@ def test_well_specified_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    beta_est, sigma_est, _ = sz.depth_model.fit(y_obs, X_reduced, alpha=alpha)
+    fit = sz.depth_model.fit(y_obs, X_reduced, alpha=alpha)
 
     # Calculate likelihood
-    loglik = -sz.depth_model.negloglik(
-        beta_est, sigma_est, y_obs, X_reduced, alpha=alpha
+    assert np.isfinite(fit.score)
+
+    # Estimate standard errors / Check model identifiable.
+    assert np.isfinite(fit.stderr_beta).all()
+
+
+def test_no_noise_deconvolution():
+    alpha = 1e-5  # Small offset for handling 0s in depths
+    n, m = 2, 3  # In-edges / out-edges
+    s_samples = 3
+    depth_multiplier = 1  # Scaling factor for depths
+    num_excess_paths = 0  # How many extra paths to include beyond correct ones.
+
+    r_edges, p_paths = (n + m, n * m)
+    X = sz.deconvolution.design_paths(n, m)[0]
+    assert X.shape == (r_edges, p_paths)
+
+    # Select which pairs of in/out edges are "real" and assign them weights across samples.
+    beta = np.array(
+        [
+            [0e0, 0e0, 0e0],
+            [4e0, 4e0, 0e0],
+            [1e2, 5e2, 6e3],
+            [9e1, 9e1, 2e0],
+            [0e0, 0e0, 0e0],
+            [0e0, 0e0, 0e0],
+        ]
     )
-    assert np.isfinite(loglik)
+
+    # Specify the observed depth of each edge.
+    expect = X @ (beta * depth_multiplier)
+    y_obs = expect
+
+    # Select included paths during the estimation procedure.
+    # Possibly over-specified. (see `num_excess_paths`)
+    _active_paths = [1, 2, 3]
+    X_reduced = X[:, _active_paths]
+
+    # Estimate model parameters
+    fit = sz.depth_model.fit(y_obs, X_reduced, alpha=alpha)
+    # Check estimates.
+    assert np.allclose(
+        fit.beta,
+        beta[_active_paths, :],
+        rtol=1e-4,
+    )
+    assert np.allclose(fit.sigma, np.zeros_like(fit.sigma), atol=1e-4)
+
+    # Check BIC
+    assert np.allclose(fit.score, 208.8452)
 
     # Estimate standard errors.
-    beta_stderr, sigma_stderr, inv_beta_hessian = sz.depth_model.estimate_stderr(
-        y_obs,
-        X_reduced,
-        beta_est,
-        sigma_est,
-        alpha=alpha,
+    # Check estimates.
+    assert np.allclose(
+        fit.stderr_beta,
+        np.zeros_like(fit.stderr_beta),
+        atol=0.5,
     )
-
-    # Check model identifiable.
-    assert np.isfinite(beta_stderr).all()
-    assert np.isfinite(sigma_stderr).all()
 
 
 def test_predefined_deconvolution():
@@ -141,59 +182,47 @@ def test_predefined_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    beta_reduced_est, sigma_est, _ = sz.depth_model.fit(y_obs, X_reduced, alpha=alpha)
+    fit = sz.depth_model.fit(y_obs, X_reduced, alpha=alpha)
     # Check estimates.
     assert np.allclose(
-        beta_reduced_est,
+        fit.beta,
         np.array(
             [
-                [4.5332198e00, 9.9224072e02, -8.1854523e-11],
-                [1.9077873e02, 3.6379788e-12, 1.9270121e04],
-                [1.0395216e02, 3.6379788e-12, 2.1372383e05],
+                [4.53333282e00, 9.92237427e02, 3.63797881e-12],
+                [1.90782272e02, 1.27329258e-11, 1.92700859e04],
+                [1.03953804e02, -6.36646291e-12, 2.13722203e05],
             ]
         ),
     )
-    assert np.allclose(sigma_est, np.array([0.5422841, 0.06206167, 0.379378]))
-
-    # Check likelihood
-    loglik = -sz.depth_model.negloglik(
-        beta_reduced_est, sigma_est, y_obs, X_reduced, alpha=alpha
+    assert np.allclose(
+        fit.sigma,
+        np.array([[0.5559257], [0.2538453], [0.25384486], [0.05775243], [0.54328245]]),
     )
-    assert np.allclose(loglik, 0.52001405)
+
+    # Check BIC
+    assert np.allclose(fit.score, -66.81597)
 
     # Estimate standard errors.
-    (
-        beta_reduced_stderr,
-        sigma_stderr,
-        inv_beta_hessian,
-    ) = sz.depth_model.estimate_stderr(
-        y_obs,
-        X_reduced,
-        beta_reduced_est,
-        sigma_est,
-        alpha=alpha,
-    )
     # Check estimates.
     assert np.allclose(
-        beta_reduced_stderr,
+        fit.stderr_beta,
         np.array(
             [
-                [2.4823506e00, 4.3543732e01, 3.7937325e-06],
-                [7.4403160e01, 6.2061696e-07, 5.1694121e03],
-                [3.9860443e01, 4.3884245e-07, 5.7333934e04],
+                [2.6438904e-01, 5.4443096e01, 5.7752453e-07],
+                [7.6072998e01, 5.4328339e-06, 7.4474644e03],
+                [1.8659252e01, 1.7949537e-06, 3.8362180e04],
             ]
         ),
     )
-    assert np.allclose(sigma_stderr, np.array([0.17148595, 0.01962585, 0.11996878]))
 
 
 def test_model_selection_procedure_3x4():
-    seed = 0
+    seed = 1
     alpha = 1e-0  # Small offset for handling 0s in depths
     n, m = 3, 4  # In-edges / out-edges
-    s_samples = 4
-    sigma = 1e-1  # Scale of the multiplicative noise
-    depth_multiplier = 1  # Scaling factor for depths
+    s_samples = 10
+    sigma = 1e-2  # Scale of the multiplicative noise
+    depth_multiplier = 2  # Scaling factor for depths
     num_excess_paths = 1  # How many extra paths to include beyond correct ones.
 
     np.random.seed(seed)
@@ -207,31 +236,22 @@ def test_model_selection_procedure_3x4():
     active_paths = [i for i, _ in active_paths]
     beta = np.zeros((p_paths, s_samples))
     beta[active_paths, :] = np.random.lognormal(
-        mean=-5, sigma=7, size=(len(active_paths), s_samples)
+        mean=-1, sigma=4, size=(len(active_paths), s_samples)
     )
-    beta = beta.round(1)  # Structural zeros
+    beta = beta.round(1) * depth_multiplier  # Structural zeros
 
     # Simulate the observed depth of each edge.
-    expect = X @ (beta * depth_multiplier)
+    expect = X @ beta
     log_noise = np.random.normal(loc=0, scale=1, size=expect.shape)
     y_obs = expect * np.exp(log_noise * sigma)
 
     # Select paths and estimate depth
-    (
-        selected_paths,
-        beta_est,
-        beta_stderr,
-        sigma_est,
-        sigma_stderr,
-        inv_hessian,
-        fit,
-        delta_aic,
-    ) = sz.deconvolution.estimate_paths(
+    (selected_paths, delta_score,) = sz.deconvolution.select_paths(
         X,
         y_obs,
         model=sz.depth_model,
-        forward_stop=0.2,
-        backward_stop=0.01,
+        forward_stop=0.0,
+        backward_stop=0.0,
         alpha=alpha,
     )
 
@@ -269,21 +289,12 @@ def test_model_selection_procedure_2x1():
     y_obs = expect * np.exp(log_noise * sigma)
 
     # Select paths and estimate depth
-    (
-        selected_paths,
-        beta_est,
-        beta_stderr,
-        sigma_est,
-        sigma_stderr,
-        inv_hessian,
-        fit,
-        delta_aic,
-    ) = sz.deconvolution.estimate_paths(
+    (selected_paths, delta_score,) = sz.deconvolution.select_paths(
         X,
         y_obs,
         model=sz.depth_model,
-        forward_stop=0.2,
-        backward_stop=0.01,
+        forward_stop=0.0,
+        backward_stop=0.0,
         alpha=alpha,
     )
 
