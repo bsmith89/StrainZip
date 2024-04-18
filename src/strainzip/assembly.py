@@ -20,6 +20,7 @@ def label_maximal_unitigs(g):
     "Assign unitig indices to vertices in maximal unitigs."
     no_sibling_edges = edge_has_no_siblings(g)
     g_filt = gt.GraphView(g, efilt=no_sibling_edges, directed=True)
+    # WARNING: Possibly non-deterministic?
     labels, counts = gt.topology.label_components(g_filt, directed=False)
     return labels, counts, g_filt
 
@@ -38,6 +39,12 @@ def iter_maximal_unitig_paths(g):
         if len(unitig) < 2:
             continue
         yield unitig
+    # NOTE (2024-04-17): I could sort this output (and make this function
+    # a poor excuse for a generator) if I want to be absolutely sure that the
+    # unitig order is deterministic.
+    # maximal_unitig_paths = []  # <-- aggregate this in the loop above.
+    # for path in sorted(maximal_unitig_paths):
+    #     return path
 
 
 def find_tips(g, also_required=None):
