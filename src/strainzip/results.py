@@ -2,6 +2,7 @@ from itertools import chain
 
 import pandas as pd
 
+from .pandas_util import idxwhere
 from .sequence import reverse_complement
 
 
@@ -78,3 +79,34 @@ def deduplicate_vertex_data(vertex_data):
         .set_index("vertex")
     )
     return deduplicated_data
+
+
+def find_twins(vertex_data):
+    # Find all twins on the initial graph
+    twins = []
+    for vertex, d1 in vertex_data.iterrows():
+        reversed_twin_segments = []
+        for segment in d1.segments:
+            unitig, strand = segment[:-1], segment[-1]
+            opposite_strand = {"+": "-", "-": "+"}[strand]
+            reversed_twin_segments.append(f"{unitig}{opposite_strand}")
+        twin_segments = tuple(reversed(reversed_twin_segments))
+        twin_vertices = idxwhere(vertex_data.segments == twin_segments)
+        assert len(twin_vertices) == 1
+        twins.append((vertex, twin_vertices[0]))
+
+    return twins
+
+
+def validate_twins(twins, vertex_data):
+    # Check that all twins have the same info:
+    for i, j in twins:
+        a = vertex_data.loc[i]
+        b = vertex_data.loc[j]
+        assert (len(a.in_neighbors), len(a.out_neighbors)) == (
+            len(b.out_neighbors),
+            len(b.in_neighbors),
+        )
+        assert a.length == b.length
+        assert len(a.segments) == len(b.segments)
+        assert a.total_depth == b.total_depth
