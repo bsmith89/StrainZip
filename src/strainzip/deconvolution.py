@@ -165,6 +165,7 @@ def deconvolve_junction(
     model,
     forward_stop=0,
     backward_stop=0,
+    verbose=False,
     **kwargs,
 ):
     X, y, labels = formulate_path_deconvolution(in_flows, out_flows)
@@ -175,6 +176,7 @@ def deconvolve_junction(
         model=model,
         forward_stop=forward_stop,
         backward_stop=backward_stop,
+        verbose=verbose,
         **kwargs,
     )
     named_paths = []
