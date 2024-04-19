@@ -504,14 +504,28 @@ def test_batch_unzip_topology_complex1():
     )
 
     assert np.array_equal(
-        sz.stats.degree_stats(_graph).reset_index().values,
-        [[0.0, 1.0, 2.0], [1.0, 0.0, 2.0], [1.0, 2.0, 2.0], [2.0, 1.0, 2.0]],
+        sz.stats.degree_stats(_graph).sort_index().reset_index().values,
+        [
+            [0.0, 1.0, 2.0],
+            [1.0, 0.0, 2.0],
+            [1.0, 2.0, 2.0],
+            [2.0, 1.0, 2.0],
+        ],
     )
 
 
 def test_batch_unzip_topology_complex2():
     _graph = gt.Graph()
-    _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)])
+    _graph.add_edge_list(
+        [
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 4),
+            (4, 5),
+            (5, 6),
+        ]
+    )
     # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
 
     _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
@@ -530,14 +544,14 @@ def test_batch_unzip_topology_complex2():
     # sz.draw.draw_graph(_graph)
     # print(repr(sz.stats.degree_stats(_graph).reset_index().values))
     assert np.array_equal(
-        sz.stats.degree_stats(_graph).reset_index().values,
+        sz.stats.degree_stats(_graph).sort_index().reset_index().values,
         [
-            [1.0, 2.0, 3.0],
-            [2.0, 1.0, 2.0],
-            [2.0, 2.0, 2.0],
             [0.0, 1.0, 1.0],
             [1.0, 1.0, 1.0],
+            [1.0, 2.0, 3.0],
             [2.0, 0.0, 1.0],
+            [2.0, 1.0, 2.0],
+            [2.0, 2.0, 2.0],
         ],
     )
 
