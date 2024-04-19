@@ -369,9 +369,10 @@ class GraphManager:
 
     def batch_unzip(self, graph, *args):
         # Args should be a tuple: (parent, paths, kwargs)
-        # FIXME: If any of the vertices named in paths are also found in any
+        # NOTE: If any of the vertices named in paths are also found in any
         # of the parent entries of args, then these need to be updated, because
         # they will no longer exist after the unzip operation on that vertex.
+        # FIXME (2024-04-19): This implementation has a hard-to-explain bug.
         all_children = []
         updated = {}
         for parent, paths, kwargs in args:
