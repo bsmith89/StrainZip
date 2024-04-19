@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import numpy as np
 
 
@@ -9,6 +11,51 @@ def assert_vertex_unfiltered(graph, v):
 def assert_all_vertices_unfiltered(graph, vs):
     vp, inv = graph.get_vertex_filter()
     assert (vp.a[vs] == (not inv)).all()
+
+
+def mediate_batch_unzipping_conflicts(unmodified_path_splits):
+    path_list = []
+    child_update = {}
+    left_update = defaultdict(list)
+    right_update = defaultdict(list)
+    for parent, children, child_paths in unmodified_path_splits:
+        for child, (left, right) in zip(children, child_paths):
+            # print(f"Adding info for {left} -> {parent}/{child} -> {right}")
+            path_list.append((left, parent, right))
+            child_update[(left, parent, right)] = child
+            left_update[(parent, right)].append(child)
+            right_update[(left, parent)].append(child)
+    # print("Mapping from paths to children:", child_update)
+    # print("Mapping from left edges to target children:", left_update)
+    # print("Mapping from right edges to source children:", right_update)
+
+    edge_list = []
+    for left, parent, right in path_list:
+        child = child_update[(left, parent, right)]
+        # print(f"Adding edges for {left} -> {parent}/{child} -> {right}")
+        if (left, parent) in left_update:
+            left_list = left_update[(left, parent)]
+            # print(
+            #     f"{left} (in {left} -> {parent})"
+            #     f"needs to be replace with {left_list}"
+            # )
+        else:
+            left_list = [left]
+        if (parent, right) in right_update:
+            right_list = right_update[(parent, right)]
+            # print(
+            #     f"{right} (in {parent} -> {right}) "
+            #     f" needs to be replace with {right_list}"
+            # )
+        else:
+            right_list = [right]
+
+        for left in left_list:
+            edge_list.append((left, child))
+        for right in right_list:
+            edge_list.append((child, right))
+
+    return list(set(edge_list))
 
 
 class PropertyUnzipper:
@@ -372,9 +419,8 @@ class GraphManager:
         # NOTE: If any of the vertices named in paths are also found in any
         # of the parent entries of args, then these need to be updated, because
         # they will no longer exist after the unzip operation on that vertex.
-        # FIXME (2024-04-19): This implementation has a hard-to-explain bug.
         all_children = []
-        updated = {}
+        unmodified_path_splits = []
         for parent, paths, kwargs in args:
             assert_vertex_unfiltered(graph, parent)
             n = len(paths)
@@ -382,24 +428,8 @@ class GraphManager:
             num_after = num_before + n
             graph.add_vertex(n)
             children = list(range(num_before, num_after))
-            updated[parent] = children
-            new_edge_list = []
-            for (left, right), child in zip(paths, children):
-                if left in updated:
-                    left_list = updated[left]
-                else:
-                    left_list = [left]
-                if right in updated:
-                    right_list = updated[right]
-                else:
-                    right_list = [right]
-                assert_all_vertices_unfiltered(graph, [child] + left_list + right_list)
-
-                for new_left in left_list:
-                    new_edge_list.append((new_left, child))
-                for new_right in right_list:
-                    new_edge_list.append((child, new_right))
-            graph.add_edge_list(new_edge_list)
+            all_children.append(children)
+            unmodified_path_splits.append((parent, children, paths))
 
             for uz in self.unzippers:
                 uz.unzip(
@@ -409,7 +439,9 @@ class GraphManager:
                     tuple(kwargs[arg] for arg in uz.free_args),
                 )
 
-            all_children.extend(children)
+        new_edge_list = mediate_batch_unzipping_conflicts(unmodified_path_splits)
+        graph.add_edge_list(new_edge_list)
+
         return all_children
 
     def batch_press(self, graph, *args):

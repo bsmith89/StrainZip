@@ -16,54 +16,6 @@ def unfiltered(graph):
     graph.set_vertex_filter(*filt)
 
 
-def test_batch_unzip_topology_problematic():
-    # When this batch unzip works correctly...
-    _graph = gt.Graph()
-    _graph.add_edge_list([(0, 5), (1, 5), (5, 2), (5, 6), (6, 3), (6, 4)])
-    _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
-    _graph.set_vertex_filter(_graph.vp["filter"])
-    gm = sz.graph_manager.GraphManager()
-    gm.validate(_graph)
-    gm.batch_unzip(
-        _graph,
-        (6, [(5, 3), (5, 4)], {}),
-        (5, [(0, 2), (1, 6)], {}),
-    )
-    assert np.array_equal(
-        sz.stats.degree_stats(_graph).sort_index().reset_index().values,
-        [
-            [0.0, 1.0, 2.0],
-            [1.0, 0.0, 3.0],
-            [1.0, 1.0, 3.0],
-            [1.0, 2.0, 1.0],
-        ],
-    )
-
-    # Swapping the order of the batch unzip breaks things:
-    _graph = gt.Graph()
-    _graph.add_edge_list([(0, 5), (1, 5), (5, 2), (5, 6), (6, 3), (6, 4)])
-    # sz.draw.draw_graph(_graph, ink_scale=0.35, vertex_text=_graph.vertex_index)
-    _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
-    _graph.set_vertex_filter(_graph.vp["filter"])
-    gm = sz.graph_manager.GraphManager()
-    gm.validate(_graph)
-    gm.batch_unzip(
-        _graph,
-        (5, [(0, 2), (1, 6)], {}),
-        (6, [(5, 3), (5, 4)], {}),
-    )
-    # sz.draw.draw_graph(_graph, ink_scale=0.35, vertex_text=_graph.vertex_index)
-    assert np.array_equal(
-        sz.stats.degree_stats(_graph).sort_index().reset_index().values,
-        [
-            [0.0, 1.0, 2.0],
-            [1.0, 0.0, 3.0],
-            [1.0, 1.0, 3.0],
-            [1.0, 2.0, 1.0],
-        ],
-    )
-
-
 def test_graph_positioning():
     _graph = gt.Graph()
     _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)])
@@ -454,7 +406,7 @@ def test_unzip_topology():
 
 def test_batch_unzip_topology_simple():
     _graph = gt.Graph()
-    _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)])
+    _graph.add_edge_list([(0, 2), (1, 2), (2, 3), (2, 4)])
     # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
 
     _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
@@ -465,25 +417,13 @@ def test_batch_unzip_topology_simple():
 
     gm.batch_unzip(
         _graph,
-        (3, [(2, 4), (2, 4)], {}),
-        (5, [(4, 6), (4, 6)], {}),
+        (2, [(0, 3), (1, 4)], {}),
     )
-    # Should be equivalent to:
-    # gm.unzip(_graph, 3, [(2, 4), (2, 4)])
-    # gm.unzip(_graph, 5, [(4, 6), (4, 6)])
-    # Because splitting the middle node (4) now has 2*2 paths that it can traverse.
+    # sz.draw.draw_graph(_graph), ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
 
-    # sz.draw.draw_graph(_graph)
-    # print(repr(sz.stats.degree_stats(_graph).reset_index().values))
     assert np.array_equal(
         sz.stats.degree_stats(_graph).reset_index().values,
-        [
-            [1.0, 1.0, 5.0],
-            [0.0, 1.0, 1.0],
-            [1.0, 2.0, 1.0],
-            [2.0, 0.0, 1.0],
-            [2.0, 2.0, 1.0],
-        ],
+        [[0.0, 1.0, 2.0], [1.0, 0.0, 2.0], [1.0, 1.0, 2.0]],
     )
 
 
@@ -515,43 +455,50 @@ def test_batch_unzip_topology_complex1():
 
 
 def test_batch_unzip_topology_complex2():
+    # When this batch unzip works correctly...
     _graph = gt.Graph()
-    _graph.add_edge_list(
-        [
-            (0, 1),
-            (1, 2),
-            (2, 3),
-            (3, 4),
-            (4, 5),
-            (5, 6),
-        ]
-    )
-    # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
-
+    _graph.add_edge_list([(0, 5), (1, 5), (5, 2), (5, 6), (6, 3), (6, 4)])
     _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
     _graph.set_vertex_filter(_graph.vp["filter"])
-
     gm = sz.graph_manager.GraphManager()
     gm.validate(_graph)
-
+    # sz.draw.draw_graph(_graph), ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
     gm.batch_unzip(
         _graph,
-        (3, [(2, 4), (2, 4)], {}),
-        (5, [(4, 6), (4, 6)], {}),
-        (4, [(3, 5), (3, 5)], {}),
+        (6, [(5, 3), (5, 4)], {}),
+        (5, [(0, 2), (1, 6)], {}),
     )
-
-    # sz.draw.draw_graph(_graph)
-    # print(repr(sz.stats.degree_stats(_graph).reset_index().values))
+    # sz.draw.draw_graph(_graph), ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
     assert np.array_equal(
         sz.stats.degree_stats(_graph).sort_index().reset_index().values,
         [
-            [0.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0],
-            [1.0, 2.0, 3.0],
-            [2.0, 0.0, 1.0],
-            [2.0, 1.0, 2.0],
-            [2.0, 2.0, 2.0],
+            [0.0, 1.0, 2.0],
+            [1.0, 0.0, 3.0],
+            [1.0, 1.0, 3.0],
+            [1.0, 2.0, 1.0],
+        ],
+    )
+
+    # Swapping the order of the batch unzip breaks things:
+    _graph = gt.Graph()
+    _graph.add_edge_list([(0, 5), (1, 5), (5, 2), (5, 6), (6, 3), (6, 4)])
+    _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
+    _graph.set_vertex_filter(_graph.vp["filter"])
+    gm = sz.graph_manager.GraphManager()
+    gm.validate(_graph)
+    gm.batch_unzip(
+        _graph,
+        (5, [(0, 2), (1, 6)], {}),
+        (6, [(5, 3), (5, 4)], {}),
+    )
+    # sz.draw.draw_graph(_graph), ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
+    assert np.array_equal(
+        sz.stats.degree_stats(_graph).sort_index().reset_index().values,
+        [
+            [0.0, 1.0, 2.0],
+            [1.0, 0.0, 3.0],
+            [1.0, 1.0, 3.0],
+            [1.0, 2.0, 1.0],
         ],
     )
 
