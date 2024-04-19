@@ -40,9 +40,38 @@ def extract_vertex_data(graph, segment_to_sequence):
         .assign(
             segments=lambda x: x.segments.apply(tuple),
             num_segments=lambda x: x.segments.apply(len),
+            num_in_neighbors=lambda x: x.in_neighbors.apply(len),
+            num_out_neighbors=lambda x: x.out_neighbors.apply(len),
+            # assembly=lambda x: x.segments.apply(
+            #     lambda y: assemble_overlapping_unitigs(
+            #         y, segment_to_sequence, k=graph.gp["kmer_length"]
+            #     )
+            # ),
+        )
+        .set_index("vertex")
+    )
+    # assert (
+    #     vertex_data.assembly.apply(len)
+    #     == vertex_data.length + graph.gp["kmer_length"] - 1
+    # ).all()
+
+    return vertex_data
+
+
+def assemble_segments(graph, unitig_sequences):
+    vertex_data = (
+        pd.DataFrame(
+            dict(
+                vertex=graph.get_vertices(),
+                length=graph.vp["length"],
+                segments=[ss.split(",") for ss in graph.vp["sequence"]],
+            )
+        )
+        .assign(
+            segments=lambda x: x.segments.apply(tuple),
             assembly=lambda x: x.segments.apply(
                 lambda y: assemble_overlapping_unitigs(
-                    y, segment_to_sequence, k=graph.gp["kmer_length"]
+                    y, unitig_sequences, k=graph.gp["kmer_length"]
                 )
             ),
         )
@@ -53,14 +82,14 @@ def extract_vertex_data(graph, segment_to_sequence):
         == vertex_data.length + graph.gp["kmer_length"] - 1
     ).all()
 
-    return vertex_data
+    return vertex_data.assembly
 
 
 def deduplicate_vertex_data(vertex_data):
     deduplicated_data = (
         vertex_data.sort_values("total_depth", ascending=False)
         .reset_index()
-        .groupby("assembly")
+        .groupby("segments")
         .apply(
             lambda x: pd.Series(
                 dict(
@@ -83,7 +112,7 @@ def deduplicate_vertex_data(vertex_data):
 
 def find_twins(vertex_data):
     # Find all twins on the initial graph
-    twins = []
+    twins = {}
     for vertex, d1 in vertex_data.iterrows():
         reversed_twin_segments = []
         for segment in d1.segments:
@@ -92,21 +121,29 @@ def find_twins(vertex_data):
             reversed_twin_segments.append(f"{unitig}{opposite_strand}")
         twin_segments = tuple(reversed(reversed_twin_segments))
         twin_vertices = idxwhere(vertex_data.segments == twin_segments)
-        assert len(twin_vertices) == 1
-        twins.append((vertex, twin_vertices[0]))
-
+        twins[vertex] = list(twin_vertices)
     return twins
 
 
 def validate_twins(twins, vertex_data):
     # Check that all twins have the same info:
-    for i, j in twins:
-        a = vertex_data.loc[i]
-        b = vertex_data.loc[j]
-        assert (len(a.in_neighbors), len(a.out_neighbors)) == (
-            len(b.out_neighbors),
-            len(b.in_neighbors),
+    vertex_data = vertex_data.drop(
+        columns=["segments", "in_neighbors", "out_neighbors"]
+    )
+    # Flatten twins
+    twins = [(k, v) for k in twins for v in twins[k]]
+    first, second = zip(*twins)
+    first_vdata = vertex_data.loc[list(first)]
+    second_vdata = (
+        vertex_data.loc[list(second)]
+        .rename(
+            columns={
+                "num_in_neighbors": "num_out_neighbors",
+                "num_out_neighbors": "num_in_neighbors",
+            }
         )
-        assert a.length == b.length
-        assert len(a.segments) == len(b.segments)
-        assert a.total_depth == b.total_depth
+        .rename(dict(twins))
+    )
+    first_vdata, second_vdata = first_vdata.align(second_vdata)
+    comparison = first_vdata - second_vdata
+    return (comparison == 0).all().all(), comparison
