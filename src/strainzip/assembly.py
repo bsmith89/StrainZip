@@ -66,6 +66,10 @@ def find_junctions(g):
     )[
         0
     ]  # np.where returns a tuple (maybe to deal with an N-dimensional mask?).
+    # FIXME (2024-04-19): Does the above deal with vertex filtering correctly??
+    # My mental model would be that it would include a bunch of filtered-out
+    # vertices in the list. I guess there's a chance that all of these have
+    # in/out degree of 0...?
     return result
 
 
