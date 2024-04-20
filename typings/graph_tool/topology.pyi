@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Iterator, List, Tuple
 
 from numpy.typing import NDArray
 
@@ -22,3 +22,4 @@ def shortest_distance(
     return_reached=False,
     dag=False,
 ): ...
+def all_circuits(g, unique=False) -> Iterator[List[int]]: ...

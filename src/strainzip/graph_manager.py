@@ -393,7 +393,12 @@ class GraphManager:
             graph, [child] + list(left_list) + list(right_list)
         )
 
+        # Collect new edges into and out of unitig.
         new_edge_list = []
+        # Detect if unitig is a cycle:
+        if (leftmost_parent in right_list) or (rightmost_parent in left_list):
+            new_edge_list.append((child, child))
+        # Add other incoming/outgoing edges
         for left in left_list:
             new_edge_list.append((left, child))
         for right in right_list:

@@ -153,3 +153,91 @@ def test_simulated_graph_building_and_unitigs_deterministic():
     # Check that all are equal to each other.
     for i in range(k_replicates):
         assert (examples[0].get_edges() == examples[1].get_edges()).all()
+
+
+def test_press_unitigs_with_cycles():
+    _graph = gt.Graph()
+    _graph.add_edge_list(
+        [
+            (0, 1),
+            (1, 2),
+            (2, 3),  # Linear stretch
+            (4, 5),
+            (5, 6),
+            (6, 4),  # 3-cycle
+            (7, 7),  # 1-cycle
+            (8, 9),
+            (9, 10),
+            (10, 8),
+            (10, 11),  # Lolipop, stick-out
+            (12, 13),
+            (13, 14),
+            (14, 12),
+            (15, 14),  # Lolipop, stick-in
+        ]
+    )
+    _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
+    _graph.set_vertex_filter(_graph.vp["filter"])
+    gm = sz.graph_manager.GraphManager()
+    gm.validate(_graph)
+    # sz.draw.draw_graph(_graph, ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
+    unitig_paths = set(tuple(u) for u in sz.assembly.iter_maximal_unitig_paths(_graph))
+    assert unitig_paths == {(0, 1, 2, 3), (14, 12, 13), (4, 5, 6), (8, 9, 10)}
+    gm.batch_press(_graph, *[(list(path), {}) for path in unitig_paths])
+    # sz.draw.draw_graph(_graph, ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
+    assert (
+        sz.stats.degree_stats(_graph).sort_index().reset_index().values
+        == np.array(
+            [
+                [0.0, 0.0, 1.0],
+                [0.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0],
+                [1.0, 1.0, 2.0],
+                [1.0, 2.0, 1.0],
+                [2.0, 1.0, 1.0],
+            ]
+        )
+    ).all()
+
+
+def test_unzip_lolipops():
+    _graph = gt.Graph()
+    _graph.add_edge_list(
+        [
+            (0, 1),
+            (1, 2),
+            (2, 0),
+            (0, 3),  # Out lolipop
+            (4, 5),
+            (5, 6),
+            (6, 4),
+            (7, 4),  # In lolipop
+        ]
+    )
+    _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
+    _graph.set_vertex_filter(_graph.vp["filter"])
+    gm = sz.graph_manager.GraphManager()
+    gm.validate(_graph)
+    # sz.draw.draw_graph(_graph, ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
+    unitig_paths = [tuple(u) for u in sz.assembly.iter_maximal_unitig_paths(_graph)]
+    assert set(frozenset(u) for u in unitig_paths) == {
+        frozenset([0, 1, 2]),
+        frozenset([4, 5, 6]),
+    }
+    gm.batch_press(_graph, *[(list(path), {}) for path in unitig_paths])
+    # sz.draw.draw_graph(_graph, ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
+
+    gm.batch_unzip(_graph, (9, [(9, 9), (7, 9)], {}), (8, [(8, 8), (8, 3)], {}))
+    # sz.draw.draw_graph(_graph, ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
+    assert (
+        sz.stats.degree_stats(_graph).sort_index().reset_index().values
+        == np.array(
+            [
+                [0.0, 1.0, 1.0],
+                [1.0, 0.0, 1.0],
+                [1.0, 1.0, 2.0],
+                [1.0, 2.0, 1.0],
+                [2.0, 1.0, 1.0],
+            ]
+        )
+    ).all()
