@@ -65,8 +65,8 @@ def test_graph_positioning():
         ],
     )
     gm.validate(_graph)
+    # sz.draw.draw_graph(_graph, ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
 
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
@@ -81,7 +81,6 @@ def test_graph_positioning():
         [(1, 3), (1, 3), (1, 3)],
         path_depths=[[0.33, 0], [0.33, 0], [0.33, 0.2]],
     )
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
@@ -96,7 +95,6 @@ def test_graph_positioning():
         )
 
     gm.unzip(_graph, 8, [(1, 3), (1, 3)], path_depths=[[0.3, 0], [0.1, 0]])
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
@@ -111,7 +109,6 @@ def test_graph_positioning():
         )
 
     gm.press(_graph, parents=[4, 5])
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
@@ -139,7 +136,6 @@ def test_graph_positioning():
         )
 
     gm.press(_graph, parents=[3, 11])
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['xyposition'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['xyposition'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
@@ -232,7 +228,6 @@ def test_graph_depth():
     )
     gm.validate(_graph)
 
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
@@ -247,7 +242,6 @@ def test_graph_depth():
         [(1, 3), (1, 3), (1, 3)],
         path_depths=[[0.33, 0], [0.33, 0], [0.33, 0.2]],
     )
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
@@ -262,7 +256,6 @@ def test_graph_depth():
         )
 
     gm.unzip(_graph, 8, [(1, 3), (1, 3)], path_depths=[[0.3, 0], [0.1, 0]])
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
@@ -277,7 +270,6 @@ def test_graph_depth():
         )
 
     gm.press(_graph, parents=[4, 5])
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
@@ -318,7 +310,6 @@ def test_graph_depth():
         )
 
     gm.press(_graph, parents=[3, 11])
-    # gt.draw.graph_draw(gt.GraphView(_graph, vfilt=_graph.vp['filter']), pos=_graph.vp['depth'], ink_scale=0.35, vertex_text=_graph.vertex_index)
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     # print(repr(_graph.vp['depth'].get_2d_array(pos=[0, 1])))
     with unfiltered(_graph):
@@ -364,7 +355,6 @@ def test_graph_depth():
 def test_unzip_topology():
     _graph = gt.Graph()
     _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)])
-    # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
 
     _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
     _graph.set_vertex_filter(_graph.vp["filter"])
@@ -375,7 +365,6 @@ def test_unzip_topology():
     gm.unzip(_graph, 3, [(2, 4), (2, 4)])
     gm.unzip(_graph, 5, [(4, 6), (4, 6)])
 
-    # sz.draw.draw_graph(_graph)
     # print(repr(sz.stats.degree_stats(_graph).reset_index().values))
     assert np.array_equal(
         sz.stats.degree_stats(_graph).reset_index().values,
@@ -390,7 +379,6 @@ def test_unzip_topology():
 
     gm.unzip(_graph, 4, [(7, 9), (7, 10), (8, 9), (8, 10)])
 
-    # sz.draw.draw_graph(_graph)
     # print(repr(sz.stats.degree_stats(_graph).reset_index().values))
     assert np.array_equal(
         sz.stats.degree_stats(_graph).reset_index().values,
@@ -407,7 +395,6 @@ def test_unzip_topology():
 def test_batch_unzip_topology_simple():
     _graph = gt.Graph()
     _graph.add_edge_list([(0, 2), (1, 2), (2, 3), (2, 4)])
-    # gt.draw.graph_draw(gt.GraphView(_graph), ink_scale=0.35, vertex_text=_graph.vertex_index)
 
     _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
     _graph.set_vertex_filter(_graph.vp["filter"])
@@ -419,7 +406,6 @@ def test_batch_unzip_topology_simple():
         _graph,
         (2, [(0, 3), (1, 4)], {}),
     )
-    # sz.draw.draw_graph(_graph), ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
 
     assert np.array_equal(
         sz.stats.degree_stats(_graph).reset_index().values,
@@ -462,13 +448,11 @@ def test_batch_unzip_topology_complex2():
     _graph.set_vertex_filter(_graph.vp["filter"])
     gm = sz.graph_manager.GraphManager()
     gm.validate(_graph)
-    # sz.draw.draw_graph(_graph), ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
     gm.batch_unzip(
         _graph,
         (6, [(5, 3), (5, 4)], {}),
         (5, [(0, 2), (1, 6)], {}),
     )
-    # sz.draw.draw_graph(_graph), ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
     assert np.array_equal(
         sz.stats.degree_stats(_graph).sort_index().reset_index().values,
         [
@@ -491,7 +475,6 @@ def test_batch_unzip_topology_complex2():
         (5, [(0, 2), (1, 6)], {}),
         (6, [(5, 3), (5, 4)], {}),
     )
-    # sz.draw.draw_graph(_graph), ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
     assert np.array_equal(
         sz.stats.degree_stats(_graph).sort_index().reset_index().values,
         [
