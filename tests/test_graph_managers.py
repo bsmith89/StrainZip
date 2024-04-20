@@ -1,8 +1,6 @@
 from contextlib import contextmanager
-from typing import cast
 
 import graph_tool as gt
-import graph_tool.draw
 import numpy as np
 
 import strainzip as sz
