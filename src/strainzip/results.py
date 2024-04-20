@@ -19,42 +19,35 @@ def assemble_overlapping_unitigs(segment_list, unitig_to_sequence, k):
     return accum
 
 
-def extract_vertex_data(graph, segment_to_sequence):
-    vertex_data = (
-        pd.DataFrame(
-            dict(
-                vertex=graph.get_vertices(),
-                length=graph.vp["length"],
-                total_depth=graph.vp["depth"]
-                .get_2d_array(range(graph.gp["num_samples"]))
-                .sum(0),
-                segments=[ss.split(",") for ss in graph.vp["sequence"]],
-                in_neighbors=[
-                    frozenset(graph.get_in_neighbors(v)) for v in graph.get_vertices()
-                ],
-                out_neighbors=[
-                    frozenset(graph.get_out_neighbors(v)) for v in graph.get_vertices()
-                ],
-            )
+def extract_vertex_data(graph):
+    vertex_data = dict(
+        vertex=graph.get_vertices(),
+        in_neighbors=[
+            frozenset(graph.get_in_neighbors(v)) for v in graph.get_vertices()
+        ],
+        out_neighbors=[
+            frozenset(graph.get_out_neighbors(v)) for v in graph.get_vertices()
+        ],
+    )
+    if "length" in graph.vp:
+        vertex_data["length"] = graph.vp["length"]
+    if "depth" in graph.vp:
+        vertex_data["total_depth"] = (
+            graph.vp["depth"].get_2d_array(range(graph.gp["num_samples"])).sum(0)
         )
-        .assign(
+    if "sequence" in graph.vp:
+        vertex_data["segments"] = [ss.split(",") for ss in graph.vp["sequence"]]
+    vertex_data = pd.DataFrame(vertex_data).set_index("vertex")
+
+    if "sequence" in graph.vp:
+        vertex_data = vertex_data.assign(
             segments=lambda x: x.segments.apply(tuple),
             num_segments=lambda x: x.segments.apply(len),
-            num_in_neighbors=lambda x: x.in_neighbors.apply(len),
-            num_out_neighbors=lambda x: x.out_neighbors.apply(len),
-            # assembly=lambda x: x.segments.apply(
-            #     lambda y: assemble_overlapping_unitigs(
-            #         y, segment_to_sequence, k=graph.gp["kmer_length"]
-            #     )
-            # ),
         )
-        .set_index("vertex")
+    vertex_data = vertex_data.assign(
+        num_in_neighbors=lambda x: x.in_neighbors.apply(len),
+        num_out_neighbors=lambda x: x.out_neighbors.apply(len),
     )
-    # assert (
-    #     vertex_data.assembly.apply(len)
-    #     == vertex_data.length + graph.gp["kmer_length"] - 1
-    # ).all()
-
     return vertex_data
 
 
