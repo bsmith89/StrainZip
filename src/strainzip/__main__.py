@@ -3,8 +3,13 @@ import sys
 
 from . import app
 from .app_depth import EstimateUnitigDepth
+from .app_smooth import SmoothDepths
 
-APPLICATIONS = {"load_graph": app.LoadGraph, "depth": EstimateUnitigDepth}
+APPLICATIONS = {
+    "load_graph": app.LoadGraph,
+    "depth": EstimateUnitigDepth,
+    "smooth": SmoothDepths,
+}
 
 
 def main():
