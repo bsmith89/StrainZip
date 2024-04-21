@@ -112,7 +112,14 @@ def estimate_flow(
 
 
 def smooth_depth(
-    graph, depth, weight, num_iter=1, inertia=0, eps=0.001, maxiter=1000, verbose=False
+    graph,
+    depth,
+    weight,
+    num_iter=1,
+    inertia=0.0,
+    eps=0.001,
+    maxiter=1000,
+    verbose=False,
 ):
     depth = depth.copy()
     initial_totals = depth.a * weight.a
