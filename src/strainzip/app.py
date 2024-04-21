@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 import sqlite3
@@ -27,7 +28,11 @@ class App:
     """
 
     def __init__(self, subparsers, incantation):
-        self.parser = subparsers.add_parser(incantation, help=self._help)
+        self.parser = subparsers.add_parser(
+            incantation,
+            help=self._help,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        )
         self._add_cli_args()
         self.parser.set_defaults(subcommand_main=self._run)
 
