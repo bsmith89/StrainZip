@@ -1,4 +1,5 @@
-from multiprocessing import Pool
+import logging
+import multiprocessing
 
 import graph_tool as gt
 import numpy as np
@@ -11,7 +12,15 @@ DEFAULT_NUM_ITER = 50
 
 
 def _load_graph_and_smooth_one_sample(arg):
-    sample, inpath, inertia, num_iter = arg
+    sample, inpath, inertia, num_iter, verbose = arg
+
+    if verbose:
+        logger = multiprocessing.log_to_stderr()
+    else:
+        logger = multiprocessing.get_logger()
+    logger.setLevel(logging.INFO)
+
+    logger.info(f"Starting smoothing sample {sample}.")
     graph = sz.io.load_graph(inpath)
     sample_depth = gt.ungroup_vector_property(
         graph.vp["depth"], pos=range(graph.gp["num_samples"])
@@ -23,6 +32,7 @@ def _load_graph_and_smooth_one_sample(arg):
         inertia=inertia,
         num_iter=num_iter,
     )
+    logger.info(f"Finished smoothing sample {sample}.")
     return smoothed_sample_depth.a
 
 
@@ -58,11 +68,17 @@ class SmoothDepths(App):
         graph = sz.io.load_graph(args.inpath)
         smoothed_depths = []
 
-        with Pool(processes=args.processes) as pool:
+        with multiprocessing.Pool(processes=args.processes) as pool:
             smoothed_depths = pool.map(
                 _load_graph_and_smooth_one_sample,
                 (
-                    (sample, args.inpath, args.inertia, args.num_iter)
+                    (
+                        sample,
+                        args.inpath,
+                        args.inertia,
+                        args.num_iter,
+                        (args.verbose or args.debug),
+                    )
                     for sample in range(graph.gp["num_samples"])
                 ),
             )
