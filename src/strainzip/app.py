@@ -212,7 +212,7 @@ class LoadGraph(App):
         )
 
         # Load metadata.
-        graph.gp["kmer_size"] = graph.new_graph_property("int", val=args.k)
+        graph.gp["kmer_length"] = graph.new_graph_property("int", val=args.k)
         graph.gp["num_samples"] = graph.new_graph_property(
             "int", val=len(depth_table.sample)
         )
