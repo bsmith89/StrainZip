@@ -1,6 +1,7 @@
 import numpy as np
 
 import strainzip as sz
+import strainzip.depth_model
 
 
 def test_deconvolution_problem_formulation():
