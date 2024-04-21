@@ -140,3 +140,16 @@ def smooth_depth(
         change = np.abs(initial_totals - depth.a * weight.a).sum()
 
     return depth, change / initial_totals.sum()
+
+
+def estimate_all_flows(graph):
+    flow = []
+    for sample_id in range(graph.gp["num_samples"]):
+        one_flow, _, _, = estimate_flow(
+            graph,
+            gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0],
+            graph.vp["length"],
+        )
+        flow.append(one_flow)
+    flow = gt.group_vector_property(flow, pos=range(graph.gp["num_samples"]))
+    return flow
