@@ -140,3 +140,10 @@ def validate_twins(twins, vertex_data):
     first_vdata, second_vdata = first_vdata.align(second_vdata)
     comparison = first_vdata - second_vdata
     return (comparison == 0).all().all(), comparison
+
+
+def iter_vertices_with_segment(graph, segment):
+    for v in graph.get_vertices():
+        segment_tuple = graph.vp["sequence"][v].split(",")
+        if segment in segment_tuple:
+            yield v

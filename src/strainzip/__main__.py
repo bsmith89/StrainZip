@@ -3,6 +3,7 @@ import sys
 
 from .app.depth import EstimateUnitigDepth
 from .app.example import Example
+from .app.focus import SelectLocalGraph
 from .app.load import LoadGraph
 from .app.smooth import SmoothDepths
 from .app.trim import TrimTips
@@ -13,6 +14,7 @@ APPLICATIONS = {
     "depth": EstimateUnitigDepth,
     "smooth": SmoothDepths,
     "trim": TrimTips,
+    "focus": SelectLocalGraph,
 }
 
 

@@ -1,3 +1,5 @@
+from typing import List
+
 import graph_tool as gt
 import graph_tool.topology
 import numpy as np
@@ -90,12 +92,22 @@ def backlinked_graph(graph):
     return out
 
 
-def get_shortest_distance(graph, root, weights, max_length=None):
+def get_shortest_distance(graph, roots: List[int], weights, max_length=None):
+    # TODO: Write a test for this function:
+    #   - Make sure that a single root is at distance 0 from itself.
+    #   - Make sure that filtering doesn't break anything?
+    #   - Check that _both_ in-neighbors and out-neighbors of the root are at a distance
+    #     equal to the length of the root vertex.
     original_graph = graph
     graph = backlinked_graph(graph)
     weights = graph.own_property(weights)
     edge_weights = gt.edge_endpoint_property(graph, weights, "source")
-    dist = gt.topology.shortest_distance(
-        graph, root, weights=edge_weights, directed=True, max_dist=max_length
-    )
-    return original_graph.own_property(dist)
+
+    min_dist = np.inf * np.ones(graph.num_vertices(ignore_filter=True))
+    for v in roots:
+        dist = gt.topology.shortest_distance(
+            graph, v, weights=edge_weights, directed=True, max_dist=max_length
+        )
+        min_dist[dist.a < min_dist] = dist.a
+
+    return original_graph.new_vertex_property("float", vals=min_dist)
