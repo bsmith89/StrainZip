@@ -114,3 +114,15 @@ def get_shortest_distance(graph, roots: List[int], weights, max_length=None):
         min_dist[dist.a < min_dist] = dist.a
 
     return original_graph.new_vertex_property("float", vals=min_dist)
+
+
+def vertex_or_neighbors(graph, vprop):
+    "Boolean vertex property: True if vertex or any neighbors are True."
+    left_true = gt.edge_endpoint_property(graph, prop=vprop, endpoint="source")
+    right_true = gt.edge_endpoint_property(graph, prop=vprop, endpoint="target")
+    left_neighbor_true = gt.incident_edges_op(graph, "in", "max", left_true)
+    right_neighbor_true = gt.incident_edges_op(graph, "out", "max", right_true)
+    any_true = graph.new_vertex_property(
+        "bool", vals=(vprop.a | left_neighbor_true.a | right_neighbor_true.a)
+    )
+    return any_true

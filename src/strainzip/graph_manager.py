@@ -128,6 +128,24 @@ class FilterPresser(PropertyPresser):
         graph.vp["filter"][child] = True
 
 
+class TouchedUnzipper(PropertyUnzipper):
+    mutates = ["touched"]
+
+    def unzip(self, graph, parent, children, args=()):
+        kwargs = self.name_free_args(args)
+        graph.vp["touched"].a[parent] = True
+        graph.vp["touched"].a[children] = True
+
+
+class TouchedPresser(PropertyPresser):
+    mutates = ["touched"]
+
+    def press(self, graph, parents, child, args=()):
+        kwargs = self.name_free_args(args)
+        graph.vp["touched"].a[parents] = True
+        graph.vp["touched"].a[child] = True
+
+
 class LengthUnzipper(PropertyUnzipper):
     mutates = ["length"]
     requires = []
@@ -457,3 +475,4 @@ class GraphManager:
 
     def batch_trim(self, graph, parents):
         graph.vp.filter.a[parents] = 0
+        graph.vp.touched.a[parents] = 1
