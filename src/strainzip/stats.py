@@ -14,3 +14,20 @@ def degree_stats(graph):
         )
     )
     return out.value_counts()
+
+
+def total_kmers_counted(graph):
+    vdepth = graph.vp["depth"].get_2d_array(pos=range(graph.gp["num_samples"])).sum(0)
+    vlength = graph.vp["length"].a[graph.get_vertices()]
+    return (vdepth * vlength).sum()
+
+
+def mean_tig_length(graph):
+    vlength = graph.vp["length"].a[graph.get_vertices()]
+    return vlength.mean()
+
+
+def depth_weighted_mean_tig_length(graph):
+    vlength = graph.vp["length"].a[graph.get_vertices()]
+    vdepth = graph.vp["depth"].get_2d_array(pos=range(graph.gp["num_samples"])).sum(0)
+    return (vlength * vdepth).sum() / vdepth.sum()
