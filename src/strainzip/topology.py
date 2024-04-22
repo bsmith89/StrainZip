@@ -68,19 +68,22 @@ def find_tips(g, also_required=None):
     return result
 
 
-def find_junctions(g):
+def find_junctions(g, also_required=None):
+    if also_required is None:
+        also_required = True
+
     v_in_degree = g.degree_property_map("in")
     v_out_degree = g.degree_property_map("out")
-    result = np.where(
-        ((v_in_degree.a > 1) & (v_out_degree.a >= 1))
-        | ((v_in_degree.a >= 1) & (v_out_degree.a > 1))
-    )[
-        0
-    ]  # np.where returns a tuple (maybe to deal with an N-dimensional mask?).
+    is_junction = ((v_in_degree.a > 1) & (v_out_degree.a >= 1)) | (
+        (v_in_degree.a >= 1) & (v_out_degree.a > 1)
+    )
+    # np.where returns a tuple (maybe to deal with an N-dimensional mask?).
+    result = np.where(is_junction & also_required)[0]
     # FIXME (2024-04-19): Does the above deal with vertex filtering correctly??
     # My mental model would be that it would include a bunch of filtered-out
     # vertices in the list. I guess there's a chance that all of these have
     # in/out degree of 0...?
+
     return result
 
 
