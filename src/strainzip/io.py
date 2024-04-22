@@ -122,4 +122,6 @@ def dump_graph(graph, path):
 
 
 def load_graph(path):
-    return gt.load_graph(path)
+    graph = gt.load_graph(path)
+    graph.set_vertex_filter(graph.vp["filter"])
+    return graph
