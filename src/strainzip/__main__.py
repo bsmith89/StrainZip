@@ -5,12 +5,14 @@ from .app.depth import EstimateUnitigDepth
 from .app.example import Example
 from .app.load import LoadGraph
 from .app.smooth import SmoothDepths
+from .app.trim import TrimTips
 
 APPLICATIONS = {
     "foo": Example,
     "load": LoadGraph,
     "depth": EstimateUnitigDepth,
     "smooth": SmoothDepths,
+    "trim": TrimTips,
 }
 
 
