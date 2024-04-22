@@ -6,7 +6,6 @@ from multiprocessing.dummy import Pool as threadPool
 import numpy as np
 
 from . import depth_model
-from .topology import find_junctions
 
 
 @cache
@@ -263,7 +262,8 @@ def _calculate_junction_deconvolution(args):
         return junction, named_paths, {"path_depths": np.array(fit.beta.clip(0))}
 
 
-def parallel_calculate_all_junction_deconvolutions(
+def parallel_calculate_junction_deconvolutions(
+    junctions,
     graph,
     flow,
     forward_stop=0.0,
@@ -300,7 +300,7 @@ def parallel_calculate_all_junction_deconvolutions(
                     condition_thresh,
                 )
                 for junction, in_neighbors, in_flows, out_neighbors, out_flows in _iter_junction_deconvolution_data(
-                    find_junctions(graph), graph, flow, max_paths=max_paths
+                    junctions, graph, flow, max_paths=max_paths
                 )
             ),
         )
