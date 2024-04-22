@@ -43,6 +43,7 @@ class TrimTips(App):
             unzippers=unzippers,
             pressers=pressers,
         )
+        gm.validate(graph)
 
         with sz.logging_util.phase_info("Finding tips"):
             tips = sz.topology.find_tips(
@@ -52,9 +53,10 @@ class TrimTips(App):
         with sz.logging_util.phase_info("Trimming tips"):
             logging.info(f"Removing {len(tips)} tips with length < {kmer_length}.")
             gm.batch_trim(graph, tips)
-            # TODO: Be super confident that the vp['filter'] is the vertex filter,
+            # TODO (2024-04-22): Be super confident that the vp['filter'] is the vertex filter,
             # and therefore prune=True drops the tips.
             graph = gt.Graph(graph, prune=True)
+            logging.debug(graph)
 
         with sz.logging_util.phase_info("Writing result"):
             sz.io.dump_graph(graph, args.outpath)
