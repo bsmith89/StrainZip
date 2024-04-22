@@ -46,7 +46,7 @@ def test_press_unitigs():
     gm.validate(graph)
     degree_stats0 = sz.stats.degree_stats(graph)
     gm.batch_press(
-        graph, *[(path, {}) for path in sz.assembly.iter_maximal_unitig_paths(graph)]
+        graph, *[(path, {}) for path in sz.topology.iter_maximal_unitig_paths(graph)]
     )
     degree_stats1 = sz.stats.degree_stats(graph)
     vertex_stats1 = graph.get_vertices(
@@ -56,7 +56,7 @@ def test_press_unitigs():
         graph,
         *[
             (path, {})
-            for path in sz.assembly.iter_maximal_unitig_paths(
+            for path in sz.topology.iter_maximal_unitig_paths(
                 gt.GraphView(graph, vfilt=graph.vp["filter"])
             )
         ]
@@ -75,13 +75,13 @@ def test_press_unitigs():
 
 def test_find_tip():
     graph = gt.Graph([(0, 4), (1, 4), (4, 2), (4, 3), (3, 5)])
-    tips = sz.assembly.find_tips(graph)
+    tips = sz.topology.find_tips(graph)
     assert np.array_equal(tips, [0, 1, 2, 5])
 
 
 def test_find_junctions():
     graph = gt.Graph([(0, 4), (1, 4), (4, 2), (4, 3), (3, 5)])
-    junctions = sz.assembly.find_junctions(graph)
+    junctions = sz.topology.find_junctions(graph)
     assert np.array_equal(junctions, [4])
 
 
@@ -115,7 +115,7 @@ def test_unitig_generator_deterministic():
     # List unitig paths k times.
     for _ in range(k_replicates):
         examples.append(
-            tuple(tuple(p) for p in sz.assembly.iter_maximal_unitig_paths(graph))
+            tuple(tuple(p) for p in sz.topology.iter_maximal_unitig_paths(graph))
         )
 
     # Check that all are equal to each other.
@@ -147,7 +147,7 @@ def test_simulated_graph_building_and_unitigs_deterministic():
         gm.validate(graph)
         gm.batch_press(
             graph,
-            *[(path, {}) for path in sz.assembly.iter_maximal_unitig_paths(graph)]
+            *[(path, {}) for path in sz.topology.iter_maximal_unitig_paths(graph)]
         )
         examples.append(graph)
     # Check that all are equal to each other.
@@ -181,7 +181,7 @@ def test_press_unitigs_with_cycles():
     gm = sz.graph_manager.GraphManager()
     gm.validate(_graph)
     # sz.draw.draw_graph(_graph, ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
-    unitig_paths = set(tuple(u) for u in sz.assembly.iter_maximal_unitig_paths(_graph))
+    unitig_paths = set(tuple(u) for u in sz.topology.iter_maximal_unitig_paths(_graph))
     assert unitig_paths == {(0, 1, 2, 3), (14, 12, 13), (4, 5, 6), (8, 9, 10)}
     gm.batch_press(_graph, *[(list(path), {}) for path in unitig_paths])
     # sz.draw.draw_graph(_graph, ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
@@ -219,7 +219,7 @@ def test_unzip_lolipops():
     gm = sz.graph_manager.GraphManager()
     gm.validate(_graph)
     # sz.draw.draw_graph(_graph, ink_scale=1, output_size=(200, 200), vertex_text=_graph.vertex_index)
-    unitig_paths = [tuple(u) for u in sz.assembly.iter_maximal_unitig_paths(_graph)]
+    unitig_paths = [tuple(u) for u in sz.topology.iter_maximal_unitig_paths(_graph)]
     assert set(frozenset(u) for u in unitig_paths) == {
         frozenset([0, 1, 2]),
         frozenset([4, 5, 6]),

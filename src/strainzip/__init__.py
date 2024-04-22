@@ -1,5 +1,4 @@
 from . import (
-    assembly,
     build,
     deconvolution,
     draw,
@@ -10,6 +9,7 @@ from . import (
     results,
     sequence,
     stats,
+    topology,
 )
 
 __version__ = "0.1.0"
