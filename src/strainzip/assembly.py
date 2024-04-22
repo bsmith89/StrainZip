@@ -1,4 +1,4 @@
-import multiprocessing as mp
+from multiprocessing import Pool
 
 import graph_tool as gt
 import graph_tool.search
@@ -185,7 +185,7 @@ def parallel_calculate_all_junction_deconvolutions(
     max_paths=20,
     processes=1,
 ):
-    with mp.Pool(processes=processes) as pool:
+    with Pool(processes=processes) as pool:
         deconv_results = pool.imap_unordered(
             _calculate_junction_deconvolution,
             (
