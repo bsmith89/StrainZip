@@ -1,12 +1,13 @@
 import argparse
 import sys
 
-from . import app
-from .app_depth import EstimateUnitigDepth
-from .app_load import LoadGraph
-from .app_smooth import SmoothDepths
+from .app.depth import EstimateUnitigDepth
+from .app.example import Example
+from .app.load import LoadGraph
+from .app.smooth import SmoothDepths
 
 APPLICATIONS = {
+    "foo": Example,
     "load": LoadGraph,
     "depth": EstimateUnitigDepth,
     "smooth": SmoothDepths,

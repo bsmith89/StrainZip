@@ -1,14 +1,6 @@
 import argparse
 import logging
-import os
-import sqlite3
 import sys
-from multiprocessing.pool import Pool
-
-import numpy as np
-import pandas as pd
-import xarray as xr
-from tqdm import tqdm
 
 import strainzip as sz
 
@@ -127,61 +119,3 @@ class App:
 
         """
         raise NotImplementedError
-
-
-class Example(App):
-    """Example application to test the API."""
-
-    def add_custom_cli_args(self):
-        self.parser.add_argument("--foo", action="store_true", help="Should I foo?")
-        self.parser.add_argument("--num", type=int, default=1, help="How many times?")
-
-    def validate_and_transform_args(self, args):
-        assert args.num < 5, "NUM must be less than 5"
-        return args
-
-    def execute(self, args):
-        if args.foo:
-            for i in range(args.num):
-                print("Foo!")
-        else:
-            print("Nope, that's a bar.")
-
-
-class EstimateUnitigDepth(App):
-    """Estimate mean kmer depth of sequences."""
-
-    def add_custom_cli_args(self):
-        self.parser.add_argument("counts_inpath", help="SQLite3 DB of kmer counts")
-        self.parser.add_argument("k", type=int, help="Kmer length")
-        self.parser.add_argument(
-            "fasta_inpath", help="FASTA of sequences to be quantified"
-        )
-        self.parser.add_argument("outpath")
-
-    def execute(self, args):
-        print("Start loading counts DB.", file=sys.stderr)
-        assert os.path.exists(args.counts_inpath)
-        disk_con = sqlite3.connect(args.counts_inpath)
-        con = sqlite3.connect(":memory:")
-        disk_con.backup(con)
-        disk_con.close()
-        print("Finished loading counts DB.", file=sys.stderr)
-
-        print("Start calculating depths.")
-        results = {}
-        with open(args.fasta_inpath) as f, tqdm(mininterval=1) as pbar:
-            for header, sequence in sz.io.iter_linked_fasta_entries(f):
-                unitig_id_string, *_ = sz.io.ggcat_header_tokenizer(header)
-                unitig_id = unitig_id_string[1:]
-                depths_matrix = sz.io.load_sequence_depth_matrix(
-                    con, sequence, k=args.k
-                )
-                depths_mean = depths_matrix.mean(0)
-                results[int(unitig_id)] = depths_mean
-                pbar.update(depths_mean.shape[0])
-        results = pd.DataFrame(results.values(), index=results.keys())  # type: ignore[reportArgumentType]
-        results = (
-            results.rename_axis(index="unitig", columns="sample").stack().to_xarray()
-        )
-        results.to_netcdf(args.outpath)

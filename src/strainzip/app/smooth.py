@@ -5,7 +5,8 @@ import graph_tool as gt
 import numpy as np
 
 import strainzip as sz
-from strainzip.app import App
+
+from ._base import App
 
 DEFAULT_INERTIA = 0.5
 DEFAULT_NUM_ITER = 50

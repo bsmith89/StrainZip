@@ -2,7 +2,7 @@ import xarray as xr
 
 import strainzip as sz
 
-from .app import App
+from ._base import App
 
 
 class LoadGraph(App):

@@ -7,7 +7,8 @@ import pandas as pd
 from tqdm import tqdm
 
 import strainzip as sz
-from strainzip.app import App
+
+from ._base import App
 
 
 def _unitig_depth(arg):
