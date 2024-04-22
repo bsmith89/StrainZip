@@ -82,7 +82,8 @@ class App:
         logging.debug(f"Arguments: {args}")
 
         # Run the app specific work.
-        self.execute(args)
+        with sz.logging_util.phase_info(type(self)):
+            self.execute(args)
 
     def add_custom_cli_args(self):
         """Add app-specific CLI args to parser.
