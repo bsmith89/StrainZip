@@ -208,11 +208,12 @@ def _iter_junction_deconvolution_data(junction_iter, graph, flow, max_paths):
         in_flows = np.stack([flow[(i, j)] for i in in_neighbors])
         out_flows = np.stack([flow[(j, i)] for i in out_neighbors])
 
-        # FIXME (2024-04-20): Decide if I actually want to
-        # balance flows before fitting.
-        log_offset_ratio = np.log(in_flows.sum()) - np.log(out_flows.sum())
-        in_flows = np.exp(np.log(in_flows) - log_offset_ratio / 2)
-        out_flows = np.exp(np.log(out_flows) + log_offset_ratio / 2)
+        # # FIXME (2024-04-20): Decide if I actually want to
+        # # balance flows before fitting.
+        # log_offset_ratio = np.log(in_flows.sum()) - np.log(out_flows.sum())
+        # in_flows = np.exp(np.log(in_flows) - log_offset_ratio / 2)
+        # out_flows = np.exp(np.log(out_flows) + log_offset_ratio / 2)
+
         yield j, in_neighbors, in_flows, out_neighbors, out_flows
 
 
