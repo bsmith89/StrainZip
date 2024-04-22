@@ -61,10 +61,10 @@ def iter_maximal_unitig_paths(g):
 def find_tips(g, also_required=None):
     if also_required is None:
         also_required = True
+
     v_degree = g.degree_property_map("total")
-    result = np.where((v_degree.a == 1) & also_required)[
-        0
-    ]  # np.where returns a tuple (maybe to deal with an N-dimensional mask?).
+    # np.where returns a tuple (maybe to deal with an N-dimensional mask?).
+    result = np.where((v_degree.a == 1) & also_required)[0]
     return result
 
 
