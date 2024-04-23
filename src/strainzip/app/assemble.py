@@ -106,7 +106,7 @@ class DeconvolveGraph(App):
                                 graph, graph.vp["touched"]
                             )
                             logging.info(
-                                f"Only considering the {graph.vp['touched'].fa.sum()} junctions "
+                                f"Only considering the {graph.vp['touched'].fa.sum()} vertices "
                                 "affected by the previous round of deconvolution."
                             )
                             junctions = sz.topology.find_junctions(
