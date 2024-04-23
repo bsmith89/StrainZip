@@ -4,6 +4,7 @@ import sys
 from .app.assemble import DeconvolveGraph
 from .app.depth import EstimateUnitigDepth
 from .app.example import Example
+from .app.extract import ExtractResults
 from .app.focus import SelectLocalGraph
 from .app.load import LoadGraph
 from .app.smooth import SmoothDepths
@@ -17,6 +18,7 @@ APPLICATIONS = {
     "trim": TrimTips,
     "focus": SelectLocalGraph,
     "assemble": DeconvolveGraph,
+    "extract": ExtractResults,
 }
 
 
