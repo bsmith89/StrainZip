@@ -119,10 +119,10 @@ def load_sequence_depth_matrix(con, sequence, k):
 
 def dump_graph(graph, path, prune=False):
     graph = gt.Graph(graph, prune=prune)
-    graph.save(path)
+    graph.save(path, fmt="gt")
 
 
 def load_graph(path):
-    graph = gt.load_graph(path)
+    graph = gt.load_graph(path, fmt="gt")
     graph.set_vertex_filter(graph.vp["filter"])
     return graph
