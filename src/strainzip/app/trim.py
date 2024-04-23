@@ -13,14 +13,12 @@ class TrimTips(App):
         self.parser.add_argument("outpath")
         self.parser.add_argument(
             "--no-press",
-            dest="press",
-            action="store_false",
+            action="store_true",
             help="Do not press non-branching paths into tigs after trimming tips.",
         )
         self.parser.add_argument(
             "--no-prune",
-            dest="prune",
-            action="store_false",
+            action="store_true",
             help="Keep filtered vertices instead of pruning them.",
         )
 
@@ -65,7 +63,7 @@ class TrimTips(App):
             # and therefore prune=True drops the tips.
             logging.debug(graph)
 
-        if args.press:
+        if not args.no_press:
             with sz.logging_util.phase_info("Finding non-branching paths"):
                 unitig_paths = list(sz.topology.iter_maximal_unitig_paths(graph))
             with sz.logging_util.phase_info("Pressing tigs"):
@@ -79,4 +77,4 @@ class TrimTips(App):
                 logging.debug(graph)
 
         with sz.logging_util.phase_info("Writing result"):
-            sz.io.dump_graph(graph, args.outpath, prune=args.prune)
+            sz.io.dump_graph(graph, args.outpath, prune=(not args.no_prune))

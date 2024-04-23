@@ -24,8 +24,7 @@ class SelectLocalGraph(App):
         self.parser.add_argument("outpath")
         self.parser.add_argument(
             "--no-prune",
-            dest="prune",
-            action="store_false",
+            action="store_true",
             help="Keep filtered vertices instead of pruning them.",
         )
 
@@ -56,4 +55,4 @@ class SelectLocalGraph(App):
             logging.debug(graph)
 
         with sz.logging_util.phase_info("Writing result."):
-            sz.io.dump_graph(graph, args.outpath, prune=args.prune)
+            sz.io.dump_graph(graph, args.outpath, prune=(not args.no_prune))

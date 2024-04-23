@@ -55,8 +55,7 @@ class DeconvolveGraph(App):
         )
         self.parser.add_argument(
             "--no-prune",
-            dest="prune",
-            action="store_false",
+            action="store_true",
             help="Keep filtered vertices instead of pruning them.",
         )
 
@@ -158,4 +157,4 @@ class DeconvolveGraph(App):
                 logging.info("Reached maximum number of deconvolution iterations.")
 
         with phase_info("Writing result."):
-            sz.io.dump_graph(graph, args.outpath, prune=args.prune)
+            sz.io.dump_graph(graph, args.outpath, prune=(not args.no_prune))
