@@ -33,7 +33,7 @@ def full_depth_table(graph):
     return pd.DataFrame(depth_table, columns=vertices).T
 
 
-def total_vertex_depth(graph):
+def total_depth_property(graph):
     total_depth = graph.new_vertex_property("float", val=0)
     for depth in gt.ungroup_vector_property(
         graph.vp["depth"], pos=range(graph.gp["num_samples"])
