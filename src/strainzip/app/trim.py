@@ -1,5 +1,7 @@
 import logging
 
+import graph_tool as gt
+
 import strainzip as sz
 
 from ._base import App
@@ -21,8 +23,16 @@ class TrimTips(App):
             action="store_true",
             help="Keep filtered vertices instead of pruning them.",
         )
+        self.parser.add_argument(
+            "--processes",
+            "-p",
+            type=int,
+            default=1,
+            help="Number of parallel processes.",
+        )
 
     def execute(self, args):
+        gt.openmp_set_num_threads(args.processes)
         with sz.logging_util.phase_info("Loading graph"):
             graph = sz.io.load_graph(args.inpath)
         kmer_length = graph.gp["kmer_length"]

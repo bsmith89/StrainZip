@@ -60,6 +60,7 @@ class DeconvolveGraph(App):
         )
 
     def execute(self, args):
+        gt.openmp_set_num_threads(args.processes)
         if args.debug or args.verbose:
             logging.getLogger("jax").setLevel(logging.INFO)
 
