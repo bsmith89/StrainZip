@@ -1,5 +1,6 @@
 from itertools import chain
 
+import graph_tool as gt
 import pandas as pd
 
 from .pandas_util import idxwhere
@@ -19,6 +20,15 @@ def assemble_overlapping_unitigs(segment_list, unitig_to_sequence, k):
     return accum
 
 
+def total_vertex_depth(graph):
+    total_depth = graph.new_vertex_property("float", val=0)
+    for depth in gt.ungroup_vector_property(
+        graph.vp["depth"], pos=range(graph.gp["num_samples"])
+    ):
+        total_depth.a[:] = total_depth.a + depth.a
+    return total_depth
+
+
 def extract_vertex_data(graph):
     vertex_data = dict(
         vertex=graph.get_vertices(),
@@ -31,7 +41,7 @@ def extract_vertex_data(graph):
     )
     if "length" in graph.vp:
         vertex_data["length"] = graph.vp["length"]
-    if "depth" in graph.vp:
+    if "depth" in graph.vp:  # FIXME: Use total_vertex_depth(graph) (functiona above).
         vertex_data["total_depth"] = (
             graph.vp["depth"].get_2d_array(range(graph.gp["num_samples"])).sum(0)
         )
@@ -142,8 +152,23 @@ def validate_twins(twins, vertex_data):
     return (comparison == 0).all().all(), comparison
 
 
-def iter_vertices_with_segment(graph, segment):
+def iter_find_vertices_with_any_segment(graph, search_segments):
+    search_segments = set(search_segments)
     for v in graph.get_vertices():
-        segment_tuple = graph.vp["sequence"][v].split(",")
-        if segment in segment_tuple:
+        segments = set(graph.vp["sequence"][v].split(","))
+        if search_segments & segments:  # Test for a non-null intersection.
             yield v
+
+
+def all_segments(graph, vertices):
+    all_segments = []
+    for v in vertices:
+        all_segments.extend(graph.vp["sequence"][v].split(","))
+    return list(set(all_segments))
+
+
+def depth_table(graph, vertices):
+    depths = {}
+    for v in vertices:
+        depths[v] = graph.vp["depth"][v]
+    return pd.DataFrame(depths)

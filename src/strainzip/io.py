@@ -117,7 +117,8 @@ def load_sequence_depth_matrix(con, sequence, k):
     return results
 
 
-def dump_graph(graph, path):
+def dump_graph(graph, path, prune=False):
+    graph = gt.Graph(graph, prune=prune)
     graph.save(path)
 
 

@@ -41,7 +41,7 @@ class SmoothDepths(App):
     """Smooth vertex depths and write output table."""
 
     def add_custom_cli_args(self):
-        self.parser.add_argument("inpath", help="graph-tool formatted graph.")
+        self.parser.add_argument("inpath", help="StrainZip formatted graph.")
         self.parser.add_argument("outpath")
         self.parser.add_argument(
             "--inertia",

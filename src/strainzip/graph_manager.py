@@ -475,4 +475,3 @@ class GraphManager:
 
     def batch_trim(self, graph, parents):
         graph.vp.filter.a[parents] = 0
-        graph.vp.touched.a[parents] = 1

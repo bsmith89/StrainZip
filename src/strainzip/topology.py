@@ -111,7 +111,7 @@ def get_shortest_distance(graph, roots: List[int], weights, max_length=None):
         dist = gt.topology.shortest_distance(
             graph, v, weights=edge_weights, directed=True, max_dist=max_length
         )
-        min_dist[dist.a < min_dist] = dist.a
+        min_dist[dist.a < min_dist] = dist.a[dist.a < min_dist]
 
     return original_graph.new_vertex_property("float", vals=min_dist)
 

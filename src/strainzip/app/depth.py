@@ -55,6 +55,7 @@ class EstimateUnitigDepth(App):
 
     def execute(self, args):
         if args.preload:
+            # FIXME: Switch to logging instead of print statements.
             print("Preloading counts DB.", file=sys.stderr)
             assert os.path.exists(args.counts_inpath)
             disk_con = sqlite3.connect(args.counts_inpath)
