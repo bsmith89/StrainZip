@@ -35,7 +35,6 @@ class SelectLocalGraph(App):
     def execute(self, args):
         with sz.logging_util.phase_info("Loading graph."):
             graph = sz.io.load_graph(args.inpath)
-            kmer_length = graph.gp["kmer_length"]
             logging.debug(graph)
 
         with sz.logging_util.phase_info("Finding focal vertices."):
@@ -50,7 +49,7 @@ class SelectLocalGraph(App):
             )
             vfilt = graph.new_vertex_property("bool", vals=(min_dist.a < args.radius))
             logging.info(f"Found {vfilt.a.sum()} vertices inside radius.")
-            # TODO (2024-04-23): Confirm that this won't drop other existing filtering.
+            # TODO (2024-04-23): Confirm that already filtered vertices are still filtered.
             graph = gt.GraphView(graph, vfilt=vfilt)
             logging.debug(graph)
 
