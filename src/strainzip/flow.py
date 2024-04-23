@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 from warnings import warn
 
 import graph_tool as gt
@@ -142,14 +143,24 @@ def smooth_depth(
     return depth, change / initial_totals.sum()
 
 
-def estimate_all_flows(graph):
-    flow = []
-    for sample_id in range(graph.gp["num_samples"]):
-        one_flow, _, _, = estimate_flow(
-            graph,
-            gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0],
-            graph.vp["length"],
+def _estimate_flow(args):
+    graph, depth, weight = args
+    return estimate_flow(graph, depth, weight)[0]
+
+
+def estimate_all_flows(graph, processes=1):
+    with Pool(processes=processes) as pool:
+        flow = pool.imap(
+            _estimate_flow,
+            (
+                (
+                    graph,
+                    gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0],
+                    graph.vp["length"],
+                )
+                for sample_id in range(graph.gp["num_samples"])
+            ),
         )
-        flow.append(one_flow)
-    flow = gt.group_vector_property(flow, pos=range(graph.gp["num_samples"]))
+        flow = [graph.own_property(f) for f in flow]
+        flow = gt.group_vector_property(flow, pos=range(graph.gp["num_samples"]))
     return flow

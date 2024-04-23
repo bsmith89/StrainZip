@@ -88,7 +88,9 @@ class DeconvolveGraph(App):
             for i in range(args.max_iter):
                 with phase_info(f"Round {i + 1}"):
                     with phase_info("Optimize flow"):
-                        flow = sz.flow.estimate_all_flows(graph)
+                        flow = sz.flow.estimate_all_flows(
+                            graph, processes=args.processes
+                        )
                     with phase_info("Finding junctions"):
                         if i == 0:
                             # For first iteration, ignore the "touched" property in finding junctions.
