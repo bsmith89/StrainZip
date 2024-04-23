@@ -1,9 +1,11 @@
+import logging
 from functools import cache
 from itertools import product
 from multiprocessing import Pool as processPool
 from multiprocessing.dummy import Pool as threadPool
 
 import numpy as np
+from tqdm import tqdm
 
 from . import depth_model
 
@@ -306,7 +308,11 @@ def parallel_calculate_junction_deconvolutions(
         )
 
         batch = []
-        for result in deconv_results:
+        for result in tqdm(
+            deconv_results,
+            disable=(not logging.getLogger().isEnabledFor(logging.INFO)),
+            total=len(junctions),
+        ):
             if result is not None:
                 junction, named_paths, path_depths_dict = result
                 # print(f"{junction}: {named_paths}", end=" | ")
