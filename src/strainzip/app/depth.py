@@ -29,12 +29,12 @@ class EstimateUnitigDepth(App):
     """Estimate mean kmer depth of sequences."""
 
     def add_custom_cli_args(self):
-        self.parser.add_argument("counts_inpath", help="SQLite3 DB of kmer counts")
-        self.parser.add_argument("k", type=int, help="Kmer length")
-        self.parser.add_argument("outpath")
         self.parser.add_argument(
             "fasta_inpath", help="FASTA of sequences to be quantified"
         )
+        self.parser.add_argument("counts_inpath", help="SQLite3 DB of kmer counts")
+        self.parser.add_argument("k", type=int, help="Kmer length")
+        self.parser.add_argument("outpath")
         self.parser.add_argument(
             "--preload",
             action="store_true",
