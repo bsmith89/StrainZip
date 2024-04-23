@@ -20,6 +20,19 @@ def assemble_overlapping_unitigs(segment_list, unitig_to_sequence, k):
     return accum
 
 
+def depth_table(graph, vertices):
+    depths = {}
+    for v in vertices:
+        depths[v] = graph.vp["depth"][v]
+    return pd.DataFrame(depths)
+
+
+def full_depth_table(graph):
+    depth_table = graph.vp["depth"].get_2d_array(pos=range(graph.gp["num_samples"]))
+    vertices = graph.get_vertices()
+    return pd.DataFrame(depth_table, columns=vertices).T
+
+
 def total_vertex_depth(graph):
     total_depth = graph.new_vertex_property("float", val=0)
     for depth in gt.ungroup_vector_property(
@@ -165,10 +178,3 @@ def all_segments(graph, vertices):
     for v in vertices:
         all_segments.extend(graph.vp["sequence"][v].split(","))
     return list(set(all_segments))
-
-
-def depth_table(graph, vertices):
-    depths = {}
-    for v in vertices:
-        depths[v] = graph.vp["depth"][v]
-    return pd.DataFrame(depths)
