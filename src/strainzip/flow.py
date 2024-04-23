@@ -145,7 +145,9 @@ def smooth_depth(
 
 def _estimate_flow(args):
     graph, depth, weight = args
-    return estimate_flow(graph, depth, weight)[0]
+    return estimate_flow(
+        graph, depth, weight, eps=0.001, maxiter=10_000, verbose=False, flow_init=None
+    )[0]
 
 
 def estimate_all_flows(graph, processes=1):
