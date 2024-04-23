@@ -40,9 +40,10 @@ class EstimateUnitigDepth(App):
             action="store_true",
             help="Pre-load the kmer counts DB into memory.",
         )
+        # TODO (2024-04-23): Combine preload and tmpdb into one flag using nargs="?"
         self.parser.add_argument(
             "--tmpdb",
-            help="If --preload is given, load the data into a this file. If not provided, an (explicitly) in-memory DB is used instead. Has no effect if not preloading the DB.",
+            help="If --preload is given, load the data into this file. If not provided, an (explicitly) in-memory DB is used instead. Has no effect if not preloading the DB.",
         )
         self.parser.add_argument(
             "--processes",
