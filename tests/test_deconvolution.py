@@ -1,7 +1,7 @@
 import numpy as np
 
 import strainzip as sz
-import strainzip.depth_model
+from strainzip import depth_model
 
 
 def test_deconvolution_problem_formulation():
@@ -77,7 +77,7 @@ def test_well_specified_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    fit = sz.depth_model.fit(y_obs, X_reduced, alpha=alpha)
+    fit = depth_model.fit(y_obs, X_reduced, alpha=alpha)
 
     # Calculate likelihood
     assert np.isfinite(fit.score)
@@ -119,7 +119,7 @@ def test_no_noise_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    fit = sz.depth_model.fit(y_obs, X_reduced, alpha=alpha)
+    fit = depth_model.fit(y_obs, X_reduced, alpha=alpha)
     # Check estimates.
     assert np.allclose(
         fit.beta,
@@ -183,7 +183,7 @@ def test_predefined_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    fit = sz.depth_model.fit(y_obs, X_reduced, alpha=alpha)
+    fit = depth_model.fit(y_obs, X_reduced, alpha=alpha)
     # Check estimates.
     assert np.allclose(
         fit.beta,
@@ -250,7 +250,7 @@ def test_model_selection_procedure_3x4():
     (selected_paths, delta_score,) = sz.deconvolution.select_paths(
         X,
         y_obs,
-        model=sz.depth_model,
+        model=depth_model,
         forward_stop=0.0,
         backward_stop=0.0,
         alpha=alpha,
@@ -293,7 +293,7 @@ def test_model_selection_procedure_2x1():
     (selected_paths, delta_score,) = sz.deconvolution.select_paths(
         X,
         y_obs,
-        model=sz.depth_model,
+        model=depth_model,
         forward_stop=0.0,
         backward_stop=0.0,
         alpha=alpha,
