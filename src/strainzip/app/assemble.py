@@ -129,6 +129,7 @@ def _parallel_calculate_junction_deconvolutions(
     condition_thresh=1e5,
     max_paths=20,
     processes=1,
+    verbose=False,
 ):
     # FIXME (2024-04-21): This architecture means that all of the JAX
     # stuff needs to be recompiled every time in every process.
@@ -164,7 +165,7 @@ def _parallel_calculate_junction_deconvolutions(
         batch = []
         for result in tqdm(
             deconv_results,
-            disable=(not logging.getLogger().isEnabledFor(logging.INFO)),
+            disable=(not verbose),
             total=len(junctions),
         ):
             if result is not None:
@@ -304,6 +305,7 @@ class DeconvolveGraph(App):
                             condition_thresh=args.condition_thresh,
                             max_paths=100,  # FIXME: Consider whether I want this parameter at all.
                             processes=args.processes,
+                            verbose=args.debug,
                         )
                     with phase_info("Unzipping junctions"):
                         new_unzipped_vertices = gm.batch_unzip(graph, *deconvolutions)
