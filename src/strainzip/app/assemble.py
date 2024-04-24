@@ -12,6 +12,10 @@ from strainzip.logging_util import phase_info
 from .. import depth_model
 from ._base import App
 
+DEFAULT_MAX_ITER = 100
+DEFAULT_CONDITION_THRESH = 1e5
+DEFAULT_ALPHA = 1.0
+
 
 def _estimate_flow(args):
     graph, depth, weight = args
@@ -189,14 +193,14 @@ class DeconvolveGraph(App):
             "--max-iter",
             "-n",
             type=int,
-            default=100,
+            default=DEFAULT_MAX_ITER,
             help="Maximum rounds of graph deconvolution.",
         )
         self.parser.add_argument(
             "--condition-thresh",
             "-c",
             type=float,
-            default=1e5,
+            default=DEFAULT_CONDITION_THRESH,
             help=(
                 "Maximum condition number of the Fisher Information Matrix to still deconvolve a junction. "
                 " This is used as a proxy for how identifiable the depth estimates are."
@@ -206,7 +210,7 @@ class DeconvolveGraph(App):
             "--alpha",
             "-a",
             type=float,
-            default=1.0,
+            default=DEFAULT_ALPHA,
             help="Value of the alpha parameter to the depth model.",
         )
         self.parser.add_argument(
