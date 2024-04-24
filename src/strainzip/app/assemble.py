@@ -89,7 +89,8 @@ class DeconvolveGraph(App):
                 with phase_info(f"Round {i + 1}"):
                     with phase_info("Optimize flow"):
                         flow = sz.flow.estimate_all_flows(
-                            graph, processes=args.processes
+                            graph,
+                            processes=1,  # TODO (2024-04-23): Figure out why multiprocessing.Pool doesn't work here.
                         )
                     with phase_info("Finding junctions"):
                         if i == 0:

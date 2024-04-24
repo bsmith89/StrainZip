@@ -1,4 +1,5 @@
-from multiprocessing import Pool
+from multiprocessing import Pool as processPool
+from multiprocessing.dummy import Pool as threadPool
 from warnings import warn
 
 import graph_tool as gt
@@ -145,12 +146,20 @@ def smooth_depth(
 
 def _estimate_flow(args):
     graph, depth, weight = args
-    return estimate_flow(
-        graph, depth, weight, eps=0.001, maxiter=10_000, verbose=False, flow_init=None
+    # NOTE (2024-04-23): Something is wrong here when _estimate_flow is called
+    # within a multiprocessing.Pool.
+    flow = estimate_flow(
+        graph, depth, weight, eps=0.001, maxiter=200, verbose=True, flow_init=None
     )[0]
+    return flow
 
 
 def estimate_all_flows(graph, processes=1):
+    if processes > 1:
+        Pool = processPool  # TODO(2024-04-23): Figure out why multiprocessing.Pool doesn't work here.
+    else:
+        Pool = threadPool
+
     with Pool(processes=processes) as pool:
         flow = pool.imap(
             _estimate_flow,
