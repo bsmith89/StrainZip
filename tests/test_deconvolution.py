@@ -133,7 +133,7 @@ def test_no_noise_deconvolution():
     assert np.allclose(fit.sigma, np.zeros_like(fit.sigma), atol=1e-4)
 
     # Check BIC
-    assert np.allclose(fit.score, 208.8452)
+    assert np.allclose(fit.score, 203.59065)
 
     # Estimate standard errors.
     # Check estimates.
@@ -203,11 +203,11 @@ def test_predefined_deconvolution():
     )
     assert np.allclose(
         fit.sigma,
-        np.array([[0.5559257], [0.2538453], [0.25384486], [0.05775243], [0.54328245]]),
+        np.array([[0.5422827, 0.06206119, 0.3793803]]),
     )
 
     # Check BIC
-    assert np.allclose(fit.score, -66.81597)
+    assert np.allclose(fit.score, -63.953182)
 
     # Estimate standard errors.
     # Check estimates.
@@ -215,9 +215,9 @@ def test_predefined_deconvolution():
         fit.stderr_beta,
         np.array(
             [
-                [2.6438904e-01, 5.4443096e01, 5.7752453e-07],
-                [7.6072998e01, 5.4328339e-06, 7.4474644e03],
-                [1.8659252e01, 1.7949537e-06, 3.8362180e04],
+                [2.4824376e00, 4.3543179e01, 3.7938039e-06],
+                [7.4405067e01, 6.2061298e-07, 5.1694292e03],
+                [3.9861290e01, 4.3883844e-07, 5.7333625e04],
             ]
         ),
     )
@@ -229,7 +229,7 @@ def test_model_selection_procedure_3x4():
         alpha=1e-0
     )  # Small offset for handling 0s in depths
     n, m = 3, 4  # In-edges / out-edges
-    s_samples = 10
+    s_samples = 20
     sigma = 1e-2  # Scale of the multiplicative noise
     depth_multiplier = 2  # Scaling factor for depths
     num_excess_paths = 1  # How many extra paths to include beyond correct ones.
