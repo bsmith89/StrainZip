@@ -92,8 +92,6 @@ def _iter_junction_deconvolution_data(junction_iter, graph, flow, max_paths):
         yield j, in_neighbors, in_flows, out_neighbors, out_flows
 
 
-# TODO (2024-04-20): Move these functions into the assembly app
-# instead of the assembly module.
 def _calculate_junction_deconvolution(args):
     (
         junction,
