@@ -67,11 +67,11 @@ def _residual(beta, y, X, alpha):
     return y_trsfm - expect_trsfm
 
 
-def _score(beta, sigma, y, X, *args, **kwargs):
+def _score(beta, sigma, y, X, alpha):
     e_edges, s_samples = y.shape
     _, p_paths = X.shape
 
-    ll = loglik(beta, sigma, y, X, *args, **kwargs)
+    ll = loglik(beta, sigma, y, X, alpha)
     n = e_edges * s_samples
     k = p_paths * s_samples + s_samples
     # NOTE: This parameter count is only correct if fitting both beta and sigma.
@@ -122,23 +122,31 @@ def _optimize(y, X, alpha):
     return (beta_est, sigma_est), opt
 
 
-def fit(y, X, *args, **kwargs):
-    params_est, opt = _optimize(y=y, X=X, *args, **kwargs)
+def fit(y, X, alpha):
+    params_est, opt = _optimize(y=y, X=X, alpha=alpha)
 
     # NOTE: Hessian of the *negative* log likelihood, because this is what's being
     # minimized? (How does this make sense??)
     hessian_func = hessian(
-        Partial(_negloglik, y=y, X=X, *args, **kwargs), argnums=range(len(params_est))
+        Partial(_negloglik, y=y, X=X, alpha=alpha), argnums=range(len(params_est))
     )
     # FIXME: Doesn't generalize well to other models. I'll have to change this line.
     beta_est, sigma_est = params_est
     fit_result = FitResult(
         beta_est,
         sigma_est,
-        _score(beta_est, sigma_est, y, X, *args, **kwargs),
+        _score(beta_est, sigma_est, y, X, alpha=alpha),
         hessian_func=hessian_func,
         X=X,
         y=y,
         opt=opt,
     )
     return fit_result
+
+
+class LogPlusAlphaLogNormal:
+    def __init__(self, alpha):
+        self.alpha = alpha
+
+    def fit(self, y, X):
+        return fit(y, X, self.alpha)

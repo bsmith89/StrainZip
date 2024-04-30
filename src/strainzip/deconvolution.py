@@ -70,7 +70,7 @@ def formulate_path_deconvolution(in_flows, out_flows):
 #     return -2 * loglik + 2 * k
 
 
-def iter_forward_greedy_path_selection(X, y, model, init_paths=None, **kwargs):
+def iter_forward_greedy_path_selection(X, y, model, init_paths=None):
     p_paths = X.shape[1]
     all_paths = set(range(p_paths))
 
@@ -85,7 +85,7 @@ def iter_forward_greedy_path_selection(X, y, model, init_paths=None, **kwargs):
         for p in inactive_paths:
             trial_paths = active_paths | {p}
             X_trial = X[:, list(trial_paths)]
-            fit = model.fit(y, X_trial, **kwargs)
+            fit = model.fit(y, X_trial)
             scores.append((fit.score, trial_paths))
         _, best_paths = sorted(scores, reverse=True)[0]
         active_paths = best_paths
@@ -93,7 +93,7 @@ def iter_forward_greedy_path_selection(X, y, model, init_paths=None, **kwargs):
         yield tuple(sorted(active_paths)), {tuple(sorted(pp)): s for s, pp in scores}
 
 
-def iter_backward_greedy_path_selection(X, y, model, init_paths=None, **kwargs):
+def iter_backward_greedy_path_selection(X, y, model, init_paths=None):
     p_paths = X.shape[1]
     all_paths = set(range(p_paths))
 
@@ -107,19 +107,19 @@ def iter_backward_greedy_path_selection(X, y, model, init_paths=None, **kwargs):
         for p in active_paths:
             trial_paths = active_paths - {p}
             X_trial = X[:, list(trial_paths)]
-            fit = model.fit(y, X_trial, **kwargs)
+            fit = model.fit(y, X_trial)
             scores.append((fit.score, trial_paths))
         _, best_paths = sorted(scores, reverse=True)[0]
         active_paths = best_paths
         yield tuple(sorted(active_paths)), {tuple(sorted(pp)): s for s, pp in scores}
 
 
-def select_paths(X, y, model, forward_stop, backward_stop, verbose=False, **kwargs):
+def select_paths(X, y, model, forward_stop, backward_stop, verbose=False):
     curr_score = np.nan
     all_scores = {}
     active_paths = ()
     for active_paths, multi_scores in iter_forward_greedy_path_selection(
-        X, y, model, init_paths=[], **kwargs
+        X, y, model, init_paths=[]
     ):
         all_scores |= multi_scores
         prev_score = curr_score
@@ -132,7 +132,7 @@ def select_paths(X, y, model, forward_stop, backward_stop, verbose=False, **kwar
 
     prev_active_paths = active_paths
     for active_paths, multi_scores in iter_backward_greedy_path_selection(
-        X, y, model, init_paths=active_paths, **kwargs
+        X, y, model, init_paths=active_paths
     ):
         all_scores |= multi_scores
         prev_score = curr_score
@@ -166,7 +166,6 @@ def deconvolve_junction(
     forward_stop=0,
     backward_stop=0,
     verbose=False,
-    **kwargs,
 ):
     X, y, labels = formulate_path_deconvolution(in_flows, out_flows)
 
@@ -177,7 +176,6 @@ def deconvolve_junction(
         forward_stop=forward_stop,
         backward_stop=backward_stop,
         verbose=verbose,
-        **kwargs,
     )
     named_paths = []
     for path_idx in selected_paths:
@@ -185,6 +183,6 @@ def deconvolve_junction(
         right = out_vertices[labels[path_idx][1]]
         named_paths.append((left, right))
 
-    fit = model.fit(y, X[:, selected_paths], **kwargs)
+    fit = model.fit(y, X[:, selected_paths])
 
     return fit, selected_paths, named_paths, delta_aic

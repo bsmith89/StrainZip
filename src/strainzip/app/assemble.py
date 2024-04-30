@@ -9,12 +9,17 @@ from tqdm import tqdm
 import strainzip as sz
 from strainzip.logging_util import phase_info
 
-from .. import depth_model
+from ..depth_model import LogPlusAlphaLogNormal
 from ._base import App
 
 DEFAULT_MAX_ITER = 100
 DEFAULT_CONDITION_THRESH = 1e5
-DEFAULT_ALPHA = 1.0
+
+DEPTH_MODELS = {
+    "LogPlusAlphaLogNormal": (LogPlusAlphaLogNormal, dict(alpha=1.0)),
+}
+
+DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 
 
 def _estimate_flow(args):
@@ -83,9 +88,9 @@ def _calculate_junction_deconvolution(args):
         out_flows,
         forward_stop,
         backward_stop,
-        alpha,
         score_margin_thresh,
         condition_thresh,
+        depth_model,
     ) = args
     n, m = len(in_neighbors), len(out_neighbors)
     fit, paths, named_paths, score_margin = sz.deconvolution.deconvolve_junction(
@@ -96,7 +101,6 @@ def _calculate_junction_deconvolution(args):
         model=depth_model,  # TODO (2024-04-20): Allow this to be passed in by changing it from a module into a class.
         forward_stop=forward_stop,
         backward_stop=backward_stop,
-        alpha=alpha,
     )
 
     X = sz.deconvolution.design_paths(n, m)[0]
@@ -122,9 +126,9 @@ def _parallel_calculate_junction_deconvolutions(
     junctions,
     graph,
     flow,
+    depth_model,
     forward_stop=0.0,
     backward_stop=0.0,
-    alpha=1.0,
     score_margin_thresh=20.0,
     condition_thresh=1e5,
     max_paths=20,
@@ -152,9 +156,9 @@ def _parallel_calculate_junction_deconvolutions(
                     out_flows,
                     forward_stop,
                     backward_stop,
-                    alpha,
                     score_margin_thresh,
                     condition_thresh,
+                    depth_model,
                 )
                 for junction, in_neighbors, in_flows, out_neighbors, out_flows in _iter_junction_deconvolution_data(
                     junctions, graph, flow, max_paths=max_paths
@@ -208,11 +212,24 @@ class DeconvolveGraph(App):
             ),
         )
         self.parser.add_argument(
-            "--alpha",
-            "-a",
-            type=float,
-            default=DEFAULT_ALPHA,
-            help="Value of the alpha parameter to the depth model.",
+            "--model",
+            dest="model_name",
+            type=str,
+            help="Which depth model to use.",
+            choices=DEPTH_MODELS.keys(),
+            default=DEFAULT_DEPTH_MODEL,
+        )
+        self.parser.add_argument(
+            "--model-hyperparameters",
+            type=str,
+            nargs="+",
+            metavar="KEY=VALUE",
+            default=[],
+            help=(
+                "Value of the depth model hyperparameters in KEY=VALUE format. "
+                "All VALUEs are assumed to be floats. "
+                "Unassigned hyperparameters are given their default values."
+            ),
         )
         self.parser.add_argument(
             "--processes",
@@ -226,6 +243,26 @@ class DeconvolveGraph(App):
             action="store_true",
             help="Keep filtered vertices instead of pruning them.",
         )
+
+    def validate_and_transform_args(self, args):
+        # Fetch model and default hyperparameters by name.
+        depth_model_class, model_default_hyperparameters = DEPTH_MODELS[args.model_name]
+
+        # Populate a dictionary of hyperparameters from the provided KEY=VALUE pairs.
+        model_hyperparameters = {}
+        for entry in args.model_hyperparameters:
+            k, v = entry.split("=")
+            assert (
+                k in model_default_hyperparameters
+            ), f"{k} does not appear to be a hyperparameters of {depth_model_class}."
+            model_hyperparameters[k] = float(v)
+
+        # Instantiate the depth model and assign it to args.
+        args.depth_model = depth_model_class(
+            **(model_default_hyperparameters | model_hyperparameters)
+        )
+
+        return args
 
     def execute(self, args):
         gt.openmp_set_num_threads(args.processes)
@@ -298,9 +335,9 @@ class DeconvolveGraph(App):
                             junctions,
                             graph,
                             flow,
+                            args.depth_model,
                             forward_stop=0.0,
                             backward_stop=0.0,
-                            alpha=1.0,
                             score_margin_thresh=args.score_thresh,
                             condition_thresh=args.condition_thresh,
                             max_paths=100,  # FIXME: Consider whether I want this parameter at all.

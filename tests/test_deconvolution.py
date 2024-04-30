@@ -1,7 +1,7 @@
 import numpy as np
 
 import strainzip as sz
-from strainzip import depth_model
+from strainzip.depth_model import LogPlusAlphaLogNormal
 
 
 def test_deconvolution_problem_formulation():
@@ -33,7 +33,9 @@ def test_deconvolution_problem_formulation():
 
 def test_well_specified_deconvolution():
     seed = 0
-    alpha = 1e-5  # Small offset for handling 0s in depths
+    depth_model = LogPlusAlphaLogNormal(
+        alpha=1e-5  # Small offset for handling 0s in depths
+    )
     n, m = 2, 3  # In-edges / out-edges
     s_samples = 3
     sigma = 1  # Scale of the multiplicative noise
@@ -77,7 +79,7 @@ def test_well_specified_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    fit = depth_model.fit(y_obs, X_reduced, alpha=alpha)
+    fit = depth_model.fit(y_obs, X_reduced)
 
     # Calculate likelihood
     assert np.isfinite(fit.score)
@@ -87,7 +89,9 @@ def test_well_specified_deconvolution():
 
 
 def test_no_noise_deconvolution():
-    alpha = 1e-5  # Small offset for handling 0s in depths
+    depth_model = LogPlusAlphaLogNormal(
+        alpha=1e-5
+    )  # Small offset for handling 0s in depths
     n, m = 2, 3  # In-edges / out-edges
     s_samples = 3
     depth_multiplier = 1  # Scaling factor for depths
@@ -119,7 +123,7 @@ def test_no_noise_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    fit = depth_model.fit(y_obs, X_reduced, alpha=alpha)
+    fit = depth_model.fit(y_obs, X_reduced)
     # Check estimates.
     assert np.allclose(
         fit.beta,
@@ -141,7 +145,9 @@ def test_no_noise_deconvolution():
 
 
 def test_predefined_deconvolution():
-    alpha = 1e-5  # Small offset for handling 0s in depths
+    depth_model = LogPlusAlphaLogNormal(
+        alpha=1e-5
+    )  # Small offset for handling 0s in depths
     n, m = 2, 3  # In-edges / out-edges
     s_samples = 3
     sigma = 1  # Scale of the multiplicative noise
@@ -183,7 +189,7 @@ def test_predefined_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    fit = depth_model.fit(y_obs, X_reduced, alpha=alpha)
+    fit = depth_model.fit(y_obs, X_reduced)
     # Check estimates.
     assert np.allclose(
         fit.beta,
@@ -219,7 +225,9 @@ def test_predefined_deconvolution():
 
 def test_model_selection_procedure_3x4():
     seed = 1
-    alpha = 1e-0  # Small offset for handling 0s in depths
+    depth_model = LogPlusAlphaLogNormal(
+        alpha=1e-0
+    )  # Small offset for handling 0s in depths
     n, m = 3, 4  # In-edges / out-edges
     s_samples = 10
     sigma = 1e-2  # Scale of the multiplicative noise
@@ -253,7 +261,6 @@ def test_model_selection_procedure_3x4():
         model=depth_model,
         forward_stop=0.0,
         backward_stop=0.0,
-        alpha=alpha,
     )
 
     assert set(selected_paths) == set(active_paths)
@@ -262,7 +269,9 @@ def test_model_selection_procedure_3x4():
 # FIXME: Parameterize the previous test instead of making this nearly identical test.
 def test_model_selection_procedure_2x1():
     seed = 0
-    alpha = 1e-0  # Small offset for handling 0s in depths
+    depth_model = LogPlusAlphaLogNormal(
+        alpha=1e-0
+    )  # Small offset for handling 0s in depths
     n, m = 2, 1  # In-edges / out-edges
     s_samples = 4
     sigma = 1e-1  # Scale of the multiplicative noise
@@ -296,7 +305,6 @@ def test_model_selection_procedure_2x1():
         model=depth_model,
         forward_stop=0.0,
         backward_stop=0.0,
-        alpha=alpha,
     )
 
     assert set(selected_paths) == set(active_paths)
