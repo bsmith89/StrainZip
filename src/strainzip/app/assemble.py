@@ -10,6 +10,7 @@ import strainzip as sz
 from strainzip.logging_util import phase_info
 
 from ..depth_model import LogPlusAlphaLogNormal
+from ..depth_model2 import SoftPlusNormal
 from ._base import App
 
 DEFAULT_MAX_ITER = 100
@@ -17,6 +18,7 @@ DEFAULT_CONDITION_THRESH = 1e5
 
 DEPTH_MODELS = {
     "LogPlusAlphaLogNormal": (LogPlusAlphaLogNormal, dict(alpha=1.0)),
+    "SoftPlusNormal": (SoftPlusNormal, dict()),
 }
 
 DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
