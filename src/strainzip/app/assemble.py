@@ -27,12 +27,18 @@ def _estimate_flow(args):
     # NOTE (2024-04-23): Something is wrong here when _estimate_flow is called
     # within a multiprocessing.Pool.
     flow = sz.flow.estimate_flow(
-        graph, depth, weight, eps=0.001, maxiter=200, verbose=False, flow_init=None
+        graph,
+        depth,
+        weight,
+        eps=0.001,
+        maxiter=200,
+        verbose=(not logging.getLogger().isEnabledFor(logging.INFO)),
+        flow_init=None,
     )[0]
     return flow
 
 
-def _estimate_all_flows(graph, processes=1, verbose=False):
+def _parallel_estimate_all_flows(graph, processes=1):
     if processes > 1:
         Pool = processPool  # TODO(2024-04-23): Figure out why multiprocessing.Pool doesn't work here.
     else:
@@ -50,7 +56,14 @@ def _estimate_all_flows(graph, processes=1, verbose=False):
                 for sample_id in range(graph.gp["num_samples"])
             ),
         )
-        flow = [graph.own_property(f) for f in tqdm(flow, disable=(not verbose))]
+        flow = [
+            graph.own_property(f)
+            for f in tqdm(
+                flow,
+                disable=(not logging.getLogger().isEnabledFor(logging.INFO)),
+                total=graph.gp["num_samples"],
+            )
+        ]
         flow = gt.group_vector_property(flow, pos=range(graph.gp["num_samples"]))
     return flow
 
@@ -133,7 +146,6 @@ def _parallel_calculate_junction_deconvolutions(
     condition_thresh=1e5,
     max_paths=20,
     processes=1,
-    verbose=False,
 ):
     # FIXME (2024-04-21): This architecture means that all of the JAX
     # stuff needs to be recompiled every time in every process.
@@ -169,7 +181,7 @@ def _parallel_calculate_junction_deconvolutions(
         batch = []
         for result in tqdm(
             deconv_results,
-            disable=(not verbose),
+            disable=(not logging.getLogger().isEnabledFor(logging.INFO)),
             total=len(junctions),
         ):
             if result is not None:
@@ -293,10 +305,9 @@ class DeconvolveGraph(App):
             for i in range(args.max_iter):
                 with phase_info(f"Round {i + 1}"):
                     with phase_info("Optimize flow"):
-                        flow = _estimate_all_flows(
+                        flow = _parallel_estimate_all_flows(
                             graph,
                             processes=1,  # TODO (2024-04-23): Figure out why multiprocessing.Pool doesn't work here.
-                            verbose=args.debug,
                         )
                     with phase_info("Finding junctions"):
                         if i == 0:
@@ -342,7 +353,6 @@ class DeconvolveGraph(App):
                             condition_thresh=args.condition_thresh,
                             max_paths=100,  # FIXME: Consider whether I want this parameter at all.
                             processes=args.processes,
-                            verbose=args.debug,
                         )
                     with phase_info("Unzipping junctions"):
                         new_unzipped_vertices = gm.batch_unzip(graph, *deconvolutions)
