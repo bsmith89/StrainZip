@@ -1,8 +1,11 @@
+import logging
 from typing import List
 
 import graph_tool as gt
 import graph_tool.topology
 import numpy as np
+
+from .logging_util import phase_debug, tqdm_debug
 
 
 def edge_has_no_siblings(g):
@@ -19,43 +22,57 @@ def edge_has_no_siblings(g):
 
 def get_cycles_and_label_maximal_unitigs(g):
     "Assign unitig indices to vertices in maximal unitigs."
-    no_sibling_edges = edge_has_no_siblings(g)
-    g_filt = gt.GraphView(g, efilt=no_sibling_edges, directed=True)
-    cyclic_paths = gt.topology.all_circuits(g_filt)
-    # WARNING: Possibly non-deterministic?
-    labels, counts = gt.topology.label_components(g_filt, directed=False)
-    return cyclic_paths, labels, counts, g_filt
+    with phase_debug("Filter out edges with siblings"):
+        no_sibling_edges = edge_has_no_siblings(g)
+        g_filt = gt.GraphView(g, efilt=no_sibling_edges, directed=True)
+        logging.debug(g_filt)
+    with phase_debug("Filter out orphans"):
+        total_degree = (
+            g_filt.degree_property_map("in").a + g_filt.degree_property_map("out").a
+        )
+        g_filt = gt.GraphView(g_filt, vfilt=total_degree != 0)
+        logging.debug(g_filt)
+    with phase_debug("Instantiate cycle iterator"):
+        cyclic_paths_iter = gt.topology.all_circuits(g_filt)
+    with phase_debug("Find distinct graph components"):
+        # NOTE: Possibly non-deterministic??
+        labels, counts = gt.topology.label_components(g_filt, directed=False)
+    return cyclic_paths_iter, labels, counts, g_filt
 
 
 def iter_maximal_unitig_paths(g):
-    # FIXME: Fails when any of the unitigs are cycles.
-    # Should be able to drop one edge from each cycle
-    # in the GraphView and get the correct outputs...
-    # Alternatively should be able to run gt.topology.all_circuits
-    # and pre-select the circuits to yield as their own sorted lists.
-    cyclic_paths, labels, counts, g_filt = get_cycles_and_label_maximal_unitigs(g)
-    involved_in_cycle = g_filt.new_vertex_property("bool", val=1)
-    for cycle in cyclic_paths:
-        involved_in_cycle.a[cycle] = 0
-        if len(cycle) < 2:
-            continue
-        yield cycle
+    logging.debug(g)
+    cyclic_paths_iter, labels, counts, g_filt = get_cycles_and_label_maximal_unitigs(g)
 
-    g_filt_drop_cycles = gt.GraphView(g_filt, vfilt=involved_in_cycle, directed=True)
+    with phase_debug("Iterating cycles"):
+        involved_in_cycle = g_filt.new_vertex_property("bool", val=1)
+        for cycle in tqdm_debug(cyclic_paths_iter):
+            involved_in_cycle.a[cycle] = 0
+            if len(cycle) < 2:
+                continue
+            yield cycle
 
-    sort_order = gt.topology.topological_sort(g_filt_drop_cycles)
-    sort_labels = labels.a[sort_order]
-    for i, _ in enumerate(counts):
-        unitig_path = sort_order[sort_labels == i]
-        if len(unitig_path) < 2:
-            continue
-        yield unitig_path
-    # NOTE (2024-04-17): I could sort this output (and make this function
-    # a poor excuse for a generator) if I want to be absolutely sure that the
-    # unitig order is deterministic.
-    # maximal_unitig_paths = []  # <-- aggregate this in the loop above.
-    # for path in sorted(maximal_unitig_paths):
-    #     return path
+    with phase_debug("Dropping cycles"):
+        g_filt_drop_cycles = gt.GraphView(
+            g_filt, vfilt=involved_in_cycle, directed=True
+        )
+
+    with phase_debug("Sorting unitigs"):
+        sort_order = gt.topology.topological_sort(g_filt_drop_cycles)
+        sort_labels = labels.a[sort_order]
+
+    with phase_debug("Iterating linear unitigs"):
+        for i, _ in tqdm_debug(enumerate(counts)):
+            unitig_path = sort_order[sort_labels == i]
+            if len(unitig_path) < 2:
+                continue
+            yield unitig_path
+        # NOTE (2024-04-17): I could sort this output (and make this function
+        # a poor excuse for a generator) if I want to be absolutely sure that the
+        # unitig order is deterministic.
+        # maximal_unitig_paths = []  # <-- aggregate this in the loop above.
+        # for path in sorted(maximal_unitig_paths):
+        #     return path
 
 
 def find_tips(g, also_required=None):

@@ -85,6 +85,41 @@ def test_find_junctions():
     assert np.array_equal(junctions, [4])
 
 
+def test_find_unitigs():
+    graph = gt.Graph(
+        [
+            # A 3-cycle
+            (0, 1),
+            (1, 2),
+            (2, 0),
+            # An in-3-lolipop
+            (3, 4),
+            (4, 5),
+            (5, 3),
+            (6, 3),
+            # An out-3-lolipop
+            (7, 8),
+            (8, 9),
+            (9, 7),
+            (7, 10),
+            # A 2-cycle
+            (11, 12),
+            (12, 11),
+            # A 1-cycle
+            (13, 13),
+            # An in-1-lolipop
+            (14, 14),
+            (15, 14),
+            # An out-1-lolipop
+            (16, 16),
+            (16, 17),
+        ]
+    )
+    graph.add_vertex(1)  # An orphan vertex.
+    unitig_paths = set([tuple(p) for p in sz.topology.iter_maximal_unitig_paths(graph)])
+    assert unitig_paths == {(0, 1, 2), (3, 4, 5), (8, 9, 7), (11, 12)}
+
+
 def test_split_junctions():
     graph = gt.Graph(
         [
