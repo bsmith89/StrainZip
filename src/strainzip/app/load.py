@@ -18,7 +18,9 @@ class LoadGraph(App):
         # Load topology.
         with open(args.fasta_inpath) as f:
             graph, _ = sz.io.load_graph_and_sequences_from_linked_fasta(
-                f, k=args.k, header_tokenizer=sz.io.ggcat_header_tokenizer
+                f,
+                k=args.k,
+                header_tokenizer=sz.io.ggcat_header_tokenizer,
             )
 
         # Load depth onto graph.
