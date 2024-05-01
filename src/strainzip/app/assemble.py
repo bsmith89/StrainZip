@@ -120,19 +120,27 @@ def _calculate_junction_deconvolution(args):
 
     if not (score_margin > score_margin_thresh):
         # print(f"[junc={j} / {n}x{m}] Cannot pick best model. (Selected model had {len(paths)} paths; score margin: {score_margin})")
-        pass
-    elif not X[:, paths].sum(1).min() == 1:
+        return None
+
+    if not X[:, paths].sum(1).min() == 1:
         # print(f"[junc={j} / {n}x{m}] Non-complete. (Best model had {len(paths)} paths; score margin: {score_margin})")
-        pass
-    elif not len(paths) <= max(n, m):
+        return None
+
+    if not len(paths) <= max(n, m):
         # print(f"[junc={j} / {n}x{m}] Non-minimal. (Best model had {len(paths)} paths; score margin: {score_margin})")
-        pass
-    elif not (np.linalg.cond(fit.hessian_beta) < condition_thresh):
-        # print(f"[junc={j} / {n}x{m}] Non-identifiable. (Best model had {len(paths)} paths; score margin: {score_margin})")
-        pass
+        return None
+
+    try:
+        condition = np.linalg.cond(fit.hessian_beta)
+    except np.linalg.LinAlgError:
+        return None
     else:
-        # print(f"[junc={j} / {n}x{m}] SUCCESS! Selected {len(paths)} paths; score margin: {score_margin}")
-        return junction, named_paths, {"path_depths": np.array(fit.beta.clip(0))}
+        if not (condition < condition_thresh):
+            # print(f"[junc={j} / {n}x{m}] Non-identifiable. (Best model had {len(paths)} paths; score margin: {score_margin})")
+            return None
+
+    # print(f"[junc={j} / {n}x{m}] SUCCESS! Selected {len(paths)} paths; score margin: {score_margin}")
+    return junction, named_paths, {"path_depths": np.array(fit.beta.clip(0))}
 
 
 def _parallel_calculate_junction_deconvolutions(
