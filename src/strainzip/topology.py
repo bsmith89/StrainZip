@@ -20,7 +20,7 @@ def edge_has_no_siblings(g):
     return e_has_no_sibling_edges
 
 
-def get_cycles_and_label_maximal_unitigs(g):
+def label_maximal_unitigs(g):
     "Assign unitig indices to vertices in maximal unitigs."
     with phase_debug("Filter out edges with siblings"):
         no_sibling_edges = edge_has_no_siblings(g)
@@ -32,47 +32,59 @@ def get_cycles_and_label_maximal_unitigs(g):
         )
         g_filt = gt.GraphView(g_filt, vfilt=total_degree != 0)
         logging.debug(g_filt)
-    with phase_debug("Instantiate cycle iterator"):
-        cyclic_paths_iter = gt.topology.all_circuits(g_filt)
     with phase_debug("Find distinct graph components"):
         # NOTE: Possibly non-deterministic??
         labels, counts = gt.topology.label_components(g_filt, directed=False)
-    return cyclic_paths_iter, labels, counts, g_filt
+    return labels, counts, g_filt
 
 
 def iter_maximal_unitig_paths(g):
     logging.debug(g)
-    cyclic_paths_iter, labels, counts, g_filt = get_cycles_and_label_maximal_unitigs(g)
+    # Filter edges and label components.
+    labels, counts, g_filt = label_maximal_unitigs(g)
+    logging.debug(g_filt)
 
-    with phase_debug("Iterating cycles"):
-        involved_in_cycle = g_filt.new_vertex_property("bool", val=1)
-        for cycle in tqdm_debug(cyclic_paths_iter):
-            involved_in_cycle.a[cycle] = 0
-            if len(cycle) < 2:
+    # Construct masks
+    in_degree = g_filt.degree_property_map("in")
+    out_degree = g_filt.degree_property_map("out")
+    is_source = in_degree.fa == 0
+    is_sink = out_degree.fa == 0
+    vertex_ids = g_filt.get_vertices()
+    source_set = set(vertex_ids[is_source])
+    sink_set = set(vertex_ids[is_sink])
+
+    with phase_debug("Iterating unitigs"):
+        for i, _ in tqdm_debug(enumerate(counts), total=len(counts)):
+            this_unitig_set = set(vertex_ids[labels.fa == i])
+
+            # NOTE: Since we are filtering out orphans in label_maximal_unitigs
+            # the only length-1 unitigs left are cycles.
+            if len(this_unitig_set) == 1:
+                # Not compressible.
                 continue
-            yield cycle
 
-    with phase_debug("Dropping cycles"):
-        g_filt_drop_cycles = gt.GraphView(
-            g_filt, vfilt=involved_in_cycle, directed=True
-        )
+            this_source_set = source_set & this_unitig_set
+            if len(this_source_set) == 1:
+                source = next(iter(this_source_set))
+                this_sink_set = sink_set & this_unitig_set
+                # NOTE: There should only one neighbor to the left, by construction.
+                sink = next(iter(this_sink_set))
+            elif len(this_source_set) == 0:
+                # It must be a cycle.
+                # Choose an arbitrary source vertex.
+                source = next(iter(this_unitig_set))
+                # Make the vertex to its left the sink.
+                # NOTE: There should only one neighbor to the left, by construction.
+                sink = g_filt.get_in_neighbors(source)[0]
+            else:
+                assert (
+                    False
+                ), "There should only be zero or one source vertex, by construction."
 
-    with phase_debug("Sorting unitigs"):
-        sort_order = gt.topology.topological_sort(g_filt_drop_cycles)
-        sort_labels = labels.a[sort_order]
-
-    with phase_debug("Iterating linear unitigs"):
-        for i, _ in tqdm_debug(enumerate(counts)):
-            unitig_path = sort_order[sort_labels == i]
-            if len(unitig_path) < 2:
-                continue
-            yield unitig_path
-        # NOTE (2024-04-17): I could sort this output (and make this function
-        # a poor excuse for a generator) if I want to be absolutely sure that the
-        # unitig order is deterministic.
-        # maximal_unitig_paths = []  # <-- aggregate this in the loop above.
-        # for path in sorted(maximal_unitig_paths):
-        #     return path
+            # Find the path from source to sink
+            unitig_path_list = list(gt.topology.all_paths(g_filt, source, sink))
+            # NOTE: By construction, only one path should ever go between source and sink.
+            yield unitig_path_list[0]
 
 
 def find_tips(g, also_required=None):
