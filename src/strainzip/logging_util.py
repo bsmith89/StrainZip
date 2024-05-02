@@ -4,43 +4,53 @@ from contextlib import contextmanager
 
 from tqdm import tqdm
 
+global_phase_stack = [0] * 100  # Fixed maximum depth
 global_phase_level = 0
 
 
-def _phase_pre_and_post_fixes(i):
-    prefix = ">" * i + f"({i}) START:"
-    pstfix = "<" * i + f"({i})   END:"
-    return prefix, pstfix
+def global_phase_stack_as_string():
+    global global_phase_stack
+    global global_phase_level
+    pass
+
+
+@contextmanager
+def push_to_phase_id_stack():
+    global global_phase_stack
+    global global_phase_level
+    global_phase_stack[global_phase_level] += 1
+    global_phase_level += 1
+    phase_stack_string = ".".join(
+        [str(i) for i in global_phase_stack[:global_phase_level]]
+    )
+    # TODO: Increment the phase stack
+    yield phase_stack_string
+    global_phase_level -= 1
+    # TODO: Decrement the phase stack
 
 
 @contextmanager
 def phase_info(name):
-    global global_phase_level
-    prefix, pstfix = _phase_pre_and_post_fixes(global_phase_level)
     start_time = time.time()
-    logging.info(f"{prefix} {name}")
-    global_phase_level += 1
-    yield None
-    global_phase_level -= 1
-    end_time = time.time()
-    delta_time = end_time - start_time
-    delta_time_rounded = round(delta_time)
-    logging.info(f"{pstfix} {name} ({delta_time_rounded} seconds)")
+    with push_to_phase_id_stack() as phase_id:
+        logging.info(f"     ({phase_id}) {name}")
+        yield None
+        end_time = time.time()
+        delta_time = end_time - start_time
+        delta_time_rounded = round(delta_time)
+        logging.info(f"DONE ({phase_id}) {name} ({delta_time_rounded} sec)")
 
 
 @contextmanager
 def phase_debug(name):
-    global global_phase_level
-    prefix, pstfix = _phase_pre_and_post_fixes(global_phase_level)
     start_time = time.time()
-    logging.debug(f"{prefix} {name}")
-    global_phase_level += 1
-    yield None
-    global_phase_level -= 1
-    end_time = time.time()
-    delta_time = end_time - start_time
-    delta_time_rounded = round(delta_time)
-    logging.debug(f"{pstfix} {name} ({delta_time_rounded} seconds)")
+    with push_to_phase_id_stack() as phase_id:
+        logging.debug(f"({phase_id}) {name}")
+        yield None
+        end_time = time.time()
+        delta_time = end_time - start_time
+        delta_time_rounded = round(delta_time)
+        logging.debug(f"({phase_id}) {name} ({delta_time_rounded} sec)")
 
 
 def tqdm_info(*args, **kwargs):
