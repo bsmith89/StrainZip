@@ -75,7 +75,7 @@ class EstimateUnitigDepth(App):
         print("Start calculating depths.")
         results = {}
         pool = Pool(processes=args.processes)
-        with open(args.fasta_inpath) as f, tqdm(mininterval=1) as pbar:
+        with open(args.fasta_inpath) as f, tqdm(mininterval=1, unit_scale=True) as pbar:
             unitig_iter = _iter_unitigs(sz.io.iter_linked_fasta_entries(f))
             results_iter = pool.imap_unordered(
                 _unitig_depth,
