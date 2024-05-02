@@ -15,7 +15,7 @@ def edge_has_no_siblings(g):
     e_num_in_siblings = gt.edge_endpoint_property(g, v_in_degree, "target")
     e_num_out_siblings = gt.edge_endpoint_property(g, v_out_degree, "source")
     e_has_no_sibling_edges = g.new_edge_property(
-        "bool", (e_num_in_siblings.a <= 1) & (e_num_out_siblings.a <= 1)
+        "bool", vals=(e_num_in_siblings.a <= 1) & (e_num_out_siblings.a <= 1)
     )
     return e_has_no_sibling_edges
 
@@ -23,7 +23,13 @@ def edge_has_no_siblings(g):
 def get_cycles_and_label_maximal_unitigs(g):
     "Assign unitig indices to vertices in maximal unitigs."
     no_sibling_edges = edge_has_no_siblings(g)
-    g_filt = gt.GraphView(g, efilt=no_sibling_edges, directed=True)
+    g_filt = gt.GraphView(g, efilt=no_sibling_edges)
+
+    # Find orphan vertices and filter them out.
+    degree = g_filt.degree_property_map("total")
+    orphan_filt = g_filt.new_vertex_property("bool", vals=degree.a != 0)
+    g_filt = gt.GraphView(g_filt, vfilt=orphan_filt)
+
     cyclic_paths = gt.topology.all_circuits(g_filt)
     # WARNING: Possibly non-deterministic?
     labels, counts = gt.topology.label_components(g_filt, directed=False)
@@ -40,20 +46,23 @@ def iter_maximal_unitig_paths(g):
         cyclic_paths, labels, counts, g_filt = get_cycles_and_label_maximal_unitigs(g)
 
     with phase_debug("Iterate/filter cyclic unitigs"):
-        involved_in_cycle = g_filt.new_vertex_property("bool", val=1)
+        involved_in_cycle = []
         for cycle in tqdm_debug(cyclic_paths):
-            involved_in_cycle.a[cycle] = 0
+            involved_in_cycle.extend(cycle)
             if len(cycle) < 2:
                 continue
             yield cycle
+
+        involved_in_cycle_filter = g_filt.new_vertex_property("bool", val=1)
+        involved_in_cycle_filter.a[involved_in_cycle] = 0
         g_filt_drop_cycles = gt.GraphView(
-            g_filt, vfilt=involved_in_cycle, directed=True
+            g_filt, vfilt=involved_in_cycle_filter, directed=True
         )
 
     with phase_debug("Iterate linear unitigs"):
         sort_order = gt.topology.topological_sort(g_filt_drop_cycles)
         sort_labels = labels.a[sort_order]
-        for i, _ in enumerate(counts):
+        for i, _ in enumerate(tqdm_debug(counts)):
             unitig_path = sort_order[sort_labels == i]
             if len(unitig_path) < 2:
                 continue
