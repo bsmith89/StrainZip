@@ -1,5 +1,3 @@
-from itertools import chain
-
 import graph_tool as gt
 import numpy as np
 
@@ -83,7 +81,6 @@ def parse_linked_fasta(lines_iter, k, header_tokenizer):
     sequences = {}
     lengths = {}
     all_edge_list = []
-    orphan_unitig_list = []
     for header, sequence in iter_linked_fasta_entries(lines_iter):
         unitig_id_string, length_string, edge_strings_list = header_tokenizer(header)
         unitig_id, length, edge_list = parse_linked_fasta_entry_header(
@@ -92,34 +89,13 @@ def parse_linked_fasta(lines_iter, k, header_tokenizer):
         sequences[unitig_id] = sequence
         lengths[unitig_id] = length
         all_edge_list.extend(edge_list)
-        if not edge_list:
-            orphan_unitig_list.append(unitig_id + "+")
-            orphan_unitig_list.append(unitig_id + "-")
-    return set(all_edge_list), set(orphan_unitig_list), lengths, sequences
+    return list(set(all_edge_list)), lengths, sequences
 
 
 def load_graph_and_sequences_from_linked_fasta(file_handle, k, header_tokenizer):
-    edge_set, orphan_unitig_set, lengths, sequences = parse_linked_fasta(
-        file_handle,
-        k,
-        header_tokenizer,
-    )
+    edge_list, lengths, sequences = parse_linked_fasta(file_handle, k, header_tokenizer)
 
-    # Construct the initial graph from edge
-    graph = gt.Graph(edge_set, hashed=True, directed=True)
-    # Add orphan vertices
-    num_orphan_vertices = len(orphan_unitig_set)
-    if num_orphan_vertices == 1:
-        # Special case when n=1, where add_vertex just gives you a single vertex
-        # object instead of an iterator over the (1) vertices.
-        orphan_vertices = [graph.add_vertex(num_orphan_vertices)]
-    else:
-        orphan_vertices = graph.add_vertex(num_orphan_vertices)
-    # and assign their unitig_id to match the results of "hashed=True"
-    # for the vertices added implicitly from the edge_set.
-    for v, unitig_id in zip(orphan_vertices, orphan_unitig_set):
-        graph.vp["ids"][v] = unitig_id
-
+    graph = gt.Graph(set(edge_list), hashed=True, directed=True)
     graph.vp["filter"] = graph.new_vertex_property("bool", val=1)
     graph.vp["length"] = graph.new_vertex_property("int")
     for i, _hash in enumerate(graph.vp["ids"]):

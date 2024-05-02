@@ -1,4 +1,3 @@
-import graph_tool as gt
 import xarray as xr
 
 import strainzip as sz
@@ -14,19 +13,12 @@ class LoadGraph(App):
         self.parser.add_argument("fasta_inpath", help="FASTA from GGCAT")
         self.parser.add_argument("depth_inpath", help="Preloaded NetCDF depth table")
         self.parser.add_argument("outpath")
-        self.parser.add_argument(
-            "--drop-orphans",
-            action="store_true",
-            help="Drop unitigs with no neighbors.",
-        )
 
     def execute(self, args):
         # Load topology.
         with open(args.fasta_inpath) as f:
             graph, _ = sz.io.load_graph_and_sequences_from_linked_fasta(
-                f,
-                k=args.k,
-                header_tokenizer=sz.io.ggcat_header_tokenizer,
+                f, k=args.k, header_tokenizer=sz.io.ggcat_header_tokenizer
             )
 
         # Load depth onto graph.
@@ -43,13 +35,5 @@ class LoadGraph(App):
             "int", val=len(depth_table.sample)
         )
 
-        if args.drop_orphans:
-            in_degree = graph.degree_property_map("in")
-            out_degree = graph.degree_property_map("out")
-            not_orphan = graph.new_vertex_property(
-                "bool", vals=(in_degree.a + out_degree.a) > 0
-            )
-            graph.set_vertex_filter(not_orphan)
-
         # Write out.
-        sz.io.dump_graph(graph, args.outpath, prune=True)
+        sz.io.dump_graph(graph, args.outpath)
