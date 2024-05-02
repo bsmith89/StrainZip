@@ -13,6 +13,7 @@ DEFAULT_NUM_ITER = 50
 
 
 def _load_graph_and_smooth_one_sample(arg):
+    gt.openmp_set_num_threads(1)
     sample, inpath, inertia, num_iter, verbose = arg
 
     if verbose:
