@@ -113,11 +113,19 @@ def test_find_unitigs():
             # An out-1-lolipop
             (16, 16),
             (16, 17),
+            # A length-3 unitig (with non-obvious node numbering)
+            (18, 20),
+            (19, 18),
+            # A length-4 unitig where three nodes will be "hidden" in the graph-view
+            (21, 22),
+            (22, 23),
+            (23, 24),
         ]
     )
     graph.add_vertex(1)  # An orphan vertex.
+    graph = gt.GraphView(graph, vfilt=lambda x: x not in [21, 23, 24])
     unitig_paths = set([tuple(p) for p in sz.topology.iter_maximal_unitig_paths(graph)])
-    assert unitig_paths == {(0, 1, 2), (3, 4, 5), (8, 9, 7), (11, 12)}
+    assert unitig_paths == {(11, 12), (8, 9, 7), (3, 4, 5), (0, 1, 2), (19, 18, 20)}
 
 
 def test_split_junctions():

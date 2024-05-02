@@ -20,59 +20,84 @@ def edge_has_no_siblings(g):
     return e_has_no_sibling_edges
 
 
-def get_cycles_and_label_maximal_unitigs(g):
-    "Assign unitig indices to vertices in maximal unitigs."
-    no_sibling_edges = edge_has_no_siblings(g)
-    g_filt = gt.GraphView(g, efilt=no_sibling_edges)
+from itertools import groupby
+
+
+def prepare_unitig_graph(graph):
+    no_sibling_edges = edge_has_no_siblings(graph)
+    g_filt = gt.GraphView(graph, efilt=no_sibling_edges)
 
     # Find orphan vertices and filter them out.
-    degree = g_filt.degree_property_map("total")
-    orphan_filt = g_filt.new_vertex_property("bool", vals=degree.a != 0)
+    orphan_filt = g_filt.new_vertex_property(
+        "bool", vals=g_filt.degree_property_map("total").a != 0
+    )
     g_filt = gt.GraphView(g_filt, vfilt=orphan_filt)
-
-    cyclic_paths = gt.topology.all_circuits(g_filt)
-    # WARNING: Possibly non-deterministic?
-    labels, counts = gt.topology.label_components(g_filt, directed=False)
-    return cyclic_paths, labels, counts, g_filt
+    return g_filt
 
 
-def iter_maximal_unitig_paths(g):
-    # FIXME: Fails when any of the unitigs are cycles.
-    # Should be able to drop one edge from each cycle
-    # in the GraphView and get the correct outputs...
-    # Alternatively should be able to run gt.topology.all_circuits
-    # and pre-select the circuits to yield as their own sorted lists.
-    with phase_debug("Build unitig graph"):
-        cyclic_paths, labels, counts, g_filt = get_cycles_and_label_maximal_unitigs(g)
+def iter_unitig_group_tables(unitig_graph, unitig_label):
+    in_degree = unitig_graph.degree_property_map("in")
+    out_degree = unitig_graph.degree_property_map("out")
+    vertex_info_iter = sorted(
+        zip(unitig_label.fa, in_degree.fa, out_degree.fa, unitig_graph.get_vertices()),
+    )
+    unitig_vertices_iter = groupby(vertex_info_iter, lambda x: x[0])
 
-    with phase_debug("Iterate/filter cyclic unitigs"):
-        involved_in_cycle = []
-        for cycle in tqdm_debug(cyclic_paths):
-            involved_in_cycle.extend(cycle)
-            if len(cycle) < 2:
-                continue
-            yield cycle
-
-        involved_in_cycle_filter = g_filt.new_vertex_property("bool", val=1)
-        involved_in_cycle_filter.a[involved_in_cycle] = 0
-        g_filt_drop_cycles = gt.GraphView(
-            g_filt, vfilt=involved_in_cycle_filter, directed=True
+    data = list(
+        sorted(
+            zip(
+                unitig_label.fa,
+                in_degree.fa,
+                out_degree.fa,
+                unitig_graph.get_vertices(),
+            )
         )
+    )
+    for k, g in groupby(vertex_info_iter, lambda x: x[0]):
+        yield list(g)
 
-    with phase_debug("Iterate linear unitigs"):
-        sort_order = gt.topology.topological_sort(g_filt_drop_cycles)
-        sort_labels = labels.a[sort_order]
-        for i, _ in enumerate(tqdm_debug(counts)):
-            unitig_path = sort_order[sort_labels == i]
-            if len(unitig_path) < 2:
-                continue
-            yield unitig_path
-        # NOTE (2024-04-17): I could sort this output (and make this function
-        # a poor excuse for a generator) if I want to be absolutely sure that the
-        # unitig order is deterministic.
-        # maximal_unitig_paths = []  # <-- aggregate this in the loop above.
-        # for path in sorted(maximal_unitig_paths):
-        #     return path
+
+def drop_in_edges_for_all(graph, vs):
+    edge_target_vertex_property = gt.edge_endpoint_property(
+        graph, graph.new_vertex_property("int", vals=graph.get_vertices()), "target"
+    )
+    edge_target_not_in_vertices = graph.new_edge_property("bool", val=1)
+    gt.map_property_values(
+        edge_target_vertex_property,
+        edge_target_not_in_vertices,
+        map_func=lambda x: x not in vs,
+    )
+    return gt.GraphView(graph, efilt=edge_target_not_in_vertices)
+
+
+def iter_maximal_unitig_paths(graph):
+    unitig_graph = prepare_unitig_graph(graph)
+    unitig_labels, counts = gt.topology.label_components(unitig_graph, directed=False)
+
+    # Cleave cycles.
+    cycle_anchor_vertices = []
+    for unitig_group_table in iter_unitig_group_tables(unitig_graph, unitig_labels):
+        if len(unitig_group_table) == 1:
+            cycle_anchor_vertices.append(unitig_group_table[0][-1])
+        elif unitig_group_table[0][1] == 0:
+            # The first entry in the (sorted) table has in-degree 0; it's a simple unitig.
+            continue
+        else:
+            # The first entry in the (sorted) table does not have in-degree 0; it's a cycle.
+            cycle_anchor_vertices.append(unitig_group_table[0][-1])
+
+    # Sort vertices and yield labels
+    unitig_graph_acyclic = drop_in_edges_for_all(unitig_graph, cycle_anchor_vertices)
+    sort_order = np.argsort(gt.topology.topological_sort(unitig_graph_acyclic))
+    vertex_list = unitig_graph_acyclic.get_vertices()
+    for label, unitig_path_table in groupby(
+        sorted(zip(unitig_labels.fa, sort_order, vertex_list)),
+        key=lambda x: x[0],
+    ):
+        path = [x[-1] for x in unitig_path_table]
+        # Paths of length 1 will happen for orphans or 1-cycles.
+        if len(path) > 1:
+            yield path
 
 
 def find_tips(g, also_required=None):
