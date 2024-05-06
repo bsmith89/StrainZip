@@ -6,8 +6,17 @@ from tqdm import tqdm
 
 
 def estimate_flow(
-    graph, depth, weight, eps=0.001, maxiter=1000, verbose=False, flow_init=None
+    graph,
+    depth,
+    weight,
+    eps=0.001,
+    maxiter=1000,
+    verbose=False,
+    flow_init=None,
+    ifnotconverged="warn",
 ):
+    assert ifnotconverged in ["ignore", "warn", "error"]
+
     target_vertex_weight = gt.edge_endpoint_property(graph, weight, "target")
     source_vertex_weight = gt.edge_endpoint_property(graph, weight, "source")
 
@@ -100,7 +109,12 @@ def estimate_flow(
         ) / (source_vertex_weight.a + target_vertex_weight.a)
         flow.a += mean_flow_error
     else:
-        warn("Reached maxiter. Flow estimates did not converge.")
+        if ifnotconverged == "warn":
+            warn("Reached maxiter. Flow estimates did not converge.")
+        elif ifnotconverged == "error":
+            raise RuntimeError("Reached maxiter. Flow estimates did not converge.")
+        elif ifnotconverged == "ignore":
+            pass
 
     # Calculate final residuals
     total_in_flow = gt.incident_edges_op(graph, "in", "sum", flow)

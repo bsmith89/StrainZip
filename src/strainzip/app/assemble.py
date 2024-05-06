@@ -36,6 +36,7 @@ def _estimate_flow(args):
         maxiter=200,
         verbose=(not logging.getLogger().isEnabledFor(logging.INFO)),
         flow_init=None,
+        ifnotconverged="error",
     )[0]
     return flow
 
