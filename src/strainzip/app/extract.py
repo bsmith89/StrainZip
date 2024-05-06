@@ -4,7 +4,7 @@ import graph_tool as gt
 import xarray as xr
 
 import strainzip as sz
-from strainzip.logging_util import phase_info
+from strainzip.logging_util import phase_info, tqdm_debug
 
 from ._base import App
 
@@ -49,14 +49,10 @@ class ExtractResults(App):
             )
             with phase_info("Re-adding orphan sequences"):
                 unitigs_in_main_results = set(
-                    results.segments.explode().drop_duplicates()
+                    results.segments.explode().str[:-1].drop_duplicates()
                 )
-                unitigs_not_in_results = (
-                    set(unitig_to_sequence) - unitigs_in_main_results
-                )
-                orphan_depth_table = unitig_depth_table.sel(
-                    unitig=list(unitigs_not_in_results)
-                )
+                orphan_unitigs = set(unitig_to_sequence) - unitigs_in_main_results
+                orphan_depth_table = unitig_depth_table.sel(unitig=list(orphan_unitigs))
                 orphan_depth_table["unitig"] = [
                     f"orphan_{u}" for u in orphan_depth_table["unitig"].values
                 ]
@@ -79,15 +75,16 @@ class ExtractResults(App):
             with phase_info("Writing FASTA"), open(
                 args.fasta_outpath, "w"
             ) as fasta_handle:
-                for vertex, data in results.iterrows():
+                for vertex, data in tqdm_debug(
+                    results.iterrows(), total=results.shape[0]
+                ):
                     print(f">{vertex}\n{data.assembly}", file=fasta_handle)
                 with phase_info("Writing orphan unitigs"):
-                    for unitig in unitig_to_sequence:
-                        if unitig not in unitigs_in_main_results:
-                            print(
-                                f">{unitig}\n{unitig_to_sequence[unitig]}",
-                                file=fasta_handle,
-                            )
+                    for unitig in tqdm_debug(orphan_unitigs):
+                        print(
+                            f">orphan_{unitig}\n{unitig_to_sequence[unitig]}",
+                            file=fasta_handle,
+                        )
             with phase_info("Writing depth"):
                 depth_table.to_netcdf(args.depth_outpath)
             with phase_info("Writing segments"):
