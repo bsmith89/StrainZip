@@ -136,7 +136,7 @@ def estimate_flow(
         correction = calculate_delta(
             flow, graph, depth, length, static_terms, preallocated_terms
         )
-        loss_hist.append((correction.a**2).sum() / (depth.a**2).sum())
+        loss_hist.append((correction.a**2).sum() ** (1 / 2) / depth.a.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during flow estimation.")
         elif loss_hist[-1] == 0:

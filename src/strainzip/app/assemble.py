@@ -34,8 +34,8 @@ def _estimate_flow(args):
         graph,
         depth,
         length,
-        eps=1e-10,
-        maxiter=200,
+        eps=1e-6,
+        maxiter=1000,
         flow_init=None,
         ifnotconverged="error",
     )[0]
