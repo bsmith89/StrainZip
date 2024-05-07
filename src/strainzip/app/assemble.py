@@ -1,16 +1,15 @@
 import logging
-from multiprocessing import Pool as processPool
-from multiprocessing.dummy import Pool as threadPool
+from multiprocessing import Pool
 
 import graph_tool as gt
 import numpy as np
-from tqdm import tqdm
 
 import strainzip as sz
 from strainzip.logging_util import phase_info
 
 from ..depth_model import LogPlusAlphaLogNormal
 from ..depth_model2 import SoftPlusNormal
+from ..logging_util import tqdm_debug
 from ._base import App
 
 DEFAULT_MAX_ITER = 100
@@ -34,40 +33,37 @@ def _estimate_flow(args):
         length,
         eps=0.001,
         maxiter=200,
-        verbose=(not logging.getLogger().isEnabledFor(logging.INFO)),
         flow_init=None,
         ifnotconverged="error",
     )[0]
     return flow
 
 
-def _parallel_estimate_all_flows(graph, processes=1):
-    if processes > 1:
-        Pool = processPool  # TODO(2024-04-23): Figure out why multiprocessing.Pool doesn't work here.
-    else:
-        Pool = threadPool
-
-    with Pool(processes=processes) as pool:
-        flow = pool.imap(
-            _estimate_flow,
+def _parallel_estimate_all_flows(graph, pool):
+    # if processes > 1:
+    #     Pool = processPool  # TODO(2024-04-23): Figure out why multiprocessing.Pool doesn't work here.
+    # else:
+    #     Pool = threadPool
+    flow = pool.imap(
+        _estimate_flow,
+        (
             (
-                (
-                    graph,
-                    gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0],
-                    graph.vp["length"],
-                )
-                for sample_id in range(graph.gp["num_samples"])
-            ),
-        )
-        flow = [
-            graph.own_property(f)
-            for f in tqdm(
-                flow,
-                disable=(not logging.getLogger().isEnabledFor(logging.INFO)),
-                total=graph.gp["num_samples"],
+                graph,
+                gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0],
+                graph.vp["length"],
             )
-        ]
-        flow = gt.group_vector_property(flow, pos=range(graph.gp["num_samples"]))
+            for sample_id in range(graph.gp["num_samples"])
+        ),
+    )
+    flow = [
+        graph.own_property(f)
+        for f in tqdm_debug(
+            flow,
+            total=graph.gp["num_samples"],
+            bar_format="{l_bar}{r_bar}",
+        )
+    ]
+    flow = gt.group_vector_property(flow, pos=range(graph.gp["num_samples"]))
     return flow
 
 
@@ -149,56 +145,46 @@ def _parallel_calculate_junction_deconvolutions(
     graph,
     flow,
     depth_model,
+    pool,
     forward_stop=0.0,
     backward_stop=0.0,
     score_margin_thresh=20.0,
     condition_thresh=1e5,
     max_paths=20,
-    processes=1,
 ):
-    # FIXME (2024-04-21): This architecture means that all of the JAX
-    # stuff needs to be recompiled every time in every process.
-    # If I'm lucky persistent compilation cache will solve my problems
-    # some day: https://github.com/google/jax/discussions/13736
-    if processes > 1:
-        Pool = processPool
-    else:
-        Pool = threadPool
-
-    with Pool(processes=processes) as pool:
-        deconv_results = pool.imap_unordered(
-            _calculate_junction_deconvolution,
+    deconv_results = pool.imap_unordered(
+        _calculate_junction_deconvolution,
+        (
             (
-                (
-                    junction,
-                    in_neighbors,
-                    in_flows,
-                    out_neighbors,
-                    out_flows,
-                    forward_stop,
-                    backward_stop,
-                    score_margin_thresh,
-                    condition_thresh,
-                    depth_model,
-                )
-                for junction, in_neighbors, in_flows, out_neighbors, out_flows in _iter_junction_deconvolution_data(
-                    junctions, graph, flow, max_paths=max_paths
-                )
-            ),
-        )
+                junction,
+                in_neighbors,
+                in_flows,
+                out_neighbors,
+                out_flows,
+                forward_stop,
+                backward_stop,
+                score_margin_thresh,
+                condition_thresh,
+                depth_model,
+            )
+            for junction, in_neighbors, in_flows, out_neighbors, out_flows in _iter_junction_deconvolution_data(
+                junctions, graph, flow, max_paths=max_paths
+            )
+        ),
+    )
 
-        batch = []
-        for result in tqdm(
-            deconv_results,
-            disable=(not logging.getLogger().isEnabledFor(logging.INFO)),
-            total=len(junctions),
-        ):
-            if result is not None:
-                junction, named_paths, path_depths_dict = result
-                # print(f"{junction}: {named_paths}", end=" | ")
-                batch.append((junction, named_paths, path_depths_dict))
+    batch = []
+    for result in tqdm_debug(
+        deconv_results,
+        total=len(junctions),
+        bar_format="{l_bar}{r_bar}",
+    ):
+        if result is not None:
+            junction, named_paths, path_depths_dict = result
+            # print(f"{junction}: {named_paths}", end=" | ")
+            batch.append((junction, named_paths, path_depths_dict))
 
-        return batch
+    return batch
 
 
 class DeconvolveGraph(App):
@@ -310,13 +296,17 @@ class DeconvolveGraph(App):
             gm.validate(graph)
             logging.debug(graph)
 
-        with phase_info("Main loop"):
+        with phase_info("Main loop"), Pool(processes=args.processes) as pool:
+            logging.debug(
+                f"Initialized multiprocessing pool with {args.processes} workers."
+            )
             for i in range(args.max_iter):
                 with phase_info(f"Round {i + 1}"):
                     with phase_info("Optimize flow"):
                         flow = _parallel_estimate_all_flows(
                             graph,
-                            processes=1,  # TODO (2024-04-23): Figure out why multiprocessing.Pool doesn't work here.
+                            pool,
+                            # processes=args.processes,  # FIXME (2024-05-06): Figure out why multiprocessing.Pool doesn't work here.
                         )
                     with phase_info("Finding junctions"):
                         if i == 0:
@@ -356,12 +346,13 @@ class DeconvolveGraph(App):
                             graph,
                             flow,
                             args.depth_model,
+                            pool=pool,
                             forward_stop=0.0,
                             backward_stop=0.0,
                             score_margin_thresh=args.score_thresh,
                             condition_thresh=args.condition_thresh,
                             max_paths=100,  # FIXME: Consider whether I want this parameter at all.
-                            processes=args.processes,
+                            # processes=args.processes,
                         )
                     with phase_info("Unzipping junctions"):
                         new_unzipped_vertices = gm.batch_unzip(graph, *deconvolutions)

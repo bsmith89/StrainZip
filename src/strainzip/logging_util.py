@@ -25,6 +25,7 @@ def push_to_phase_id_stack():
     )
     # TODO: Increment the phase stack
     yield phase_stack_string
+    global_phase_stack[global_phase_level] = 0
     global_phase_level -= 1
     # TODO: Decrement the phase stack
 

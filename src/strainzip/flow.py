@@ -1,8 +1,10 @@
-from warnings import warn
+import logging
+import warnings
 
 import graph_tool as gt
 import numpy as np
-from tqdm import tqdm
+
+from .logging_util import tqdm_debug
 
 
 def estimate_flow(
@@ -42,12 +44,11 @@ def estimate_flow(
 
     loss_hist = []
     i = 0
-    pbar = tqdm(
+    pbar = tqdm_debug(
         range(maxiter),
         total=maxiter,
         mininterval=1.0,
         bar_format="{l_bar}{r_bar}",
-        disable=(not verbose),
     )
     for i in pbar:
         # Update inflow error
@@ -110,7 +111,7 @@ def estimate_flow(
         flow.a += mean_flow_error
     else:
         if ifnotconverged == "warn":
-            warn("Reached maxiter. Flow estimates did not converge.")
+            warnings.warn("Reached maxiter. Flow estimates did not converge.")
         elif ifnotconverged == "error":
             raise RuntimeError("Reached maxiter. Flow estimates did not converge.")
         elif ifnotconverged == "ignore":
@@ -150,7 +151,6 @@ def smooth_depth(
             length,
             eps=eps,
             maxiter=maxiter,
-            verbose=False,
             flow_init=flow,
         )
         resid = calculate_mean_residual_vertex_flow(graph, flow, depth)
