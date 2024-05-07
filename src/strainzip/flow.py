@@ -8,7 +8,7 @@ from tqdm import tqdm
 def estimate_flow(
     graph,
     depth,
-    weight,
+    length,
     eps=0.001,
     maxiter=1000,
     verbose=False,
@@ -17,8 +17,8 @@ def estimate_flow(
 ):
     assert ifnotconverged in ["ignore", "warn", "error"]
 
-    target_vertex_weight = gt.edge_endpoint_property(graph, weight, "target")
-    source_vertex_weight = gt.edge_endpoint_property(graph, weight, "source")
+    target_vertex_length = gt.edge_endpoint_property(graph, length, "target")
+    source_vertex_length = gt.edge_endpoint_property(graph, length, "source")
 
     # Allocate PropertyMaps
     if flow_init is not None:
@@ -99,14 +99,14 @@ def estimate_flow(
             if loss_ratio < eps:
                 break
 
-        # NOTE: Some values of (source_vertex_weight.a + target_vertex_weight.a)
+        # NOTE: Some values of (source_vertex_length.a + target_vertex_length.a)
         # are 0 because these two edge_properties include edge indices
         # for non-existent edges.
         # TODO: Consider running gt.reindex_edges to get rid of these.
         mean_flow_error = (
-            (source_vertex_alloc_error * source_vertex_weight.a)
-            + (target_vertex_alloc_error * target_vertex_weight.a)
-        ) / (source_vertex_weight.a + target_vertex_weight.a)
+            (source_vertex_alloc_error * source_vertex_length.a)
+            + (target_vertex_alloc_error * target_vertex_length.a)
+        ) / (source_vertex_length.a + target_vertex_length.a)
         flow.a += mean_flow_error
     else:
         if ifnotconverged == "warn":
@@ -131,7 +131,7 @@ def calculate_mean_residual_vertex_flow(graph, flow, depth):
 def smooth_depth(
     graph,
     depth,
-    weight,
+    length,
     num_iter=1,
     inertia=0.0,
     eps=0.001,
@@ -139,7 +139,7 @@ def smooth_depth(
     verbose=False,
 ):
     depth = depth.copy()
-    initial_totals = depth.a * weight.a
+    initial_totals = depth.a * length.a
 
     change = 0
     for i in range(num_iter):
@@ -147,14 +147,14 @@ def smooth_depth(
         flow, _ = estimate_flow(
             graph,
             depth,
-            weight,
+            length,
             eps=eps,
             maxiter=maxiter,
             verbose=False,
             flow_init=flow,
         )
         resid = calculate_mean_residual_vertex_flow(graph, flow, depth)
-        depth.a[:] = depth.a - (resid / (weight.a**inertia))
-        change = np.abs(initial_totals - depth.a * weight.a).sum()
+        depth.a[:] = depth.a - (resid / (length.a**inertia))
+        change = np.abs(initial_totals - depth.a * length.a).sum()
 
     return depth, change / initial_totals.sum()

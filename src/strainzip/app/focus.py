@@ -45,7 +45,7 @@ class SelectLocalGraph(App):
 
         with sz.logging_util.phase_info("Selecting radius."):
             min_dist = sz.topology.get_shortest_distance(
-                graph, roots=focal_vertices, weights=graph.vp["length"]
+                graph, roots=focal_vertices, length=graph.vp["length"]
             )
             vfilt = graph.new_vertex_property("bool", vals=(min_dist.a < args.radius))
             logging.info(f"Found {vfilt.a.sum()} vertices inside radius.")

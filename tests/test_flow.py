@@ -18,7 +18,7 @@ def test_estimate_flow_convergence_warning():
 
     with pytest.warns(UserWarning):
         flow, hist = sz.flow.estimate_flow(
-            graph, depth=depth, weight=length, eps=0.001, maxiter=3
+            graph, depth=depth, length=length, eps=0.001, maxiter=3
         )
 
 
@@ -32,7 +32,7 @@ def test_estimate_flow_cycle():
     depth.a[0] = 2
 
     flow, hist = sz.flow.estimate_flow(
-        graph, depth=depth, weight=length, eps=0.001, maxiter=1000
+        graph, depth=depth, length=length, eps=0.001, maxiter=1000
     )
     assert flow[(0, 1)] == 1.5
     assert flow[(1, 2)] == 1.0
@@ -50,7 +50,7 @@ def test_estimate_flow_minor_depth():
     depth.a[4] = 1e-5
 
     flow, hist = sz.flow.estimate_flow(
-        graph, depth=depth, weight=length, eps=0.001, maxiter=1000
+        graph, depth=depth, length=length, eps=0.001, maxiter=1000
     )
     assert flow[(0, 1)] < 1.0
     assert flow[(0, 4)] > 1e-5
@@ -88,7 +88,7 @@ def test_flow_on_graph_with_tips():
     flow, hist = sz.flow.estimate_flow(
         graph,
         depth=graph.vp["depth"],
-        weight=graph.vp["length"],
+        length=graph.vp["length"],
         eps=0.001,
         maxiter=1000,
     )

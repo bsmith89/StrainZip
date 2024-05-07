@@ -25,13 +25,13 @@ DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 
 
 def _estimate_flow(args):
-    graph, depth, weight = args
+    graph, depth, length = args
     # NOTE (2024-04-23): Something is wrong here when _estimate_flow is called
     # within a multiprocessing.Pool.
     flow = sz.flow.estimate_flow(
         graph,
         depth,
-        weight,
+        length,
         eps=0.001,
         maxiter=200,
         verbose=(not logging.getLogger().isEnabledFor(logging.INFO)),
