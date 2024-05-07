@@ -94,3 +94,29 @@ def test_flow_on_big_graph_with_tips():
         eps=1e-10,
         maxiter=1000,
     )
+
+
+def test_estimate_flow_with_blunt_tips():
+    graph = gt.Graph([(0, 1), (1, 2), (2, 3), (1, 4), (4, 1)])
+    depth = graph.new_vertex_property("float", vals=[1, 1, 1, 1, 2])
+    length = graph.new_vertex_property("float", vals=[1, 1, 1, 1, 1])
+    graph.vp["filter"] = graph.new_vertex_property("bool", val=1)
+    graph.set_vertex_filter(graph.vp["filter"])
+    flow, hist = sz.flow.estimate_flow(
+        graph, depth=depth, length=length, eps=1e-10, maxiter=1000
+    )
+    # TODO: Check that flow estimates make sense.
+
+
+def test_estimate_flow_with_filtered_vertices():
+    graph = gt.Graph([(0, 1), (1, 2), (2, 3), (1, 4), (4, 1)])
+    depth = graph.new_vertex_property("float", vals=[1, 1, 1, 1, 0])
+    length = graph.new_vertex_property("float", vals=[1, 1, 1, 1, 0])
+    graph.vp["filter"] = graph.new_vertex_property("bool", val=1)
+    graph.set_vertex_filter(graph.vp["filter"])
+    graph.vp["filter"].a[4] = 0  # Filter vertex 4
+
+    flow, hist = sz.flow.estimate_flow(
+        graph, depth=depth, length=length, eps=1e-10, maxiter=1000
+    )
+    # TODO: Check that flow estimates make sense.
