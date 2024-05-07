@@ -8,16 +8,14 @@ from .logging_util import tqdm_debug
 
 
 def _calculate_static_terms(graph, depth, length):
-    depth_source = gt.edge_endpoint_property(graph, depth, "source").ma
-    depth_target = gt.edge_endpoint_property(graph, depth, "target").ma
-    length_source = gt.edge_endpoint_property(graph, length, "source").ma
-    length_target = gt.edge_endpoint_property(graph, length, "target").ma
+    depth_source = gt.edge_endpoint_property(graph, depth, "source")
+    depth_target = gt.edge_endpoint_property(graph, depth, "target")
+    length_source = gt.edge_endpoint_property(graph, length, "source")
+    length_target = gt.edge_endpoint_property(graph, length, "target")
     length_frac_source = graph.new_edge_property(
-        "float", vals=length_source / (length_source + length_target)
-    ).ma
-    length_frac_target = graph.new_edge_property(
-        "float", vals=1 - length_frac_source
-    ).ma
+        "float", vals=length_source.a / (length_source.a + length_target.a)
+    )
+    length_frac_target = graph.new_edge_property("float", vals=1 - length_frac_source.a)
     return (
         depth_source,
         depth_target,
@@ -86,13 +84,13 @@ def calculate_delta(
         )
         out_fraction_source = np.nan_to_num(flow.a / total_outflow_source.a, nan=1)
         in_fraction_target = np.nan_to_num(flow.a / total_inflow_target.a, nan=1)
-    error_source = depth_source - total_outflow_source.a
-    error_target = depth_target - total_inflow_target.a
+    error_source = depth_source.a - total_outflow_source.a
+    error_target = depth_target.a - total_inflow_target.a
 
     correction = graph.new_edge_property(
         "float",
-        vals=(error_source * out_fraction_source * length_frac_source)
-        + (error_target * in_fraction_target * length_frac_target),
+        vals=(error_source * out_fraction_source * length_frac_source.a)
+        + (error_target * in_fraction_target * length_frac_target.a),
     )
 
     # TODO: Drop this
@@ -106,8 +104,8 @@ def calculate_delta(
         print(np.isnan(error_target).sum())
         print(np.isnan(out_fraction_source).sum())
         print(np.isnan(in_fraction_target).sum())
-        print(np.isnan(length_frac_source).sum())
-        print(np.isnan(length_frac_target).sum())
+        print(np.isnan(length_frac_source.a).sum())
+        print(np.isnan(length_frac_target.a).sum())
         print(graph.vp["filter"].a.sum())
         print((graph.vp["length"].a == 0).sum())
         print(np.isnan(correction.fa).sum())
