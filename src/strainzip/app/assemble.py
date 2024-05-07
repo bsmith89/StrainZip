@@ -1,5 +1,6 @@
 import logging
-from multiprocessing import Pool
+from multiprocessing import Pool as ProcessPool
+from multiprocessing.dummy import Pool as ThreadPool
 
 import graph_tool as gt
 import numpy as np
@@ -42,10 +43,6 @@ def _estimate_flow(args):
 
 
 def _parallel_estimate_all_flows(graph, pool):
-    # if processes > 1:
-    #     Pool = processPool  # TODO(2024-04-23): Figure out why multiprocessing.Pool doesn't work here.
-    # else:
-    #     Pool = threadPool
     flow = pool.imap(
         _estimate_flow,
         (
@@ -298,7 +295,9 @@ class DeconvolveGraph(App):
             gm.validate(graph)
             logging.debug(graph)
 
-        with phase_info("Main loop"), Pool(processes=args.processes) as pool:
+        with phase_info("Main loop"), ThreadPool(
+            processes=args.processes
+        ) as thread_pool, ProcessPool(processes=args.processes) as process_pool:
             logging.debug(
                 f"Initialized multiprocessing pool with {args.processes} workers."
             )
@@ -307,7 +306,7 @@ class DeconvolveGraph(App):
                     with phase_info("Optimize flow"):
                         flow = _parallel_estimate_all_flows(
                             graph,
-                            pool,
+                            thread_pool,
                             # processes=args.processes,  # FIXME (2024-05-06): Figure out why multiprocessing.Pool doesn't work here.
                         )
                     with phase_info("Finding junctions"):
@@ -348,7 +347,7 @@ class DeconvolveGraph(App):
                             graph,
                             flow,
                             args.depth_model,
-                            pool=pool,
+                            pool=process_pool,
                             forward_stop=0.0,
                             backward_stop=0.0,
                             score_margin_thresh=args.score_thresh,
