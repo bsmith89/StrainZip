@@ -48,7 +48,7 @@ def test_well_specified_deconvolution():
     X = sz.deconvolution.design_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
-    # Select which pairs of in/out edges are "real" and assign them weights across samples.
+    # Select which pairs of in/out edges are "real" and assign them depths across samples.
     active_paths = sz.deconvolution.simulate_active_paths(n, m)
     active_paths = [i for i, _ in active_paths]
     beta = np.zeros((p_paths, s_samples))
@@ -101,7 +101,7 @@ def test_no_noise_deconvolution():
     X = sz.deconvolution.design_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
-    # Select which pairs of in/out edges are "real" and assign them weights across samples.
+    # Select which pairs of in/out edges are "real" and assign them depths across samples.
     beta = np.array(
         [
             [0e0, 0e0, 0e0],
@@ -158,7 +158,7 @@ def test_predefined_deconvolution():
     X = sz.deconvolution.design_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
-    # Select which pairs of in/out edges are "real" and assign them weights across samples.
+    # Select which pairs of in/out edges are "real" and assign them depths across samples.
     beta = np.array(
         [
             [0.0000e00, 0.0000e00, 0.0000e00],
@@ -240,7 +240,7 @@ def test_model_selection_procedure_3x4():
     X = sz.deconvolution.design_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
-    # Select which pairs of in/out edges are "real" and assign them weights across samples.
+    # Select which pairs of in/out edges are "real" and assign them depths across samples.
     active_paths = sz.deconvolution.simulate_active_paths(n, m, excess=num_excess_paths)
     active_paths = [i for i, _ in active_paths]
     beta = np.zeros((p_paths, s_samples))
@@ -284,7 +284,7 @@ def test_model_selection_procedure_2x1():
     X = sz.deconvolution.design_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
-    # Select which pairs of in/out edges are "real" and assign them weights across samples.
+    # Select which pairs of in/out edges are "real" and assign them depths across samples.
     active_paths = sz.deconvolution.simulate_active_paths(n, m, excess=num_excess_paths)
     active_paths = [i for i, _ in active_paths]
     beta = np.zeros((p_paths, s_samples))
