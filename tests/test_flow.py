@@ -18,7 +18,7 @@ def test_estimate_flow_convergence_warning():
 
     with pytest.warns(UserWarning):
         flow, hist = sz.flow.estimate_flow(
-            graph, depth=depth, length=length, eps=0.001, maxiter=3
+            graph, depth=depth, length=length, eps=1e-10, maxiter=10
         )
 
 
@@ -32,7 +32,7 @@ def test_estimate_flow_cycle():
     depth.a[0] = 2
 
     flow, hist = sz.flow.estimate_flow(
-        graph, depth=depth, length=length, eps=0.001, maxiter=1000
+        graph, depth=depth, length=length, eps=1e-10, maxiter=1000
     )
     assert flow[(0, 1)] == 1.5
     assert flow[(1, 2)] == 1.0
@@ -47,13 +47,15 @@ def test_estimate_flow_minor_depth():
     length = graph.new_vertex_property("int", val=1)
 
     depth = graph.new_vertex_property("float", val=1)
-    depth.a[4] = 1e-5
+    depth.a[4] = 1e-2
 
     flow, hist = sz.flow.estimate_flow(
-        graph, depth=depth, length=length, eps=0.001, maxiter=1000
+        graph, depth=depth, length=length, eps=1e-10, maxiter=1000
     )
     assert flow[(0, 1)] < 1.0
-    assert flow[(0, 4)] > 1e-5
+    assert (
+        flow[(0, 4)] < 1e-2
+    ), "Since (0, 4) is the stem of the 4-lolipop, it should only lose depth."
 
 
 def test_estimate_flow_filtered_graph():
@@ -68,19 +70,19 @@ def test_estimate_flow_filtered_graph():
     depth.a[4] = 1
 
     flow, hist = sz.flow.estimate_flow(
-        graph, depth=depth, weight=length, eps=0.001, maxiter=1000
+        graph, depth=depth, length=length, eps=1e-10, maxiter=1000
     )
     assert flow[(0, 1)] < 1.0
     assert flow[(0, 4)] < 1.0
 
     filter.a[4] = 0
     flow, hist = sz.flow.estimate_flow(
-        graph, depth=depth, weight=length, eps=0.001, maxiter=1000
+        graph, depth=depth, length=length, eps=1e-10, maxiter=1000
     )
     assert flow[(0, 1)] == 1.0
 
 
-def test_flow_on_graph_with_tips():
+def test_flow_on_big_graph_with_tips():
     np.random.seed(1)
     gt.seed_rng(1)
     sequence = sz.sequence.random_sequence(1000)
@@ -89,6 +91,6 @@ def test_flow_on_graph_with_tips():
         graph,
         depth=graph.vp["depth"],
         length=graph.vp["length"],
-        eps=0.001,
+        eps=1e-10,
         maxiter=1000,
     )

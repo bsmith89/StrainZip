@@ -7,7 +7,159 @@ import numpy as np
 from .logging_util import tqdm_debug
 
 
+def _calculate_static_terms(graph, depth, length):
+    depth_source = gt.edge_endpoint_property(graph, depth, "source").ma
+    depth_target = gt.edge_endpoint_property(graph, depth, "target").ma
+    length_source = gt.edge_endpoint_property(graph, length, "source").ma
+    length_target = gt.edge_endpoint_property(graph, length, "target").ma
+    length_frac_source = graph.new_edge_property(
+        "float", vals=length_source / (length_source + length_target)
+    ).ma
+    length_frac_target = graph.new_edge_property(
+        "float", vals=1 - length_frac_source
+    ).ma
+    return (
+        depth_source,
+        depth_target,
+        length_source,
+        length_target,
+        length_frac_source,
+        length_frac_target,
+    )
+
+
+def _preallocated_terms(graph):
+    total_outflow = graph.new_vertex_property("float")
+    total_inflow = graph.new_vertex_property("float")
+    total_outflow_source = graph.new_edge_property("float")
+    total_inflow_target = graph.new_edge_property("float")
+    return total_outflow, total_inflow, total_outflow_source, total_inflow_target
+
+
+def calculate_delta(
+    flow, graph, depth, length, static_terms=None, preallocated_terms=None
+):
+    # These can all be pre-computed/pre-allocated
+    if static_terms is not None:
+        (
+            depth_source,
+            depth_target,
+            length_source,
+            length_target,
+            length_frac_source,
+            length_frac_target,
+        ) = static_terms
+    else:
+        (
+            depth_source,
+            depth_target,
+            length_source,
+            length_target,
+            length_frac_source,
+            length_frac_target,
+        ) = _calculate_static_terms(graph, depth, length)
+
+    if preallocated_terms is not None:
+        (
+            total_outflow,
+            total_inflow,
+            total_outflow_source,
+            total_inflow_target,
+        ) = preallocated_terms
+    else:
+        (
+            total_outflow,
+            total_inflow,
+            total_outflow_source,
+            total_inflow_target,
+        ) = _preallocated_terms(graph)
+
+    gt.incident_edges_op(graph, "out", "sum", flow, total_outflow)
+    gt.incident_edges_op(graph, "in", "sum", flow, total_inflow)
+    gt.edge_endpoint_property(graph, total_outflow, "source", total_outflow_source)
+    gt.edge_endpoint_property(graph, total_inflow, "target", total_inflow_target)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=RuntimeWarning,
+            message="invalid value encountered in divide",
+        )
+        out_fraction_source = np.nan_to_num(flow.a / total_outflow_source.a, nan=1)
+        in_fraction_target = np.nan_to_num(flow.a / total_inflow_target.a, nan=1)
+    error_source = depth_source - total_outflow_source.a
+    error_target = depth_target - total_inflow_target.a
+
+    correction = graph.new_edge_property(
+        "float",
+        vals=(error_source * out_fraction_source * length_frac_source)
+        + (error_target * in_fraction_target * length_frac_target),
+    )
+
+    # TODO: Drop this
+    if np.isnan(correction.a).any():
+        print("NaN in flow step.")
+        print("Start *calculate_delta* DEBUG:")
+        print(np.isnan(flow.a).sum())
+        print(np.isnan(depth.a).sum())
+        print(np.isnan(correction.a).sum())
+        print(np.isnan(error_source).sum())
+        print(np.isnan(error_target).sum())
+        print(np.isnan(out_fraction_source).sum())
+        print(np.isnan(in_fraction_target).sum())
+        print(np.isnan(length_frac_source).sum())
+        print(np.isnan(length_frac_target).sum())
+        print(graph.vp["filter"].a.sum())
+        print((graph.vp["length"].a == 0).sum())
+        print(np.isnan(correction.fa).sum())
+        print(graph)
+        print("End *calculate_delta* DEBUG:")
+
+    return correction
+
+
 def estimate_flow(
+    graph, depth, length, eps=1e-10, maxiter=1000, flow_init=None, ifnotconverged="warn"
+):
+    assert ifnotconverged in ["ignore", "warn", "error"]
+    static_terms = _calculate_static_terms(graph, depth, length)
+    preallocated_terms = _preallocated_terms(graph)
+    if flow_init is not None:
+        flow = flow_init
+    else:
+        flow = graph.new_edge_property("float", val=1)
+
+    loss_hist = []
+    pbar = tqdm_debug(
+        range(maxiter),
+        total=maxiter,
+        bar_format="{l_bar}{r_bar}",
+    )
+    for i in pbar:
+        correction = calculate_delta(
+            flow, graph, depth, length, static_terms, preallocated_terms
+        )
+        loss_hist.append((correction.a**2).sum() / (depth.a**2).sum())
+        if np.isnan(loss_hist[-1]):
+            raise RuntimeError("NaN during flow estimation.")
+        elif loss_hist[-1] == 0:
+            break  # This should only happen if d is all 0's.
+
+        flow.a += correction.a
+        pbar.set_postfix({"improvement": loss_hist[-1]})
+        if loss_hist[-1] < eps:
+            break
+    else:
+        if ifnotconverged == "warn":
+            warnings.warn("Reached maxiter. Flow estimates did not converge.")
+        elif ifnotconverged == "error":
+            raise RuntimeError("Reached maxiter. Flow estimates did not converge.")
+        elif ifnotconverged == "ignore":
+            pass
+
+    return flow, loss_hist
+
+
+def estimate_flow_old(
     graph,
     depth,
     length,
@@ -135,7 +287,7 @@ def smooth_depth(
     length,
     num_iter=1,
     inertia=0.0,
-    eps=0.001,
+    eps=1e-10,
     maxiter=1000,
     verbose=False,
 ):

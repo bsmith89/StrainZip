@@ -25,13 +25,16 @@ DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 
 def _estimate_flow(args):
     graph, depth, length = args
+
+    depth = graph.own_property(depth)
+    length = graph.own_property(length)
     # NOTE (2024-04-23): Something is wrong here when _estimate_flow is called
     # within a multiprocessing.Pool.
     flow = sz.flow.estimate_flow(
         graph,
         depth,
         length,
-        eps=0.001,
+        eps=1e-10,
         maxiter=200,
         flow_init=None,
         ifnotconverged="error",
