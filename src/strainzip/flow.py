@@ -132,7 +132,7 @@ def estimate_flow(
         total=maxiter,
         bar_format="{l_bar}{r_bar}",
     )
-    for i in pbar:
+    for _ in pbar:
         correction = calculate_delta(
             flow, graph, depth, length, static_terms, preallocated_terms
         )
@@ -143,7 +143,7 @@ def estimate_flow(
             break  # This should only happen if d is all 0's.
 
         flow.a += correction.a
-        pbar.set_postfix({"improvement": loss_hist[-1]})
+        pbar.set_postfix({"relative_loss": loss_hist[-1]})
         if loss_hist[-1] < eps:
             break
     else:
@@ -163,7 +163,6 @@ def estimate_flow_old(
     length,
     eps=0.001,
     maxiter=1000,
-    verbose=False,
     flow_init=None,
     ifnotconverged="warn",
 ):
@@ -287,7 +286,6 @@ def smooth_depth(
     inertia=0.0,
     eps=1e-10,
     maxiter=1000,
-    verbose=False,
 ):
     depth = depth.copy()
     initial_totals = depth.a * length.a
