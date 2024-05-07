@@ -27,9 +27,6 @@ DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 def _estimate_flow(args):
     graph, depth, length = args
 
-    # FIXME: Drop these comments entirely.
-    # depth = graph.own_property(depth)
-    # length = graph.own_property(length)
     flow = sz.flow.estimate_flow(
         graph,
         depth,
