@@ -3,6 +3,7 @@ import sys
 
 from .app.assemble import DeconvolveGraph
 from .app.depth import EstimateUnitigDepth
+from .app.describe import DescribeGraph
 from .app.example import Example
 from .app.extract import ExtractResults
 from .app.focus import SelectLocalGraph
@@ -19,6 +20,7 @@ APPLICATIONS = {
     "focus": SelectLocalGraph,
     "assemble": DeconvolveGraph,
     "extract": ExtractResults,
+    "describe": DescribeGraph,
 }
 
 
