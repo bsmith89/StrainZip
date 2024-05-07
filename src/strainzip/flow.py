@@ -116,13 +116,16 @@ def estimate_flow(
         elif ifnotconverged == "ignore":
             pass
 
-    # Calculate final residuals
+    return flow, loss_hist
+
+
+def calculate_mean_residual_vertex_flow(graph, flow, depth):
     total_in_flow = gt.incident_edges_op(graph, "in", "sum", flow)
     in_flow_error = depth.a - total_in_flow.a
     total_out_flow = gt.incident_edges_op(graph, "out", "sum", flow)
     out_flow_error = depth.a - total_out_flow.a
     mean_residual_vertex_flow = (in_flow_error + out_flow_error) / 2
-    return flow, mean_residual_vertex_flow, loss_hist
+    return mean_residual_vertex_flow
 
 
 def smooth_depth(
@@ -141,7 +144,7 @@ def smooth_depth(
     change = 0
     for i in range(num_iter):
         flow = graph.new_edge_property("float", val=1)
-        flow, resid, _ = estimate_flow(
+        flow, _ = estimate_flow(
             graph,
             depth,
             weight,
@@ -150,6 +153,7 @@ def smooth_depth(
             verbose=False,
             flow_init=flow,
         )
+        resid = calculate_mean_residual_vertex_flow(graph, flow, depth)
         depth.a[:] = depth.a - (resid / (weight.a**inertia))
         change = np.abs(initial_totals - depth.a * weight.a).sum()
 
