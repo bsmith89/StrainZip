@@ -1,6 +1,5 @@
 import logging
 from multiprocessing import Pool as ProcessPool
-from multiprocessing.dummy import Pool as ThreadPool
 
 import graph_tool as gt
 import numpy as np
@@ -26,8 +25,7 @@ DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 
 
 def _estimate_flow(args):
-    graph_cache_path, sample_id = args
-    graph = sz.io.load_graph(graph_cache_path)
+    graph, sample_id = args
     depth = gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0]
     length = graph.vp["length"]
 
@@ -48,13 +46,12 @@ def _estimate_flow(args):
     )  # np.array(flow.fa)
 
 
-def _parallel_estimate_all_flows(graph, graph_cache_path, pool):
-    sz.io.dump_graph(graph, graph_cache_path)
+def _parallel_estimate_all_flows(graph, pool):
     flow_procs = pool.imap(
         _estimate_flow,
         (
             (
-                graph_cache_path,
+                graph,
                 sample_id,
             )
             for sample_id in range(graph.gp["num_samples"])
@@ -259,11 +256,6 @@ class DeconvolveGraph(App):
             help="Number of parallel processes.",
         )
         self.parser.add_argument(
-            "--cache",
-            dest="graph_cache_path",
-            help="Write a cache of the graph for multiprocessing to this location.",
-        )
-        self.parser.add_argument(
             "--no-prune",
             action="store_true",
             help="Keep filtered vertices instead of pruning them.",
@@ -325,7 +317,6 @@ class DeconvolveGraph(App):
                     with phase_info("Optimize flow"):
                         flow = _parallel_estimate_all_flows(
                             graph,
-                            args.graph_cache_path,
                             process_pool,
                         )
                     with phase_info("Finding junctions"):
