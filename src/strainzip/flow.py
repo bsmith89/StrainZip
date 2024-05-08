@@ -285,6 +285,30 @@ def calculate_mean_residual_vertex_flow(graph, flow, depth):
     return mean_residual_vertex_flow
 
 
+def estimate_all_flows(
+    graph, eps=1e-10, maxiter=1000, flow_init=None, ifnotconverged="warn"
+):
+    depth_list = gt.ungroup_vector_property(
+        graph.vp["depth"], pos=range(graph.gp["num_samples"])
+    )
+    length = graph.vp["length"]
+
+    flow = []
+    for depth in depth_list:
+        flow.append(
+            estimate_flow(
+                graph,
+                depth,
+                length,
+                eps=eps,
+                maxiter=maxiter,
+                ifnotconverged=ifnotconverged,
+            )[0]
+        )
+    flow = gt.group_vector_property(flow)
+    return flow
+
+
 def smooth_depth(
     graph,
     depth,
