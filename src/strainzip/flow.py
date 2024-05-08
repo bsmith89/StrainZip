@@ -123,7 +123,7 @@ def calculate_delta(
 
 
 def estimate_flow(
-    graph, depth, length, eps=1e-10, maxiter=1000, flow_init=None, ifnotconverged="warn"
+    graph, depth, length, eps=1e-6, maxiter=1000, flow_init=None, ifnotconverged="warn"
 ):
     assert ifnotconverged in ["ignore", "warn", "error"]
     static_terms = _calculate_static_terms(graph, depth, length)
@@ -286,7 +286,7 @@ def calculate_mean_residual_vertex_flow(graph, flow, depth):
 
 
 def estimate_all_flows(
-    graph, eps=1e-10, maxiter=1000, flow_init=None, ifnotconverged="warn"
+    graph, eps=1e-6, maxiter=1000, flow_init=None, ifnotconverged="warn"
 ):
     depth_list = gt.ungroup_vector_property(
         graph.vp["depth"], pos=range(graph.gp["num_samples"])
@@ -315,7 +315,7 @@ def smooth_depth(
     length,
     num_iter=1,
     inertia=0.0,
-    eps=1e-10,
+    eps=1e-6,
     maxiter=1000,
 ):
     depth = depth.copy()
