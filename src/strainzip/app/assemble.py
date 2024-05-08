@@ -25,6 +25,7 @@ DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 
 
 def _estimate_flow(args):
+    gt.openmp_set_num_threads(1)
     graph, sample_id = args
     depth = gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0]
     length = graph.vp["length"]
