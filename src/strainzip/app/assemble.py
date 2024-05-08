@@ -4,6 +4,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 import graph_tool as gt
 import numpy as np
+import pandas as pd
 
 import strainzip as sz
 from strainzip.logging_util import phase_info
@@ -25,9 +26,12 @@ DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 
 
 def _estimate_flow(args):
-    graph, depth, length = args
+    graph_cache_path, sample_id = args
+    graph = sz.io.load_graph(graph_cache_path)
+    depth = gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0]
+    length = graph.vp["length"]
 
-    flow = sz.flow.estimate_flow(
+    flow, _ = sz.flow.estimate_flow(
         graph,
         depth,
         length,
@@ -35,31 +39,45 @@ def _estimate_flow(args):
         maxiter=1000,
         flow_init=None,
         ifnotconverged="error",
-    )[0]
-    return flow
+    )
+    # NOTE (2024-05-07): Because we're passing PropertyMaps between processes,
+    # we need to be careful about the serialization and de-serialization.
+    # For insance, flow.a contains a lot of 0s.
+    return pd.Series(
+        flow.fa, index=[tuple(e) for e in graph.get_edges()]
+    )  # np.array(flow.fa)
 
 
-def _parallel_estimate_all_flows(graph, pool):
-    flow = pool.imap(
+def _parallel_estimate_all_flows(graph, graph_cache_path, pool):
+    sz.io.dump_graph(graph, graph_cache_path)
+    flow_procs = pool.imap(
         _estimate_flow,
         (
             (
-                graph,
-                gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0],
-                graph.vp["length"],
+                graph_cache_path,
+                sample_id,
             )
             for sample_id in range(graph.gp["num_samples"])
         ),
     )
-    flow = [
-        graph.own_property(f)
-        for f in tqdm_debug(
-            flow,
-            total=graph.gp["num_samples"],
-            bar_format="{l_bar}{r_bar}",
+
+    # Collect rows of the flow table.
+    flow_table = {
+        i: f
+        for i, f in enumerate(
+            tqdm_debug(
+                flow_procs,
+                total=graph.gp["num_samples"],
+                bar_format="{l_bar}{r_bar}",
+            )
         )
-    ]
-    flow = gt.group_vector_property(flow, pos=range(graph.gp["num_samples"]))
+    }
+    flow_table = pd.DataFrame(flow_table)
+    flow_table_idx = [tuple(e) for e in graph.get_edges()]
+    flow_2d_array = flow_table.loc[flow_table_idx].values.T
+
+    flow = graph.new_edge_property("vector<float>")
+    flow.set_2d_array(flow_2d_array)
     return flow
 
 
@@ -72,7 +90,6 @@ def _iter_junction_deconvolution_data(junction_iter, graph, flow, max_paths):
             continue
 
         # Collect flows
-        # print(in_neighbors, j, out_neighbors)
         in_flows = np.stack([flow[(i, j)] for i in in_neighbors])
         out_flows = np.stack([flow[(j, i)] for i in out_neighbors])
 
@@ -242,6 +259,11 @@ class DeconvolveGraph(App):
             help="Number of parallel processes.",
         )
         self.parser.add_argument(
+            "--cache",
+            dest="graph_cache_path",
+            help="Write a cache of the graph for multiprocessing to this location.",
+        )
+        self.parser.add_argument(
             "--no-prune",
             action="store_true",
             help="Keep filtered vertices instead of pruning them.",
@@ -292,9 +314,9 @@ class DeconvolveGraph(App):
             gm.validate(graph)
             logging.debug(graph)
 
-        with phase_info("Main loop"), ThreadPool(
+        with phase_info("Main loop"), ProcessPool(
             processes=args.processes
-        ) as thread_pool, ProcessPool(processes=args.processes) as process_pool:
+        ) as process_pool:
             logging.debug(
                 f"Initialized multiprocessing pool with {args.processes} workers."
             )
@@ -303,8 +325,8 @@ class DeconvolveGraph(App):
                     with phase_info("Optimize flow"):
                         flow = _parallel_estimate_all_flows(
                             graph,
-                            thread_pool,
-                            # processes=args.processes,  # FIXME (2024-05-06): Figure out why multiprocessing.Pool doesn't work here.
+                            args.graph_cache_path,
+                            process_pool,
                         )
                     with phase_info("Finding junctions"):
                         if i == 0:
@@ -350,8 +372,9 @@ class DeconvolveGraph(App):
                             score_margin_thresh=args.score_thresh,
                             condition_thresh=args.condition_thresh,
                             max_paths=100,  # FIXME: Consider whether I want this parameter at all.
-                            # processes=args.processes,
                         )
+                        # FIXME (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
+                        deconvolutions = list(sorted(deconvolutions))
                     with phase_info("Unzipping junctions"):
                         new_unzipped_vertices = gm.batch_unzip(graph, *deconvolutions)
                         logging.info(
