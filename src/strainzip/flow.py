@@ -12,10 +12,18 @@ def _calculate_static_terms(graph, depth, length):
     depth_target = gt.edge_endpoint_property(graph, depth, "target")
     length_source = gt.edge_endpoint_property(graph, length, "source")
     length_target = gt.edge_endpoint_property(graph, length, "target")
-    length_frac_source = graph.new_edge_property(
-        "float", vals=length_source.a / (length_source.a + length_target.a)
-    )
-    length_frac_target = graph.new_edge_property("float", vals=1 - length_frac_source.a)
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=RuntimeWarning,
+        )
+        length_frac_source = graph.new_edge_property(
+            "float", vals=length_source.a / (length_source.a + length_target.a)
+        )
+        length_frac_target = graph.new_edge_property(
+            "float", vals=1 - length_frac_source.a
+        )
     return (
         depth_source,
         depth_target,
@@ -80,7 +88,6 @@ def calculate_delta(
         warnings.filterwarnings(
             "ignore",
             category=RuntimeWarning,
-            message="invalid value encountered in divide",
         )
         out_fraction_source = np.nan_to_num(flow.a / total_outflow_source.a, nan=1)
         in_fraction_target = np.nan_to_num(flow.a / total_inflow_target.a, nan=1)
