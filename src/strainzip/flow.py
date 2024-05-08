@@ -143,7 +143,7 @@ def estimate_flow(
         correction = calculate_delta(
             flow, graph, depth, length, static_terms, preallocated_terms
         )
-        loss_hist.append((correction.a**2).sum() ** (1 / 2) / depth.a.sum())
+        loss_hist.append(np.sqrt((correction.fa**2).sum()) / depth.fa.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during flow estimation.")
         elif loss_hist[-1] == 0:
@@ -309,31 +309,64 @@ def estimate_all_flows(
     return flow
 
 
+def estimate_depth(graph, flow):
+    total_in_flow = graph.degree_property_map("in", weight=flow)
+    total_in_degree = graph.degree_property_map("in")
+    total_out_flow = graph.degree_property_map("out", weight=flow)
+    total_out_degree = graph.degree_property_map("out")
+
+    twoway_flow = total_in_flow.a + total_out_flow.a
+    # If in_degree or out_degree == 0, then don't take the mean of both, but rather just the "mean" of one.
+    mean_flow = np.where(
+        (total_in_degree.a > 0) & (total_out_degree.a > 0),
+        twoway_flow / 2,
+        twoway_flow / 1,
+    )
+    return graph.new_vertex_property("float", vals=mean_flow)
+
+
 def smooth_depth(
     graph,
-    depth,
+    depth_init,
     length,
-    num_iter=1,
-    inertia=0.0,
     eps=1e-6,
     maxiter=1000,
+    estimate_flow_kwargs=None,
+    ifnotconverged="warn",
 ):
-    depth = depth.copy()
-    initial_totals = depth.a * length.a
+    assert ifnotconverged in ["ignore", "warn", "error"]
+    # Set kwargs for estimate flow.
+    if estimate_flow_kwargs is None:
+        estimate_flow_kwargs = {}
 
-    change = 0
-    for i in range(num_iter):
-        flow = graph.new_edge_property("float", val=1)
-        flow, _ = estimate_flow(
-            graph,
-            depth,
-            length,
-            eps=eps,
-            maxiter=maxiter,
-            flow_init=flow,
-        )
-        resid = calculate_mean_residual_vertex_flow(graph, flow, depth)
-        depth.a[:] = depth.a - (resid / (length.a**inertia))
-        change = np.abs(initial_totals - depth.a * length.a).sum()
+    depth = depth_init.copy()
 
-    return depth, change / initial_totals.sum()
+    loss_hist = []
+    pbar = tqdm_debug(
+        range(maxiter),
+        total=maxiter,
+        bar_format="{l_bar}{r_bar}",
+    )
+    for _ in pbar:
+        flow, _ = estimate_flow(graph, depth, length, **estimate_flow_kwargs)
+        next_depth = estimate_depth(graph, flow)
+        change_in_depth = next_depth.fa - depth.fa
+        loss_hist.append(np.sqrt((change_in_depth**2).sum()) / depth.fa.sum())
+        if np.isnan(loss_hist[-1]):
+            raise RuntimeError("NaN during depth estimation.")
+        elif loss_hist[-1] == 0:
+            break  # TODO: Ask if/when this happens.
+
+        depth = next_depth
+        pbar.set_postfix
+        if loss_hist[-1] < eps:
+            break
+    else:
+        if ifnotconverged == "warn":
+            warnings.warn("Reached maxiter. Depth estimates did not converge.")
+        elif ifnotconverged == "error":
+            raise RuntimeError("Reached maxiter. Depth estimates did not converge.")
+        elif ifnotconverged == "ignore":
+            pass
+
+    return depth, loss_hist
