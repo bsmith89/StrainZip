@@ -41,10 +41,10 @@ def _estimate_flow(args):
     )
     # NOTE (2024-05-07): Because we're passing PropertyMaps between processes,
     # we need to be careful about the serialization and de-serialization.
-    # For insance, flow.a contains a lot of 0s.
-    return pd.Series(
-        flow.fa, index=[tuple(e) for e in graph.get_edges()]
-    )  # np.array(flow.fa)
+    # For insance, flow.a contains a lot of 0s. If I tried to load
+    # the vector<float> PropertyMap with these, it would silently truncate them.
+    # to fit only the _unfiltered_ edges.
+    return flow.fa
 
 
 def _parallel_estimate_all_flows(graph, pool):
@@ -60,22 +60,18 @@ def _parallel_estimate_all_flows(graph, pool):
     )
 
     # Collect rows of the flow table.
-    flow_table = {
-        i: f
-        for i, f in enumerate(
-            tqdm_debug(
+    flow_values = np.stack(
+        [
+            f
+            for f in tqdm_debug(
                 flow_procs,
                 total=graph.gp["num_samples"],
                 bar_format="{l_bar}{r_bar}",
             )
-        )
-    }
-    flow_table = pd.DataFrame(flow_table)
-    flow_table_idx = [tuple(e) for e in graph.get_edges()]
-    flow_2d_array = flow_table.loc[flow_table_idx].values.T
-
+        ]
+    )
     flow = graph.new_edge_property("vector<float>")
-    flow.set_2d_array(flow_2d_array)
+    flow.set_2d_array(flow_values)
     return flow
 
 
