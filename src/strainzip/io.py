@@ -107,13 +107,30 @@ def load_graph_and_sequences_from_linked_fasta(file_handle, k, header_tokenizer)
     return graph, sequences
 
 
-def load_sequence_depth_matrix(con, sequence, k):
+def load_sequence_depth_matrix(con, sequence, k, n):
     query = "SELECT * FROM count_ WHERE kmer IN (?, ?)"
     results = []
+    empty_results = np.zeros(n)
     for kmer in iter_kmers(sequence, k=k, circularize=False):
         kmer_rc = reverse_complement(kmer)
-        results.extend(con.execute(query, (kmer, kmer_rc)).fetchall())
-    results = np.array([r[1:] for r in results])
+        this_kmer_results = con.execute(query, (kmer, kmer_rc)).fetchall()
+        if len(this_kmer_results) == 1:
+            # The kmer was observed. Add the counts across n samples to the table
+            this_kmer_results = this_kmer_results[0][1:]
+            assert (
+                len(this_kmer_results) == n
+            ), "There should be a number of entries equal to the number of samples."
+        elif len(this_kmer_results) == 0:
+            this_kmer_results = empty_results
+        else:
+            raise RuntimeError(
+                "Only one of a kmer and it's reverse-complement should be in the database."
+            )
+        results.append(this_kmer_results)
+    results = np.array(results)
+    assert (
+        len(results) == len(sequence) - k + 1
+    ), "There should be entries in the depth matrix for every kmer."
     return results
 
 

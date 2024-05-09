@@ -12,9 +12,9 @@ from ._base import App
 
 
 def _unitig_depth(arg):
-    db_uri, k, unitig_id, sequence = arg
+    db_uri, k, n, unitig_id, sequence = arg
     con = sqlite3.connect(db_uri, uri=True)
-    depths_matrix = sz.io.load_sequence_depth_matrix(con, sequence, k)
+    depths_matrix = sz.io.load_sequence_depth_matrix(con, sequence, k, n)
     return unitig_id, len(sequence) - k + 1, depths_matrix.mean(0)
 
 
@@ -34,6 +34,7 @@ class EstimateUnitigDepth(App):
         )
         self.parser.add_argument("counts_inpath", help="SQLite3 DB of kmer counts")
         self.parser.add_argument("k", type=int, help="Kmer length")
+        self.parser.add_argument("sample_list", help="Comma-separated list of samples.")
         self.parser.add_argument("outpath")
         self.parser.add_argument(
             "--preload",
@@ -52,6 +53,10 @@ class EstimateUnitigDepth(App):
             default=1,
             help="Number of parallel processes.",
         )
+
+    def validate_and_transform_args(self, args):
+        args.sample_list = args.sample_list.split(",")
+        return args
 
     def execute(self, args):
         if args.preload:
@@ -80,7 +85,9 @@ class EstimateUnitigDepth(App):
             results_iter = pool.imap_unordered(
                 _unitig_depth,
                 (
-                    (db_uri, args.k, unitig_id, sequence)
+                    # FIXME (2024-05-08): Pass an explicity list of samples (instead of just the count)
+                    # so that we can count depths for each one individually.
+                    (db_uri, args.k, len(args.sample_list), unitig_id, sequence)
                     for unitig_id, sequence in unitig_iter
                 ),
                 chunksize=1000,
@@ -88,7 +95,7 @@ class EstimateUnitigDepth(App):
             for unitig_id, num_kmers, depths_mean in results_iter:
                 results[int(unitig_id)] = depths_mean
                 pbar.update(num_kmers)
-        results = pd.DataFrame(results.values(), index=results.keys())  # type: ignore[reportArgumentType]
+        results = pd.DataFrame(results.values(), index=results.keys(), columns=args.sample_list)  # type: ignore[reportArgumentType]
         results = (
             results.rename_axis(index="unitig", columns="sample").stack().to_xarray()
         )
