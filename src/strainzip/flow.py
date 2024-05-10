@@ -7,7 +7,7 @@ import numpy as np
 from .logging_util import tqdm_debug
 
 
-def _calculate_static_terms(graph, depth, length):
+def _calculate_static_terms(graph, depth, length, alpha):
     depth_source = gt.edge_endpoint_property(graph, depth, "source")
     depth_target = gt.edge_endpoint_property(graph, depth, "target")
     length_source = gt.edge_endpoint_property(graph, length, "source")
@@ -19,7 +19,9 @@ def _calculate_static_terms(graph, depth, length):
             category=RuntimeWarning,
         )
         length_frac_source = graph.new_edge_property(
-            "float", vals=length_source.a / (length_source.a + length_target.a)
+            "float",
+            vals=length_source.a ** (alpha)
+            / (length_source.a ** (alpha) + length_target.a ** (alpha)),
         )
         length_frac_target = graph.new_edge_property(
             "float", vals=1 - length_frac_source.a
@@ -42,43 +44,22 @@ def _preallocated_terms(graph):
     return total_outflow, total_inflow, total_outflow_source, total_inflow_target
 
 
-def calculate_delta(
-    flow, graph, depth, length, static_terms=None, preallocated_terms=None
-):
-    # These can all be pre-computed/pre-allocated
-    if static_terms is not None:
-        (
-            depth_source,
-            depth_target,
-            length_source,
-            length_target,
-            length_frac_source,
-            length_frac_target,
-        ) = static_terms
-    else:
-        (
-            depth_source,
-            depth_target,
-            length_source,
-            length_target,
-            length_frac_source,
-            length_frac_target,
-        ) = _calculate_static_terms(graph, depth, length)
-
-    if preallocated_terms is not None:
-        (
-            total_outflow,
-            total_inflow,
-            total_outflow_source,
-            total_inflow_target,
-        ) = preallocated_terms
-    else:
-        (
-            total_outflow,
-            total_inflow,
-            total_outflow_source,
-            total_inflow_target,
-        ) = _preallocated_terms(graph)
+def _calculate_delta(flow, graph, depth, static_terms, preallocated_terms):
+    # These terms are all pre-computed/pre-allocated
+    (
+        depth_source,
+        depth_target,
+        length_source,
+        length_target,
+        length_frac_source,
+        length_frac_target,
+    ) = static_terms
+    (
+        total_outflow,
+        total_inflow,
+        total_outflow_source,
+        total_inflow_target,
+    ) = preallocated_terms
 
     gt.incident_edges_op(graph, "out", "sum", flow, total_outflow)
     gt.incident_edges_op(graph, "in", "sum", flow, total_inflow)
@@ -103,7 +84,7 @@ def calculate_delta(
     # TODO: Drop this
     if np.isnan(correction.a).any():
         print("NaN in flow step.")
-        print("Start *calculate_delta* DEBUG:")
+        print("Start *_calculate_delta* DEBUG:")
         print(np.isnan(flow.a).sum())
         print(np.isnan(depth.a).sum())
         print(np.isnan(correction.a).sum())
@@ -117,31 +98,42 @@ def calculate_delta(
         print((graph.vp["length"].a == 0).sum())
         print(np.isnan(correction.fa).sum())
         print(graph)
-        print("End *calculate_delta* DEBUG:")
+        print("End *_calculate_delta* DEBUG:")
 
     return correction
 
 
 def estimate_flow(
-    graph, depth, length, eps=1e-6, maxiter=1000, flow_init=None, ifnotconverged="warn"
+    graph,
+    depth,
+    length,
+    eps=1e-6,
+    maxiter=1000,
+    flow_init=None,
+    ifnotconverged="warn",
 ):
     assert ifnotconverged in ["ignore", "warn", "error"]
-    static_terms = _calculate_static_terms(graph, depth, length)
-    preallocated_terms = _preallocated_terms(graph)
     if flow_init is not None:
         flow = flow_init
     else:
         flow = graph.new_edge_property("float", val=1)
 
+    preallocated_terms = _preallocated_terms(graph)
     loss_hist = []
-    pbar = tqdm_debug(
+
+    # First: Ignore length
+    # NOTE: static_terms constructs the *length_frac_XXX* as 1/n
+    # when alpha=0
+    # FIXME (2024-05-10): Clean up the double progress bar.
+    static_terms = _calculate_static_terms(graph, depth, length, alpha=0)
+    pbar1 = tqdm_debug(
         range(maxiter),
         total=maxiter,
         bar_format="{l_bar}{r_bar}",
     )
-    for _ in pbar:
-        correction = calculate_delta(
-            flow, graph, depth, length, static_terms, preallocated_terms
+    for _ in pbar1:
+        correction = _calculate_delta(
+            flow, graph, depth, static_terms, preallocated_terms
         )
         loss_hist.append(np.sqrt((correction.fa**2).sum()) / depth.fa.sum())
         if np.isnan(loss_hist[-1]):
@@ -150,7 +142,38 @@ def estimate_flow(
             break  # This should only happen if d is all 0's.
 
         flow.a += correction.a
-        pbar.set_postfix({"relative_loss": loss_hist[-1]})
+        pbar1.set_postfix({"relative_loss": loss_hist[-1]})
+        if loss_hist[-1] < eps:
+            break
+    else:
+        if ifnotconverged == "warn":
+            warnings.warn("Reached maxiter. Flow estimates did not converge.")
+        elif ifnotconverged == "error":
+            raise RuntimeError("Reached maxiter. Flow estimates did not converge.")
+        elif ifnotconverged == "ignore":
+            pass
+
+    # Second: Weight by length
+    # NOTE: static_terms constructs the *length_frac_XXX* as you would expect
+    # when alpha=1
+    static_terms = _calculate_static_terms(graph, depth, length, alpha=1)
+    pbar2 = tqdm_debug(
+        range(maxiter),
+        total=maxiter,
+        bar_format="{l_bar}{r_bar}",
+    )
+    for _ in pbar2:
+        correction = _calculate_delta(
+            flow, graph, depth, static_terms, preallocated_terms
+        )
+        loss_hist.append(np.sqrt((correction.fa**2).sum()) / depth.fa.sum())
+        if np.isnan(loss_hist[-1]):
+            raise RuntimeError("NaN during flow estimation.")
+        elif loss_hist[-1] == 0:
+            break  # This should only happen if d is all 0's.
+
+        flow.a += correction.a
+        pbar2.set_postfix({"relative_loss": loss_hist[-1]})
         if loss_hist[-1] < eps:
             break
     else:
@@ -286,7 +309,11 @@ def calculate_mean_residual_vertex_flow(graph, flow, depth):
 
 
 def estimate_all_flows(
-    graph, eps=1e-6, maxiter=1000, flow_init=None, ifnotconverged="warn"
+    graph,
+    eps=1e-6,
+    maxiter=1000,
+    flow_init=None,
+    ifnotconverged="warn",
 ):
     depth_list = gt.ungroup_vector_property(
         graph.vp["depth"], pos=range(graph.gp["num_samples"])
