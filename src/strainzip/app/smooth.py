@@ -51,7 +51,6 @@ class SmoothDepths(App):
 
     def execute(self, args):
         graph = sz.io.load_graph(args.inpath)
-        smoothed_depths = []
 
         with multiprocessing.Pool(processes=args.processes) as process_pool:
             depth_procs = process_pool.imap(
