@@ -137,23 +137,36 @@ def backlinked_graph(graph):
     return out
 
 
-def get_shortest_distance(graph, roots: List[int], length, max_length=None):
+def get_shortest_distance(
+    graph, roots: List[int], length, max_length=None, backlinked=None
+):
     # TODO: Write a test for this function:
     #   - Make sure that a single root is at distance 0 from itself.
     #   - Make sure that filtering doesn't break anything?
     #   - Check that _both_ in-neighbors and out-neighbors of the root are at a distance
     #     equal to the length of the root vertex.
     original_graph = graph
-    graph = backlinked_graph(graph)
+    if backlinked is not None:
+        graph = backlinked
+    else:
+        graph = backlinked_graph(graph)
+
     length = graph.own_property(length)
     edge_length = gt.edge_endpoint_property(graph, length, "source")
 
     min_dist = np.inf * np.ones(graph.num_vertices(ignore_filter=True))
     for v in roots:
+        source_length = length[v]
+        # Max length needs to be adjusted by the source vertex length.
+        if max_length is not None:
+            _max_length = max_length + source_length
+        else:
+            _max_length = None
+
         dist = gt.topology.shortest_distance(
-            graph, v, weights=edge_length, directed=True, max_dist=max_length
+            graph, v, weights=edge_length, directed=True, max_dist=_max_length
         )
-        min_dist[dist.a < min_dist] = dist.a[dist.a < min_dist]
+        min_dist[dist.a < min_dist] = dist.a[dist.a < min_dist] - source_length
 
     return original_graph.new_vertex_property("float", vals=min_dist)
 
