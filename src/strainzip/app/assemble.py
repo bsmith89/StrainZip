@@ -411,11 +411,6 @@ class DeconvolveGraph(App):
                             break
                 else:
                     logging.info("Reached maximum number of deconvolution iterations.")
-                    with phase_info("Final optimize flow"):
-                        flow = _parallel_estimate_all_flows(
-                            graph,
-                            process_pool,
-                        )
 
         with phase_info("Writing result."):
             sz.io.dump_graph(graph, args.outpath, prune=(not args.no_prune))
