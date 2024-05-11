@@ -303,88 +303,95 @@ class DeconvolveGraph(App):
             gm.validate(graph)
             logging.debug(graph)
 
-        with phase_info("Main loop"), ProcessPool(
-            processes=args.processes
-        ) as process_pool:
+        with ProcessPool(processes=args.processes) as process_pool:
             logging.debug(
                 f"Initialized multiprocessing pool with {args.processes} workers."
             )
-            for i in range(args.max_iter):
-                with phase_info(f"Round {i + 1}"):
-                    with phase_info("Optimize flow"):
+            with phase_info("Main loop"):
+                for i in range(args.max_iter):
+                    with phase_info(f"Round {i + 1}"):
+                        with phase_info("Optimize flow"):
+                            flow = _parallel_estimate_all_flows(
+                                graph,
+                                process_pool,
+                            )
+                        with phase_info("Finding junctions"):
+                            if i == 0:
+                                # For first iteration, ignore the "touched" property in finding junctions.
+                                junctions = sz.topology.find_junctions(graph)
+                                gt.map_property_values(
+                                    graph.vp["touched"],
+                                    graph.vp["touched"],
+                                    lambda _: False,
+                                )
+                            else:
+                                assert (graph.vp["touched"].fa == 1).any()
+                                # For all subsequent iterations, only gather junctions that have been touched
+                                # or where their neighbor has been touched.
+                                consider = sz.topology.vertex_or_neighbors(
+                                    graph, graph.vp["touched"]
+                                )
+                                # # FIXME (2024-05-10): Temporarily dropped the "require touched" optimization by no longer considering it.
+                                # logging.info(
+                                #     f"Only considering the {graph.vp['touched'].fa.sum()} vertices "
+                                #     "affected by the previous round of deconvolution."
+                                # )
+                                junctions = sz.topology.find_junctions(
+                                    graph  # , also_required=consider.a
+                                )
+                                # After finding these junctions, reset touched property, to be updated
+                                # during unzipping and pressing.
+                                gt.map_property_values(
+                                    graph.vp["touched"],
+                                    graph.vp["touched"],
+                                    lambda _: False,
+                                )
+                            logging.info(f"Found {len(junctions)} junctions.")
+                            assert (graph.vp["touched"].fa == 0).all()
+                        with phase_info("Optimizing junction deconvolutions"):
+                            deconvolutions = _parallel_calculate_junction_deconvolutions(
+                                junctions,
+                                graph,
+                                flow,
+                                args.depth_model,
+                                pool=process_pool,
+                                forward_stop=0.0,
+                                backward_stop=0.0,
+                                score_margin_thresh=args.score_thresh,
+                                condition_thresh=args.condition_thresh,
+                                max_paths=100,  # FIXME: Consider whether I want this parameter at all.
+                            )
+                            # FIXME (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
+                            deconvolutions = list(sorted(deconvolutions))
+                        with phase_info("Unzipping junctions"):
+                            new_unzipped_vertices = gm.batch_unzip(
+                                graph, *deconvolutions
+                            )
+                            logging.info(
+                                f"Unzipped junctions into {len(new_unzipped_vertices)} vertices."
+                            )
+                        with phase_info("Finding non-branching paths"):
+                            unitig_paths = list(
+                                sz.topology.iter_maximal_unitig_paths(graph)
+                            )
+                        with phase_info("Pressing tigs"):
+                            new_pressed_vertices = gm.batch_press(
+                                graph,
+                                *[(path, {}) for path in unitig_paths],
+                            )
+                            logging.info(
+                                f"Pressed non-branching paths into {len(new_pressed_vertices)} new tigs."
+                            )
+                        if len(new_unzipped_vertices) == 0:
+                            logging.info("No junctions were unzipped. Stopping early.")
+                            break
+                else:
+                    logging.info("Reached maximum number of deconvolution iterations.")
+                    with phase_info("Final optimize flow"):
                         flow = _parallel_estimate_all_flows(
                             graph,
                             process_pool,
                         )
-                    with phase_info("Finding junctions"):
-                        if i == 0:
-                            # For first iteration, ignore the "touched" property in finding junctions.
-                            junctions = sz.topology.find_junctions(graph)
-                            gt.map_property_values(
-                                graph.vp["touched"],
-                                graph.vp["touched"],
-                                lambda _: False,
-                            )
-                        else:
-                            assert (graph.vp["touched"].fa == 1).any()
-                            # For all subsequent iterations, only gather junctions that have been touched
-                            # or where their neighbor has been touched.
-                            consider = sz.topology.vertex_or_neighbors(
-                                graph, graph.vp["touched"]
-                            )
-                            logging.info(
-                                f"Only considering the {graph.vp['touched'].fa.sum()} vertices "
-                                "affected by the previous round of deconvolution."
-                            )
-                            junctions = sz.topology.find_junctions(
-                                graph, also_required=consider.a
-                            )
-                            # After finding these junctions, reset touched property, to be updated
-                            # during unzipping and pressing.
-                            gt.map_property_values(
-                                graph.vp["touched"],
-                                graph.vp["touched"],
-                                lambda _: False,
-                            )
-                        logging.info(f"Found {len(junctions)} junctions.")
-                        assert (graph.vp["touched"].fa == 0).all()
-                    with phase_info("Optimizing junction deconvolutions"):
-                        deconvolutions = _parallel_calculate_junction_deconvolutions(
-                            junctions,
-                            graph,
-                            flow,
-                            args.depth_model,
-                            pool=process_pool,
-                            forward_stop=0.0,
-                            backward_stop=0.0,
-                            score_margin_thresh=args.score_thresh,
-                            condition_thresh=args.condition_thresh,
-                            max_paths=100,  # FIXME: Consider whether I want this parameter at all.
-                        )
-                        # FIXME (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
-                        deconvolutions = list(sorted(deconvolutions))
-                    with phase_info("Unzipping junctions"):
-                        new_unzipped_vertices = gm.batch_unzip(graph, *deconvolutions)
-                        logging.info(
-                            f"Unzipped junctions into {len(new_unzipped_vertices)} vertices."
-                        )
-                    with phase_info("Finding non-branching paths"):
-                        unitig_paths = list(
-                            sz.topology.iter_maximal_unitig_paths(graph)
-                        )
-                    with phase_info("Pressing tigs"):
-                        new_pressed_vertices = gm.batch_press(
-                            graph,
-                            *[(path, {}) for path in unitig_paths],
-                        )
-                        logging.info(
-                            f"Pressed non-branching paths into {len(new_pressed_vertices)} new tigs."
-                        )
-                    if len(new_unzipped_vertices) == 0:
-                        logging.info("No junctions were unzipped. Stopping early.")
-                        break
-            else:
-                logging.info("Reached maximum number of deconvolution iterations.")
 
         with phase_info("Writing result."):
             sz.io.dump_graph(graph, args.outpath, prune=(not args.no_prune))
