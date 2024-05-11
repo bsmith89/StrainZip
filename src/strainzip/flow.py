@@ -166,6 +166,7 @@ def estimate_flow(
         correction = _calculate_delta(
             flow, graph, depth, static_terms, preallocated_terms
         )
+        # FIXME: Overflow on square of the correction.
         loss_hist.append(np.sqrt((correction.fa**2).sum()) / depth.fa.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during flow estimation.")
@@ -378,6 +379,7 @@ def smooth_depth(
         flow, _ = estimate_flow(graph, depth, length, **estimate_flow_kwargs)
         next_depth = estimate_depth(graph, flow)
         change_in_depth = next_depth.fa - depth.fa
+        # FIXME: Overflow on square of the correction.
         loss_hist.append(np.sqrt((change_in_depth**2).sum()) / depth.fa.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during depth estimation.")
