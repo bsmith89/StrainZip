@@ -15,6 +15,7 @@ from ._base import App
 
 DEFAULT_MAX_ITER = 100
 DEFAULT_CONDITION_THRESH = 1e5
+DEFAULT_MIN_DEPTH = 0
 
 DEPTH_MODELS = {
     "LogPlusAlphaLogNormal": (LogPlusAlphaLogNormal, dict(alpha=1.0)),
@@ -209,6 +210,13 @@ class DeconvolveGraph(App):
         )
         self.parser.add_argument("outpath")
         self.parser.add_argument(
+            "--min-depth",
+            "-d",
+            type=float,
+            default=DEFAULT_MIN_DEPTH,
+            help="Filter out edges with less than this minimum depth.",
+        )
+        self.parser.add_argument(
             "--max-iter",
             "-n",
             type=int,
@@ -307,6 +315,22 @@ class DeconvolveGraph(App):
             logging.debug(
                 f"Initialized multiprocessing pool with {args.processes} workers."
             )
+            with phase_info("Pruning low-depth edges"):
+                with phase_info("Optimizing flow"):
+                    flow = _parallel_estimate_all_flows(
+                        graph,
+                        process_pool,
+                    )
+                # FIXME (2024-05-10): Confirm that setting vals from a get_2d_array has the right shape.
+                not_low_depth_edge = graph.new_edge_property(
+                    "bool",
+                    vals=flow.get_2d_array(pos=range(graph.gp["num_samples"])).sum(0)
+                    >= args.min_depth,
+                )
+                num_low_depth_edge = (not_low_depth_edge.a == 0).sum()
+                logging.info(f"Filtering out {num_low_depth_edge} low-depth edges.")
+                graph.set_edge_filter(not_low_depth_edge)
+
             with phase_info("Main loop"):
                 for i in range(args.max_iter):
                     with phase_info(f"Round {i + 1}"):
