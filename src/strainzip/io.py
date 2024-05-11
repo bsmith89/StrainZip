@@ -127,6 +127,9 @@ def load_sequence_depth_matrix(con, sequence, k, n):
                 "Only one of a kmer and it's reverse-complement should be in the database."
             )
         results.append(this_kmer_results)
+    # FIXME (2024-05-11): Don't need to pass around the whole matrix.
+    # Should just accumulate the sum and divide by the number of kmers.
+    # This will save a ton of memory for large unitigs.
     results = np.array(results)
     assert (
         len(results) == len(sequence) - k + 1
