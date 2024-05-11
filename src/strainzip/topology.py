@@ -104,9 +104,10 @@ def find_tips(g, also_required=None):
     if also_required is None:
         also_required = True
 
-    v_degree = g.degree_property_map("total")
+    in_degree = g.degree_property_map("in")
+    out_degree = g.degree_property_map("out")
     # np.where returns a tuple (maybe to deal with an N-dimensional mask?).
-    result = np.where((v_degree.a == 1) & also_required)[0]
+    result = np.where(((in_degree.a == 0) | (out_degree.a == 0)) & also_required)[0]
     return result
 
 
