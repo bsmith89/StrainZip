@@ -14,7 +14,7 @@ from ..logging_util import tqdm_debug
 from ._base import App
 
 DEFAULT_MAX_ITER = 100
-DEFAULT_CONDITION_THRESH = 1e5
+DEFAULT_CONDITION_THRESH = 1e6
 DEFAULT_MIN_DEPTH = 0
 
 DEPTH_MODELS = {
