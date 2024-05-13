@@ -123,33 +123,77 @@ def _calculate_junction_deconvolution(args):
             backward_stop=backward_stop,
         )
     except sz.errors.ConvergenceException:
-        return None
+        return (
+            False,  # Convergence
+            None,  # Score Margin
+            None,  # Completeness
+            None,  # Minimality
+            None,  # Identifiability
+            None,  # Result
+        )
 
     X = sz.deconvolution.design_paths(n, m)[0]
 
     if not (score_margin > score_margin_thresh):
-        # print(f"[junc={j} / {n}x{m}] Cannot pick best model. (Selected model had {len(paths)} paths; score margin: {score_margin})")
-        return None
+        return (
+            True,  # Convergence
+            False,  # Score Margin
+            None,  # Completeness
+            None,  # Minimality
+            None,  # Identifiability
+            None,  # Result
+        )
 
     if not X[:, paths].sum(1).min() == 1:
-        # print(f"[junc={j} / {n}x{m}] Non-complete. (Best model had {len(paths)} paths; score margin: {score_margin})")
-        return None
+        return (
+            True,  # Convergence
+            True,  # Score Margin
+            False,  # Completeness
+            None,  # Minimality
+            None,  # Identifiability
+            None,  # Result
+        )
 
     if not len(paths) <= max(n, m):
-        # print(f"[junc={j} / {n}x{m}] Non-minimal. (Best model had {len(paths)} paths; score margin: {score_margin})")
-        return None
+        return (
+            True,  # Convergence
+            True,  # Score Margin
+            True,  # Completeness
+            False,  # Minimality
+            None,  # Identifiability
+            None,  # Result
+        )
 
     try:
         condition = np.linalg.cond(fit.hessian_beta)
     except np.linalg.LinAlgError:
-        return None
+        return (
+            True,  # Convergence
+            True,  # Score Margin
+            True,  # Completeness
+            True,  # Minimality
+            False,  # Identifiability
+            None,  # Result
+        )
     else:
         if not (condition < condition_thresh):
-            # print(f"[junc={j} / {n}x{m}] Non-identifiable. (Best model had {len(paths)} paths; score margin: {score_margin})")
-            return None
+            return (
+                True,  # Convergence
+                True,  # Score Margin
+                True,  # Completeness
+                True,  # Minimality
+                False,  # Identifiability
+                None,  # Result
+            )
 
-    # print(f"[junc={j} / {n}x{m}] SUCCESS! Selected {len(paths)} paths; score margin: {score_margin}")
-    return junction, named_paths, {"path_depths": np.array(fit.beta.clip(0))}
+    return (
+        True,  # Convergence
+        True,  # Score Margin
+        True,  # Completeness
+        True,  # Minimality
+        True,  # Identifiability
+        (junction, named_paths, {"path_depths": np.array(fit.beta.clip(0))}),  # Result
+    )
 
 
 def _parallel_calculate_junction_deconvolutions(
@@ -186,15 +230,43 @@ def _parallel_calculate_junction_deconvolutions(
     )
 
     batch = []
-    for result in tqdm_debug(
+    postfix = dict(
+        converged=0,
+        best=0,
+        complete=0,
+        minimal=0,
+        identifiable=0,
+        split=0,
+    )
+    pbar = tqdm_debug(
         deconv_results,
         total=len(junctions),
         bar_format="{l_bar}{r_bar}",
-    ):
+    )
+    for (
+        is_converged,
+        is_best,
+        is_complete,
+        is_minimal,
+        is_identifiable,
+        result,
+    ) in pbar:
+        if is_converged:
+            postfix["converged"] += 1
+        if is_best:
+            postfix["best"] += 1
+        if is_complete:
+            postfix["complete"] += 1
+        if is_minimal:
+            postfix["minimal"] += 1
+        if is_identifiable:
+            postfix["identifiable"] += 1
         if result is not None:
+            postfix["split"] += 1
             junction, named_paths, path_depths_dict = result
             # print(f"{junction}: {named_paths}", end=" | ")
-            batch.append((junction, named_paths, path_depths_dict))
+            batch.append(result)
+        pbar.set_postfix(postfix)
 
     return batch
 
