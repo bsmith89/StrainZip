@@ -94,12 +94,9 @@ COMMIT;
     con.executescript(script)
 
     seq = "GTGTAATGATCATTCGTTAGTGCCGGTGATAGCCATCGACCATGCTTTTAAAGGTTTCGTGTGGCGTACGCCCCGTGGTGCAAAGATAAAGATGACCGAAGATAAAAAAGAGGCTTATAAATGCCAGAGCAAAATG"
+    # TODO (2024-05-11): Test querying a kmer that's missing from the counts database.
     k = 111
-    kmer_depths = sz.io.load_sequence_depth_matrix(
-        con,
-        seq,
-        k=k,
-    )
+    kmer_depths = sz.io.load_sequence_depth_matrix(con, seq, k=k, n=3)
     assert kmer_depths.shape[0] == len(seq) - k + 1
     assert kmer_depths.shape[1] == 3
     con.close()
