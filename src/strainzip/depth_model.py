@@ -8,6 +8,8 @@ from jax import hessian, jit
 from jax.scipy.stats.norm import logpdf as NormalLogPDF
 from jax.tree_util import Partial
 
+from strainzip.errors import ConvergenceException
+
 
 @dataclass
 class FitResult:
@@ -98,7 +100,7 @@ def _score(beta, sigma, y, X, alpha):
 
 
 @jit
-def _optimize(y, X, alpha):
+def _optimize(y, X, alpha, maxiter=500):
     e_edges, s_samples = y.shape
     e_edges, p_paths = X.shape
     init_beta = jnp.ones((p_paths, s_samples))
@@ -110,7 +112,9 @@ def _optimize(y, X, alpha):
     # upp_bounds = jnp.inf * jnp.ones_like(init_beta)
 
     # Estimate beta by minimizing the sum of squared residuals.
-    beta_est_trsfm, opt = jaxopt.LBFGS(Partial(objective, y=y, X=X, alpha=alpha)).run(
+    beta_est_trsfm, opt = jaxopt.LBFGS(
+        Partial(objective, y=y, X=X, alpha=alpha), maxiter=maxiter
+    ).run(
         init_params=init_beta,
         # bounds=(low_bounds, upp_bounds),
     )
@@ -122,8 +126,10 @@ def _optimize(y, X, alpha):
     return (beta_est, sigma_est), opt
 
 
-def fit(y, X, alpha):
-    params_est, opt = _optimize(y=y, X=X, alpha=alpha)
+def fit(y, X, alpha, maxiter=500):
+    params_est, opt = _optimize(y=y, X=X, alpha=alpha, maxiter=maxiter)
+    if not opt.iter_num < maxiter:
+        raise ConvergenceException(opt)
 
     # NOTE: Hessian of the *negative* log likelihood, because this is what's being
     # minimized? (How does this make sense??)
@@ -145,8 +151,9 @@ def fit(y, X, alpha):
 
 
 class LogPlusAlphaLogNormal:
-    def __init__(self, alpha):
+    def __init__(self, alpha, maxiter=500):
         self.alpha = alpha
+        self.maxiter = maxiter
 
     def fit(self, y, X):
-        return fit(y, X, self.alpha)
+        return fit(y, X, self.alpha, self.maxiter)

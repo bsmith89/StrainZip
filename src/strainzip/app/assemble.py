@@ -13,7 +13,8 @@ from ..depth_model2 import SoftPlusNormal
 from ..logging_util import tqdm_debug
 from ._base import App
 
-DEFAULT_MAX_ITER = 100
+DEFAULT_MAX_ROUNDS = 100
+DEFAULT_OPT_MAXITER = 500
 DEFAULT_CONDITION_THRESH = 1e6
 DEFAULT_MIN_DEPTH = 0
 
@@ -111,15 +112,18 @@ def _calculate_junction_deconvolution(args):
         depth_model,
     ) = args
     n, m = len(in_neighbors), len(out_neighbors)
-    fit, paths, named_paths, score_margin = sz.deconvolution.deconvolve_junction(
-        in_neighbors,
-        in_flows,
-        out_neighbors,
-        out_flows,
-        model=depth_model,  # TODO (2024-04-20): Allow this to be passed in by changing it from a module into a class.
-        forward_stop=forward_stop,
-        backward_stop=backward_stop,
-    )
+    try:
+        fit, paths, named_paths, score_margin = sz.deconvolution.deconvolve_junction(
+            in_neighbors,
+            in_flows,
+            out_neighbors,
+            out_flows,
+            model=depth_model,
+            forward_stop=forward_stop,
+            backward_stop=backward_stop,
+        )
+    except sz.errors.ConvergenceException:
+        return None
 
     X = sz.deconvolution.design_paths(n, m)[0]
 
@@ -217,10 +221,10 @@ class DeconvolveGraph(App):
             help="Filter out edges with less than this minimum depth.",
         )
         self.parser.add_argument(
-            "--max-iter",
+            "--max-rounds",
             "-n",
             type=int,
-            default=DEFAULT_MAX_ITER,
+            default=DEFAULT_MAX_ROUNDS,
             help="Maximum rounds of graph deconvolution.",
         )
         self.parser.add_argument(
@@ -254,6 +258,12 @@ class DeconvolveGraph(App):
             ),
         )
         self.parser.add_argument(
+            "--opt-maxiter",
+            type=int,
+            default=DEFAULT_OPT_MAXITER,
+            help="Run up to this number of optimization steps for regression convergence.",
+        )
+        self.parser.add_argument(
             "--processes",
             "-p",
             type=int,
@@ -276,12 +286,13 @@ class DeconvolveGraph(App):
             k, v = entry.split("=")
             assert (
                 k in model_default_hyperparameters
-            ), f"{k} does not appear to be a hyperparameters of {depth_model_class}."
+            ), f"{k} does not appear to be a hyperparameter of {depth_model_class}."
             model_hyperparameters[k] = float(v)
 
         # Instantiate the depth model and assign it to args.
         args.depth_model = depth_model_class(
-            **(model_default_hyperparameters | model_hyperparameters)
+            maxiter=args.opt_maxiter,
+            **(model_default_hyperparameters | model_hyperparameters),
         )
 
         return args
@@ -332,7 +343,7 @@ class DeconvolveGraph(App):
                 graph.set_edge_filter(not_low_depth_edge)
 
             with phase_info("Main loop"):
-                for i in range(args.max_iter):
+                for i in range(args.max_rounds):
                     with phase_info(f"Round {i + 1}"):
                         with phase_info("Optimize flow"):
                             flow = _parallel_estimate_all_flows(

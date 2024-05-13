@@ -1,7 +1,9 @@
 import numpy as np
+import pytest
 
 import strainzip as sz
 from strainzip.depth_model import LogPlusAlphaLogNormal
+from strainzip.depth_model2 import SoftPlusNormal
 
 
 def test_deconvolution_problem_formulation():
@@ -33,9 +35,6 @@ def test_deconvolution_problem_formulation():
 
 def test_well_specified_deconvolution():
     seed = 0
-    depth_model = LogPlusAlphaLogNormal(
-        alpha=1e-5  # Small offset for handling 0s in depths
-    )
     n, m = 2, 3  # In-edges / out-edges
     s_samples = 3
     sigma = 1  # Scale of the multiplicative noise
@@ -79,6 +78,9 @@ def test_well_specified_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
+    depth_model = LogPlusAlphaLogNormal(
+        alpha=1e-5  # Small offset for handling 0s in depths
+    )
     fit = depth_model.fit(y_obs, X_reduced)
 
     # Calculate likelihood
@@ -86,6 +88,67 @@ def test_well_specified_deconvolution():
 
     # Estimate standard errors / Check model identifiable.
     assert np.isfinite(fit.stderr_beta).all()
+
+
+def test_convergence_error():
+    seed = 0
+    n, m = 2, 3  # In-edges / out-edges
+    s_samples = 3
+    sigma = 1  # Scale of the multiplicative noise
+    depth_multiplier = 1  # Scaling factor for depths
+    num_excess_paths = 0  # How many extra paths to include beyond correct ones.
+
+    np.random.seed(seed)
+
+    r_edges, p_paths = (n + m, n * m)
+    X = sz.deconvolution.design_paths(n, m)[0]
+    assert X.shape == (r_edges, p_paths)
+
+    # Select which pairs of in/out edges are "real" and assign them depths across samples.
+    active_paths = sz.deconvolution.simulate_active_paths(n, m)
+    active_paths = [i for i, _ in active_paths]
+    beta = np.zeros((p_paths, s_samples))
+    beta[active_paths, :] = np.random.lognormal(
+        mean=-3, sigma=6, size=(len(active_paths), s_samples)
+    )
+    beta = beta.round(1)  # Structural zeros
+
+    # Simulate the observed depth of each edge.
+    expect = X @ (beta * depth_multiplier)
+    log_noise = np.random.normal(loc=0, scale=1, size=expect.shape)
+    y_obs = expect * np.exp(log_noise * sigma)
+
+    # Simulate a selection of paths during the estimation procedure.
+    # Possibly over-specified. (see `num_excess_paths`)
+    _active_paths = list(
+        sorted(
+            set(active_paths)
+            | set(
+                np.random.choice(
+                    [p for p in range(p_paths) if p not in active_paths],
+                    replace=False,
+                    size=num_excess_paths,
+                )
+            )
+        )
+    )
+    X_reduced = X[:, _active_paths]
+
+    for model_class, model_params in [
+        (LogPlusAlphaLogNormal, dict(alpha=1e-5)),
+        (SoftPlusNormal, dict()),
+    ]:
+        depth_model = model_class(
+            maxiter=500,
+            **model_params,
+        )
+        fit = depth_model.fit(y_obs, X_reduced)
+        with pytest.raises(sz.errors.ConvergenceException):
+            depth_model = model_class(
+                maxiter=5,
+                **model_params,
+            )
+            fit = depth_model.fit(y_obs, X_reduced)
 
 
 def test_no_noise_deconvolution():
