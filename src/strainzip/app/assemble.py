@@ -10,7 +10,7 @@ from strainzip.logging_util import phase_info
 
 from ..depth_model import LogPlusAlphaLogNormal
 from ..depth_model2 import SoftPlusNormal
-from ..logging_util import tqdm_debug
+from ..logging_util import tqdm_info
 from ._base import App
 
 DEFAULT_MAX_ROUNDS = 100
@@ -65,7 +65,7 @@ def _parallel_estimate_all_flows(graph, pool):
     flow_values = np.stack(
         [
             f
-            for f in tqdm_debug(
+            for f in tqdm_info(
                 flow_procs,
                 total=graph.gp["num_samples"],
                 bar_format="{l_bar}{r_bar}",
@@ -238,7 +238,7 @@ def _parallel_calculate_junction_deconvolutions(
         identifiable=0,
         split=0,
     )
-    pbar = tqdm_debug(
+    pbar = tqdm_info(
         deconv_results,
         total=len(junctions),
         bar_format="{l_bar}{r_bar}",
@@ -376,26 +376,25 @@ class DeconvolveGraph(App):
 
         with phase_info("Loading graph"):
             graph = sz.io.load_graph(args.inpath)
-            graph.vp["touched"] = graph.new_vertex_property("bool", val=False)
             gm = sz.graph_manager.GraphManager(
                 unzippers=[
                     sz.graph_manager.LengthUnzipper(),
                     sz.graph_manager.SequenceUnzipper(),
                     sz.graph_manager.VectorDepthUnzipper(),
-                    sz.graph_manager.TouchedUnzipper(),
                 ],
                 pressers=[
                     sz.graph_manager.LengthPresser(),
                     sz.graph_manager.SequencePresser(sep=","),
                     sz.graph_manager.VectorDepthPresser(),
-                    sz.graph_manager.TouchedPresser(),
                 ],
             )
             gm.validate(graph)
-            logging.debug(graph)
+            logging.info(
+                f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
+            )
 
         with ProcessPool(processes=args.processes) as process_pool:
-            logging.debug(
+            logging.info(
                 f"Initialized multiprocessing pool with {args.processes} workers."
             )
             with phase_info("Pruning low-depth edges"):
@@ -416,6 +415,9 @@ class DeconvolveGraph(App):
 
             with phase_info("Main loop"):
                 for i in range(args.max_rounds):
+                    logging.info(
+                        f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
+                    )
                     with phase_info(f"Round {i + 1}"):
                         with phase_info("Optimize flow"):
                             flow = _parallel_estimate_all_flows(
@@ -423,38 +425,10 @@ class DeconvolveGraph(App):
                                 process_pool,
                             )
                         with phase_info("Finding junctions"):
-                            if i == 0:
-                                # For first iteration, ignore the "touched" property in finding junctions.
-                                junctions = sz.topology.find_junctions(graph)
-                                gt.map_property_values(
-                                    graph.vp["touched"],
-                                    graph.vp["touched"],
-                                    lambda _: False,
-                                )
-                            else:
-                                assert (graph.vp["touched"].fa == 1).any()
-                                # For all subsequent iterations, only gather junctions that have been touched
-                                # or where their neighbor has been touched.
-                                consider = sz.topology.vertex_or_neighbors(
-                                    graph, graph.vp["touched"]
-                                )
-                                # # FIXME (2024-05-10): Temporarily dropped the "require touched" optimization by no longer considering it.
-                                # logging.info(
-                                #     f"Only considering the {graph.vp['touched'].fa.sum()} vertices "
-                                #     "affected by the previous round of deconvolution."
-                                # )
-                                junctions = sz.topology.find_junctions(
-                                    graph  # , also_required=consider.a
-                                )
-                                # After finding these junctions, reset touched property, to be updated
-                                # during unzipping and pressing.
-                                gt.map_property_values(
-                                    graph.vp["touched"],
-                                    graph.vp["touched"],
-                                    lambda _: False,
-                                )
-                            logging.info(f"Found {len(junctions)} junctions.")
-                            assert (graph.vp["touched"].fa == 0).all()
+                            junctions = sz.topology.find_junctions(
+                                graph  # , also_required=consider.a
+                            )
+                            logging.debug(f"Found {len(junctions)} junctions.")
                         with phase_info("Optimizing junction deconvolutions"):
                             deconvolutions = _parallel_calculate_junction_deconvolutions(
                                 junctions,
@@ -496,4 +470,7 @@ class DeconvolveGraph(App):
                     logging.info("Reached maximum number of deconvolution iterations.")
 
         with phase_info("Writing result."):
+            logging.info(
+                f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
+            )
             sz.io.dump_graph(graph, args.outpath, prune=(not args.no_prune))
