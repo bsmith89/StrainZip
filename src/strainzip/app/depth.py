@@ -14,8 +14,8 @@ from ._base import App
 def _unitig_depth(arg):
     db_uri, k, n, unitig_id, sequence = arg
     con = sqlite3.connect(db_uri, uri=True)
-    depths_matrix = sz.io.load_sequence_depth_matrix(con, sequence, k, n)
-    return unitig_id, len(sequence) - k + 1, depths_matrix.mean(0)
+    mean_depth = sz.io.load_mean_sequence_depth(con, sequence, k, n)
+    return unitig_id, len(sequence) - k + 1, mean_depth
 
 
 def _iter_unitigs(fasta_iter):

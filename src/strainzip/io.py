@@ -107,34 +107,26 @@ def load_graph_and_sequences_from_linked_fasta(file_handle, k, header_tokenizer)
     return graph, sequences
 
 
-def load_sequence_depth_matrix(con, sequence, k, n):
+def load_mean_sequence_depth(con, sequence, k, n):
     query = "SELECT * FROM count_ WHERE kmer IN (?, ?)"
+    num_kmers = len(sequence) - k + 1
     results = []
-    empty_results = np.zeros(n)
+    total_tally = np.zeros(n)
     for kmer in iter_kmers(sequence, k=k, circularize=False):
         kmer_rc = reverse_complement(kmer)
         this_kmer_results = con.execute(query, (kmer, kmer_rc)).fetchall()
         if len(this_kmer_results) == 1:
-            # The kmer was observed. Add the counts across n samples to the table
+            # The kmer was observed. Add the counts across n samples to the accumulator.
             this_kmer_results = this_kmer_results[0][1:]
-            assert (
-                len(this_kmer_results) == n
-            ), "There should be a number of entries equal to the number of samples."
+            total_tally += np.array(this_kmer_results)
         elif len(this_kmer_results) == 0:
-            this_kmer_results = empty_results
+            # The kmer was not observed
+            continue
         else:
             raise RuntimeError(
                 "Only one of a kmer and it's reverse-complement should be in the database."
             )
-        results.append(this_kmer_results)
-    # FIXME (2024-05-11): Don't need to pass around the whole matrix.
-    # Should just accumulate the sum and divide by the number of kmers.
-    # This will save a ton of memory for large unitigs.
-    results = np.array(results)
-    assert (
-        len(results) == len(sequence) - k + 1
-    ), "There should be entries in the depth matrix for every kmer."
-    return results
+    return total_tally / num_kmers
 
 
 def dump_graph(graph, path, prune=False):
