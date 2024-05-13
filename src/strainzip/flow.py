@@ -1,10 +1,8 @@
-import logging
 import warnings
 
 import graph_tool as gt
 import numpy as np
-
-from .logging_util import tqdm_debug
+from tqdm import tqdm
 
 
 def _calculate_static_terms(graph, depth, length, alpha):
@@ -111,6 +109,7 @@ def estimate_flow(
     maxiter=1000,
     flow_init=None,
     ifnotconverged="warn",
+    verbose=False,
 ):
     assert ifnotconverged in ["ignore", "warn", "error"]
     if flow_init is not None:
@@ -126,10 +125,11 @@ def estimate_flow(
     # when alpha=0
     # FIXME (2024-05-10): Clean up the double progress bar.
     static_terms = _calculate_static_terms(graph, depth, length, alpha=0)
-    pbar1 = tqdm_debug(
+    pbar1 = tqdm(
         range(maxiter),
         total=maxiter,
         bar_format="{l_bar}{r_bar}",
+        disable=(not verbose),
     )
     for _ in pbar1:
         correction = _calculate_delta(
@@ -157,10 +157,11 @@ def estimate_flow(
     # NOTE: static_terms constructs the *length_frac_XXX* as you would expect
     # when alpha=1
     static_terms = _calculate_static_terms(graph, depth, length, alpha=1)
-    pbar2 = tqdm_debug(
+    pbar2 = tqdm(
         range(maxiter),
         total=maxiter,
         bar_format="{l_bar}{r_bar}",
+        disable=(not verbose),
     )
     for _ in pbar2:
         correction = _calculate_delta(
@@ -196,6 +197,7 @@ def estimate_flow_old(
     maxiter=1000,
     flow_init=None,
     ifnotconverged="warn",
+    verbose=False,
 ):
     assert ifnotconverged in ["ignore", "warn", "error"]
 
@@ -224,11 +226,12 @@ def estimate_flow_old(
 
     loss_hist = []
     i = 0
-    pbar = tqdm_debug(
+    pbar = tqdm(
         range(maxiter),
         total=maxiter,
         mininterval=1.0,
         bar_format="{l_bar}{r_bar}",
+        disable=(not verbose),
     )
     for i in pbar:
         # Update inflow error
@@ -361,6 +364,7 @@ def smooth_depth(
     maxiter=1000,
     estimate_flow_kwargs=None,
     ifnotconverged="warn",
+    verbose=False,
 ):
     assert ifnotconverged in ["ignore", "warn", "error"]
     # Set kwargs for estimate flow.
@@ -370,10 +374,11 @@ def smooth_depth(
     depth = depth_init.copy()
 
     loss_hist = []
-    pbar = tqdm_debug(
+    pbar = tqdm(
         range(maxiter),
         total=maxiter,
         bar_format="{l_bar}{r_bar}",
+        disable=(not verbose),
     )
     for _ in pbar:
         flow, _ = estimate_flow(graph, depth, length, **estimate_flow_kwargs)

@@ -5,8 +5,6 @@ import graph_tool as gt
 import graph_tool.topology
 import numpy as np
 
-from .logging_util import phase_debug, tqdm_debug
-
 
 def edge_has_no_siblings(g):
     "Check whether upstream or downstream sibling edges exist for every edge."
