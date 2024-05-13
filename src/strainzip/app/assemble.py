@@ -145,14 +145,24 @@ def _calculate_junction_deconvolution(args):
         )
 
     if not X[:, paths].sum(1).min() == 1:
-        return (
-            True,  # Convergence
-            True,  # Score Margin
-            False,  # Completeness
-            None,  # Minimality
-            None,  # Identifiability
-            None,  # Result
-        )
+        if len(paths) <= max(n, m):
+            return (
+                True,  # Convergence
+                True,  # Score Margin
+                False,  # Completeness
+                False,  # Minimality
+                None,  # Identifiability
+                None,  # Result
+            )
+        else:
+            return (
+                True,  # Convergence
+                True,  # Score Margin
+                False,  # Completeness
+                True,  # Minimality
+                None,  # Identifiability
+                None,  # Result
+            )
 
     if not len(paths) <= max(n, m):
         return (
@@ -266,7 +276,7 @@ def _parallel_calculate_junction_deconvolutions(
             junction, named_paths, path_depths_dict = result
             # print(f"{junction}: {named_paths}", end=" | ")
             batch.append(result)
-        pbar.set_postfix(postfix)
+        pbar.set_postfix(postfix, refresh=False)
 
     return batch
 
