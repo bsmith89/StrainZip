@@ -36,17 +36,10 @@ class ExtractResults(App):
             unitig_depth_table["unitig"] = unitig_depth_table["unitig"].astype(str)
 
         with phase_info("Compiling results"):
-            results = (
-                sz.results.extract_vertex_data(graph)
-                .assign(
-                    assembly=lambda d: d.segments.apply(
-                        sz.results.assemble_overlapping_unitigs,
-                        unitig_to_sequence=unitig_to_sequence,
-                        k=graph.gp["kmer_length"],
-                    )
-                )
-                .sort_values(["length"], ascending=False)
+            results = sz.results.extract_vertex_data(graph).sort_values(
+                ["length"], ascending=False
             )
+            dereplicated_vertices = sz.results.dereplicate_vertices_by_segments(results)
             with phase_info("Re-adding orphan sequences"):
                 unitigs_in_main_results = set(
                     results.segments.explode().str[:-1].drop_duplicates()
@@ -75,10 +68,16 @@ class ExtractResults(App):
             with phase_info("Writing FASTA"), open(
                 args.fasta_outpath, "w"
             ) as fasta_handle:
-                for vertex, data in tqdm_debug(
-                    results.iterrows(), total=results.shape[0]
+                for segments, vertex_list in tqdm_debug(
+                    dereplicated_vertices.items(), total=len(dereplicated_vertices)
                 ):
-                    print(f">{vertex}\n{data.assembly}", file=fasta_handle)
+                    header = " ".join([str(v) for v in vertex_list])
+                    assembly = sz.results.assemble_overlapping_unitigs(
+                        segments,
+                        unitig_to_sequence=unitig_to_sequence,
+                        k=graph.gp["kmer_length"],
+                    )
+                    print(f">{header}\n{assembly}", file=fasta_handle)
                 with phase_info("Writing orphan unitigs"):
                     for unitig in tqdm_debug(orphan_unitigs):
                         print(
