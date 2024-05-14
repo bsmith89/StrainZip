@@ -4,6 +4,7 @@ from typing import List
 import graph_tool as gt
 import graph_tool.topology
 import numpy as np
+from tqdm import tqdm
 
 
 def edge_has_no_siblings(g):
@@ -137,7 +138,7 @@ def backlinked_graph(graph):
 
 
 def get_shortest_distance(
-    graph, roots: List[int], length, max_length=None, backlinked=None
+    graph, roots: List[int], length, max_length=None, backlinked=None, verbose=False
 ):
     # TODO: Write a test for this function:
     #   - Make sure that a single root is at distance 0 from itself.
@@ -154,7 +155,7 @@ def get_shortest_distance(
     edge_length = gt.edge_endpoint_property(graph, length, "source")
 
     min_dist = np.inf * np.ones(graph.num_vertices(ignore_filter=True))
-    for v in roots:
+    for v in tqdm(roots, disable=(not verbose)):
         source_length = length[v]
         # Max length needs to be adjusted by the source vertex length.
         if max_length is not None:
