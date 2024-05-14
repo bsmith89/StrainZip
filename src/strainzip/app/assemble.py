@@ -218,7 +218,7 @@ def _parallel_calculate_junction_deconvolutions(
     condition_thresh=1e5,
     max_paths=20,
 ):
-    deconv_results = pool.imap_unordered(
+    deconv_results = pool.imap(
         _calculate_junction_deconvolution,
         (
             (
@@ -237,6 +237,7 @@ def _parallel_calculate_junction_deconvolutions(
                 junctions, graph, flow, max_paths=max_paths
             )
         ),
+        chunksize=100,
     )
 
     batch = []
