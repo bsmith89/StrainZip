@@ -44,7 +44,13 @@ class EstimateUnitigDepth(App):
         # TODO (2024-04-23): Combine preload and tmpdb into one flag using nargs="?"
         self.parser.add_argument(
             "--tmpdb",
-            help="If --preload is given, load the data into this file. If not provided, an (explicitly) in-memory DB is used instead. Has no effect if not preloading the DB.",
+            help=(
+                "If --preload is given, load the data into this file. "
+                "If not provided, an (explicitly) in-memory DB is used instead. "
+                "Has no effect if not preloading the DB. "
+                "To keep memory speeds without allocating in every process, "
+                "consider preloading to /dev/shm or equivalent."
+            ),
         )
         self.parser.add_argument(
             "--processes",
