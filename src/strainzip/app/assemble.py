@@ -492,4 +492,4 @@ class DeconvolveGraph(App):
             logging.info(
                 f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
             )
-            sz.io.dump_graph(graph, args.outpath, purge=(not args.keep_filtered))
+            sz.io.dump_graph(graph, args.outpath, purge=True)
