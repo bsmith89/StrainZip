@@ -23,9 +23,9 @@ class SelectLocalGraph(App):
         )
         self.parser.add_argument("outpath")
         self.parser.add_argument(
-            "--no-prune",
+            "--no-purge",
             action="store_true",
-            help="Keep filtered vertices instead of pruning them.",
+            help="Keep filtered vertices instead of purging them before saving output.",
         )
 
     def validate_and_transform_args(self, args):
@@ -54,4 +54,4 @@ class SelectLocalGraph(App):
             logging.debug(graph)
 
         with sz.logging_util.phase_info("Writing result."):
-            sz.io.dump_graph(graph, args.outpath, prune=(not args.no_prune))
+            sz.io.dump_graph(graph, args.outpath, purge=(not args.no_purge))

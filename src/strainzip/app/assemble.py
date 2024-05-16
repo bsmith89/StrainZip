@@ -471,7 +471,7 @@ class DeconvolveGraph(App):
                             )
                         with phase_info("Finding junctions"):
                             junctions = sz.topology.find_junctions(graph)
-                            logging.debug(f"Found {len(junctions)} junctions.")
+                            logging.info(f"Found {len(junctions)} junctions.")
                         with phase_info("Optimizing junction deconvolutions"):
                             deconvolutions = _parallel_calculate_junction_deconvolutions(
                                 junctions,

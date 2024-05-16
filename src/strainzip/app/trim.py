@@ -19,9 +19,9 @@ class TrimTips(App):
             help="Do not press non-branching paths into tigs after trimming tips.",
         )
         self.parser.add_argument(
-            "--no-prune",
+            "--no-purge",
             action="store_true",
-            help="Keep filtered vertices instead of pruning them.",
+            help="Keep filtered vertices instead of purging them before saving output.",
         )
         self.parser.add_argument(
             "--processes",
@@ -87,4 +87,4 @@ class TrimTips(App):
                 logging.debug(graph)
 
         with sz.logging_util.phase_info("Writing result"):
-            sz.io.dump_graph(graph, args.outpath, prune=(not args.no_prune))
+            sz.io.dump_graph(graph, args.outpath, purge=(not args.no_purge))
