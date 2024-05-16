@@ -66,6 +66,7 @@ def _parallel_estimate_all_flows(graph, pool):
             )
             for sample_id in range(graph.gp["num_samples"])
         ),
+        chunksize=4,
     )
 
     # Collect rows of the flow table.
@@ -193,6 +194,7 @@ def _parallel_calculate_junction_deconvolutions(
                 junctions, graph, flow, max_paths=max_paths
             )
         ),
+        chunksize=500,
     )
 
     batch = []
