@@ -1,3 +1,4 @@
+import warnings
 from functools import cache
 from itertools import product
 
@@ -147,9 +148,16 @@ def select_paths(X, y, model, forward_stop, backward_stop, verbose=False):
             prev_active_paths = active_paths
 
     # How does this compare to the best model seen?
-    curr_score = all_scores.pop(active_paths)
+    all_scores = {k: np.nan_to_num(v, nan=-np.inf) for k, v in all_scores.items()}
+    last_score = all_scores.pop(active_paths)
     compare_score = max(all_scores.values())
-    delta_score = curr_score - compare_score
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=RuntimeWarning,
+        )
+        delta_score = last_score - compare_score
 
     return (
         active_paths,

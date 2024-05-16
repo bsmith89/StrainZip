@@ -97,6 +97,7 @@ def _calculate_delta(flow, graph, depth, static_terms, preallocated_terms):
         print(np.isnan(correction.fa).sum())
         print(graph)
         print("End *_calculate_delta* DEBUG:")
+        raise RuntimeError()
 
     return correction
 

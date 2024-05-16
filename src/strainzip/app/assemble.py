@@ -3,7 +3,6 @@ from multiprocessing import Pool as ProcessPool
 
 import graph_tool as gt
 import numpy as np
-import pandas as pd
 
 import strainzip as sz
 from strainzip.logging_util import phase_info
@@ -14,8 +13,9 @@ from ..logging_util import tqdm_info
 from ._base import App
 
 DEFAULT_MAX_ROUNDS = 100
+DEFAULT_SCORE_THRESH = 10.0
 DEFAULT_OPT_MAXITER = 500
-DEFAULT_CONDITION_THRESH = 1e6
+DEFAULT_RELATIVE_ERROR_THRESH = 0.1
 DEFAULT_MIN_DEPTH = 0
 
 DEPTH_MODELS = {
@@ -27,11 +27,16 @@ DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 
 
 def _estimate_flow(args):
+    # Limit each flow process to use just 1 core.
     gt.openmp_set_num_threads(1)
+
     graph, sample_id = args
     depth = gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0]
     length = graph.vp["length"]
 
+    # TODO (2024-05-14): This parallelization falls down because moving the graph
+    # has too much serialization overhead, I think.
+    # It's the same speed with maxiter=10 as maxiter=1000.
     flow, _ = sz.flow.estimate_flow(
         graph,
         depth,
@@ -89,12 +94,6 @@ def _iter_junction_deconvolution_data(junction_iter, graph, flow, max_paths):
         in_flows = np.stack([flow[(i, j)] for i in in_neighbors])
         out_flows = np.stack([flow[(j, i)] for i in out_neighbors])
 
-        # # FIXME (2024-04-20): Decide if I actually want to
-        # # balance flows before fitting.
-        # log_offset_ratio = np.log(in_flows.sum()) - np.log(out_flows.sum())
-        # in_flows = np.exp(np.log(in_flows) - log_offset_ratio / 2)
-        # out_flows = np.exp(np.log(out_flows) + log_offset_ratio / 2)
-
         yield j, in_neighbors, in_flows, out_neighbors, out_flows
 
 
@@ -107,10 +106,9 @@ def _calculate_junction_deconvolution(args):
         out_flows,
         forward_stop,
         backward_stop,
-        score_margin_thresh,
-        condition_thresh,
         depth_model,
     ) = args
+
     n, m = len(in_neighbors), len(out_neighbors)
     try:
         fit, paths, named_paths, score_margin = sz.deconvolution.deconvolve_junction(
@@ -124,84 +122,34 @@ def _calculate_junction_deconvolution(args):
         )
     except sz.errors.ConvergenceException:
         return (
-            False,  # Convergence
-            None,  # Score Margin
-            None,  # Completeness
-            None,  # Minimality
-            None,  # Identifiability
-            None,  # Result
+            False,
+            np.nan,
+            np.nan,
+            np.nan,
+            np.nan,
+            None,
+        )
+    if len(paths) == 0:
+        return (
+            True,
+            0.0,
+            0,
+            0,
+            np.nan,
+            None,
         )
 
     X = sz.deconvolution.design_paths(n, m)[0]
-
-    if not (score_margin > score_margin_thresh):
-        return (
-            True,  # Convergence
-            False,  # Score Margin
-            None,  # Completeness
-            None,  # Minimality
-            None,  # Identifiability
-            None,  # Result
-        )
-
-    if not X[:, paths].sum(1).min() == 1:
-        if len(paths) <= max(n, m):
-            return (
-                True,  # Convergence
-                True,  # Score Margin
-                False,  # Completeness
-                False,  # Minimality
-                None,  # Identifiability
-                None,  # Result
-            )
-        else:
-            return (
-                True,  # Convergence
-                True,  # Score Margin
-                False,  # Completeness
-                True,  # Minimality
-                None,  # Identifiability
-                None,  # Result
-            )
-
-    if not len(paths) <= max(n, m):
-        return (
-            True,  # Convergence
-            True,  # Score Margin
-            True,  # Completeness
-            False,  # Minimality
-            None,  # Identifiability
-            None,  # Result
-        )
-
-    try:
-        condition = np.linalg.cond(fit.hessian_beta)
-    except np.linalg.LinAlgError:
-        return (
-            True,  # Convergence
-            True,  # Score Margin
-            True,  # Completeness
-            True,  # Minimality
-            False,  # Identifiability
-            None,  # Result
-        )
-    else:
-        if not (condition < condition_thresh):
-            return (
-                True,  # Convergence
-                True,  # Score Margin
-                True,  # Completeness
-                True,  # Minimality
-                False,  # Identifiability
-                None,  # Result
-            )
+    excess_paths = len(paths) - max(n, m)
+    completeness_ratio = (X[:, paths].sum(1) > 0).mean()
+    max_relative_stderr = (fit.stderr_beta / (fit.beta + 1)).max()
 
     return (
-        True,  # Convergence
-        True,  # Score Margin
-        True,  # Completeness
-        True,  # Minimality
-        True,  # Identifiability
+        True,
+        score_margin,
+        completeness_ratio,
+        excess_paths,
+        max_relative_stderr,
         (junction, named_paths, {"path_depths": np.array(fit.beta.clip(0))}),  # Result
     )
 
@@ -215,7 +163,9 @@ def _parallel_calculate_junction_deconvolutions(
     forward_stop=0.0,
     backward_stop=0.0,
     score_margin_thresh=20.0,
-    condition_thresh=1e5,
+    relative_stderr_thresh=0.1,
+    excess_thresh=1,
+    completeness_thresh=1.0,
     max_paths=20,
 ):
     deconv_results = pool.imap(
@@ -229,15 +179,12 @@ def _parallel_calculate_junction_deconvolutions(
                 out_flows,
                 forward_stop,
                 backward_stop,
-                score_margin_thresh,
-                condition_thresh,
                 depth_model,
             )
             for junction, in_neighbors, in_flows, out_neighbors, out_flows in _iter_junction_deconvolution_data(
                 junctions, graph, flow, max_paths=max_paths
             )
         ),
-        chunksize=100,
     )
 
     batch = []
@@ -254,28 +201,41 @@ def _parallel_calculate_junction_deconvolutions(
         total=len(junctions),
         bar_format="{l_bar}{r_bar}",
     )
+    pbar.set_postfix(postfix)
     for (
         is_converged,
-        is_best,
-        is_complete,
-        is_minimal,
-        is_identifiable,
+        score_margin,
+        completeness_ratio,
+        excess_paths,
+        max_relative_stderr,
         result,
     ) in pbar:
+        if not is_converged:
+            continue
+
+        passes_score_margin = score_margin > score_margin_thresh
+        passes_identifiability = max_relative_stderr <= relative_stderr_thresh
+        passes_excess = excess_paths <= excess_thresh
+        passes_completeness = completeness_ratio >= completeness_thresh
+
         if is_converged:
             postfix["converged"] += 1
-        if is_best:
-            postfix["best"] += 1
-        if is_complete:
-            postfix["complete"] += 1
-        if is_minimal:
-            postfix["minimal"] += 1
-        if is_identifiable:
-            postfix["identifiable"] += 1
-        if result is not None:
+            if passes_score_margin:
+                postfix["best"] += 1
+                if passes_identifiability:
+                    postfix["identifiable"] += 1
+                if passes_completeness:
+                    postfix["complete"] += 1
+                if passes_excess:
+                    postfix["minimal"] += 1
+        if (
+            is_converged
+            and passes_score_margin
+            and passes_identifiability
+            and passes_completeness
+            and passes_excess
+        ):
             postfix["split"] += 1
-            junction, named_paths, path_depths_dict = result
-            # print(f"{junction}: {named_paths}", end=" | ")
             batch.append(result)
         pbar.set_postfix(postfix, refresh=False)
 
@@ -288,14 +248,21 @@ class DeconvolveGraph(App):
     def add_custom_cli_args(self):
         self.parser.add_argument("inpath", help="StrainZip formatted graph.")
         self.parser.add_argument(
-            "score_thresh",
+            "--score-thresh",
             type=float,
+            default=DEFAULT_SCORE_THRESH,
             help=(
                 "BIC threshold to deconvolve a junction. "
                 "Selected model must have a delta-BIC of greater than this amount"
             ),
         )
         self.parser.add_argument("outpath")
+
+        self.parser.add_argument(
+            "--skip-drop-low-depth",
+            action="store_true",
+            help="Skip dropping of low-depth edges before deconvolution.",
+        )
         self.parser.add_argument(
             "--min-depth",
             "-d",
@@ -311,14 +278,26 @@ class DeconvolveGraph(App):
             help="Maximum rounds of graph deconvolution.",
         )
         self.parser.add_argument(
-            "--condition-thresh",
-            "-c",
+            "--error-thresh",
+            "-e",
             type=float,
-            default=DEFAULT_CONDITION_THRESH,
+            default=DEFAULT_RELATIVE_ERROR_THRESH,
             help=(
-                "Maximum condition number of the Fisher Information Matrix to still deconvolve a junction. "
-                " This is used as a proxy for how identifiable the depth estimates are."
+                "Maximum estimated relative standard error to still deconvolve a junction. "
+                "This is used as a proxy for how identifiable the depth estimates are."
             ),
+        )
+        self.parser.add_argument(
+            "--excess-thresh",
+            type=int,
+            default=0,
+            help=("Acceptable over-abundance of paths in best deconvolution model."),
+        )
+        self.parser.add_argument(
+            "--completeness-thresh",
+            type=float,
+            default=1.0,
+            help=("TODO"),
         )
         self.parser.add_argument(
             "--model",
@@ -353,11 +332,13 @@ class DeconvolveGraph(App):
             default=1,
             help="Number of parallel processes.",
         )
-        self.parser.add_argument(
-            "--no-prune",
-            action="store_true",
-            help="Keep filtered vertices instead of pruning them.",
-        )
+        # # TODO (2024-05-15): After figuring out why purging is necessary,
+        # # add this back to make it possible to keep filtered vertices/edges.
+        # self.parser.add_argument(
+        #     "--keep-filtered",
+        #     action="store_true",
+        #     help="Keep filtered vertices instead of removing them when saving the graph.",
+        # )
 
     def validate_and_transform_args(self, args):
         # Fetch model and default hyperparameters by name.
@@ -381,7 +362,8 @@ class DeconvolveGraph(App):
         return args
 
     def execute(self, args):
-        gt.openmp_set_num_threads(args.processes)
+        # TODO (2024-05-15): Limit each process to use just 1 core using threadpoolctl.
+
         if args.debug or args.verbose:
             logging.getLogger("jax").setLevel(logging.CRITICAL)
 
@@ -408,27 +390,53 @@ class DeconvolveGraph(App):
             logging.info(
                 f"Initialized multiprocessing pool with {args.processes} workers."
             )
-            with phase_info("Pruning low-depth edges"):
-                with phase_info("Optimizing flow"):
-                    flow = _parallel_estimate_all_flows(
-                        graph,
-                        process_pool,
+
+            if not args.skip_drop_low_depth:
+                with phase_info("Pruning low-depth edges"):
+                    with phase_info("Optimizing flow"):
+                        flow = _parallel_estimate_all_flows(
+                            graph,
+                            process_pool,
+                        )
+                    # TODO (2024-05-10): Confirm that setting vals from a get_2d_array has the right shape.
+                    not_low_depth_edge = (
+                        flow.get_2d_array(pos=range(graph.gp["num_samples"])).sum(0)
+                        >= args.min_depth
                     )
-                # FIXME (2024-05-10): Confirm that setting vals from a get_2d_array has the right shape.
-                not_low_depth_edge = graph.new_edge_property(
-                    "bool",
-                    vals=flow.get_2d_array(pos=range(graph.gp["num_samples"])).sum(0)
-                    >= args.min_depth,
-                )
-                num_low_depth_edge = (not_low_depth_edge.a == 0).sum()
-                logging.info(f"Filtering out {num_low_depth_edge} low-depth edges.")
-                graph.set_edge_filter(not_low_depth_edge)
+                    graph.ep["filter"] = graph.new_edge_property(
+                        "bool", vals=not_low_depth_edge
+                    )
+                    num_low_depth_edge = (not_low_depth_edge == 0).sum()
+                    logging.info(f"Filtering out {num_low_depth_edge} low-depth edges.")
+                    graph.set_edge_filter(graph.ep["filter"])
+                    with phase_info("Finding non-branching paths"):
+                        unitig_paths = list(
+                            sz.topology.iter_maximal_unitig_paths(graph)
+                        )
+                    with phase_info("Pressing tigs"):
+                        new_pressed_vertices = gm.batch_press(
+                            graph,
+                            *[(path, {}) for path in unitig_paths],
+                        )
+                        logging.info(
+                            f"Pressed non-branching paths into {len(new_pressed_vertices)} new tigs."
+                        )
 
             with phase_info("Main loop"):
                 for i in range(args.max_rounds):
                     logging.info(
                         f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
                     )
+                    # TODO (2024-05-15): Why in the world do I need to purge filtered
+                    # vertices/edges to get accurate flowing/deconvolution?
+                    with phase_info("Dropping filtered vertices/edges"):
+                        graph.purge_vertices()
+                        graph.purge_edges()
+                        # NOTE: This seems to be necessary to reactivate the embedded
+                        # filter after purging:
+                        graph.set_vertex_filter(graph.vp["filter"])
+                        graph.set_edge_filter(graph.ep["filter"])
+
                     with phase_info(f"Round {i + 1}"):
                         with phase_info("Optimize flow"):
                             flow = _parallel_estimate_all_flows(
@@ -436,9 +444,7 @@ class DeconvolveGraph(App):
                                 process_pool,
                             )
                         with phase_info("Finding junctions"):
-                            junctions = sz.topology.find_junctions(
-                                graph  # , also_required=consider.a
-                            )
+                            junctions = sz.topology.find_junctions(graph)
                             logging.debug(f"Found {len(junctions)} junctions.")
                         with phase_info("Optimizing junction deconvolutions"):
                             deconvolutions = _parallel_calculate_junction_deconvolutions(
@@ -450,10 +456,12 @@ class DeconvolveGraph(App):
                                 forward_stop=0.0,
                                 backward_stop=0.0,
                                 score_margin_thresh=args.score_thresh,
-                                condition_thresh=args.condition_thresh,
-                                max_paths=100,  # FIXME: Consider whether I want this parameter at all.
+                                relative_stderr_thresh=args.error_thresh,
+                                excess_thresh=args.excess_thresh,
+                                completeness_thresh=args.completeness_thresh,
+                                max_paths=100,  # TODO (2024-05-01): Consider whether I want this parameter at all.
                             )
-                            # FIXME (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
+                            # TODO (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
                             deconvolutions = list(sorted(deconvolutions))
                         with phase_info("Unzipping junctions"):
                             new_unzipped_vertices = gm.batch_unzip(
@@ -484,4 +492,4 @@ class DeconvolveGraph(App):
             logging.info(
                 f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
             )
-            sz.io.dump_graph(graph, args.outpath, prune=(not args.no_prune))
+            sz.io.dump_graph(graph, args.outpath, purge=(not args.keep_filtered))

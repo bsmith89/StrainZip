@@ -15,28 +15,76 @@ from strainzip.errors import ConvergenceException
 class FitResult:
     beta: Any
     sigma: Any
-    score: float
     hessian_func: Any
     X: Any
     y: Any
+    alpha: float
     opt: Any
 
     @property
     def hessian_beta(self):
-        p_paths, s_samples = self.beta.shape
-        k_params = p_paths * s_samples
+        num_betas = self.num_paths * self.num_samples
         return self.hessian_func(self.beta, self.sigma)[0][0].reshape(
-            (k_params, k_params)
+            (num_betas, num_betas)
         )
 
     @property
+    def loglik(self):
+        return loglik(self.beta, self.sigma, self.y, self.X, self.alpha)
+
+    @property
     def covariance_beta(self):
-        cov = jnp.linalg.inv(self.hessian_beta)
+        try:
+            cov = jnp.linalg.inv(self.hessian_beta)
+        except np.linalg.LinAlgError:
+            cov = np.nan * np.ones_like(self.hessian_beta)
         return cov
 
     @property
+    def num_paths(self):
+        return self.X.shape[1]
+
+    @property
+    def num_params(self):
+        return self.num_paths * self.num_samples + self.num_samples
+
+    @property
+    def num_edges(self):
+        return self.y.shape[0]
+
+    @property
+    def num_samples(self):
+        return self.y.shape[1]
+
+    @property
+    def score(self):
+        return -self.bic
+
+    @property
+    def bic(self):
+        num_observations = self.num_edges * self.num_samples
+        bic = -2 * self.loglik + 2 * self.num_params * jnp.log(num_observations)
+        return bic
+
+    @property
+    def aic(self):
+        aic = -2 * self.loglik + 2 * self.num_params
+        return aic
+
+    @property
+    def aicc(self):
+        num_observations = self.num_edges * self.num_samples
+        aicc = self.aic + (2 * self.num_params**2 + 2 * self.num_params) / (
+            num_observations - self.num_params - 1
+        )
+        return aicc
+
+    @property
     def stderr_beta(self):
-        return jnp.sqrt(jnp.diag(self.covariance_beta)).reshape(self.beta.shape)
+        return np.nan_to_num(
+            jnp.sqrt(jnp.diag(self.covariance_beta)).reshape(self.beta.shape),
+            nan=np.inf,
+        )
 
     @property
     def residual(self):
@@ -67,23 +115,6 @@ def _residual(beta, y, X, alpha):
     y_trsfm = _trsfm(y, alpha=alpha)
     expect_trsfm = _trsfm(expect, alpha=alpha)
     return y_trsfm - expect_trsfm
-
-
-def _score(beta, sigma, y, X, alpha):
-    e_edges, s_samples = y.shape
-    _, p_paths = X.shape
-
-    ll = loglik(beta, sigma, y, X, alpha)
-    n = e_edges * s_samples
-    k = p_paths * s_samples + s_samples
-    # NOTE: This parameter count is only correct if fitting both beta and sigma.
-    # However, it shouldn't matter for inter-comparison of this same depth model.
-    # bic = -2 * ll + 2 * k * jnp.log(n)  # TODO: Consier using BIC instead?
-    # aic = -2 * ll + 2 * k
-    bic = -2 * ll + 2 * k * jnp.log(n)
-    # aicc = aic + (2 * k**2 + 2 * k) / (n - k - 1)
-    # return -aicc  # Higher is better.
-    return -bic
 
 
 # def _pack_params(beta, sigma, alpha):
@@ -139,12 +170,12 @@ def fit(y, X, alpha, maxiter=500):
     # FIXME: Doesn't generalize well to other models. I'll have to change this line.
     beta_est, sigma_est = params_est
     fit_result = FitResult(
-        beta_est,
-        sigma_est,
-        _score(beta_est, sigma_est, y, X, alpha=alpha),
+        beta=beta_est,
+        sigma=sigma_est,
         hessian_func=hessian_func,
         X=X,
         y=y,
+        alpha=alpha,
         opt=opt,
     )
     return fit_result
