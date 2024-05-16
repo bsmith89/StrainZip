@@ -6,6 +6,8 @@ import strainzip as sz
 
 from ._base import App
 
+DEFAULT_NUM_KMER_LENGTHS = 1.0
+
 
 class TrimTips(App):
     """Trim hanging tips."""
@@ -17,6 +19,12 @@ class TrimTips(App):
             "--no-press",
             action="store_true",
             help="Do not press non-branching paths into tigs after trimming tips.",
+        )
+        self.parser.add_argument(
+            "--num-kmer-lengths",
+            type=float,
+            default=DEFAULT_NUM_KMER_LENGTHS,
+            help="Multiple of kmer-length length threshold for trimming.",
         )
         self.parser.add_argument(
             "--no-purge",
@@ -62,15 +70,17 @@ class TrimTips(App):
         gm.validate(graph)
 
         with sz.logging_util.phase_info("Finding tips"):
+            length_thresh = kmer_length * args.num_kmer_lengths
+            logging.info(f"Selecting tips with length less than {length_thresh}.")
             tips = sz.topology.find_tips(
-                graph, also_required=graph.vp["length"].a < kmer_length
+                graph, also_required=graph.vp["length"].a < length_thresh
             )
 
         with sz.logging_util.phase_info("Trimming tips"):
-            logging.info(f"Removing {len(tips)} tips with length < {kmer_length}.")
+            logging.info(f"Removing {len(tips)} tips.")
             gm.batch_trim(graph, tips)
             # TODO (2024-04-22): Be super confident that the vp['filter'] is the vertex filter,
-            # and therefore prune=True drops the tips.
+            # and therefore purge=True drops the tips.
             logging.debug(graph)
 
         if not args.no_press:
