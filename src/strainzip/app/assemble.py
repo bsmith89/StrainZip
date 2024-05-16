@@ -454,17 +454,16 @@ class DeconvolveGraph(App):
                     logging.info(
                         f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
                     )
-                    # TODO (2024-05-15): Why in the world do I need to purge filtered
-                    # vertices/edges to get accurate flowing/deconvolution?
-                    with phase_info("Dropping filtered vertices/edges"):
-                        graph.purge_vertices()
-                        graph.purge_edges()
-                        # NOTE: This seems to be necessary to reactivate the embedded
-                        # filter after purging:
-                        graph.set_vertex_filter(graph.vp["filter"])
-                        graph.set_edge_filter(graph.ep["filter"])
-
                     with phase_info(f"Round {i + 1}"):
+                        # TODO (2024-05-15): Why in the world do I need to purge filtered
+                        # vertices/edges to get accurate flowing/deconvolution?
+                        with phase_info("Dropping filtered vertices/edges"):
+                            graph.purge_vertices()
+                            graph.purge_edges()
+                            # NOTE: This seems to be necessary to reactivate the embedded
+                            # filter after purging:
+                            graph.set_vertex_filter(graph.vp["filter"])
+                            graph.set_edge_filter(graph.ep["filter"])
                         with phase_info("Optimize flow"):
                             flow = _parallel_estimate_all_flows(
                                 graph,
