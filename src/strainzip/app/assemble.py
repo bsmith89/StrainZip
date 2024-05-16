@@ -13,9 +13,11 @@ from ..logging_util import tqdm_info
 from ._base import App
 
 DEFAULT_MAX_ROUNDS = 100
+DEFAULT_FORWARD_STOP = -0
 DEFAULT_SCORE_THRESH = 10.0
-DEFAULT_OPT_MAXITER = 500
+DEFAULT_OPT_MAXITER = 10000
 DEFAULT_RELATIVE_ERROR_THRESH = 0.1
+DEFAULT_ABSOLUTE_ERROR_THRESH = 1.0
 DEFAULT_MIN_DEPTH = 0
 
 DEPTH_MODELS = {
@@ -110,6 +112,7 @@ def _calculate_junction_deconvolution(args):
     ) = args
 
     n, m = len(in_neighbors), len(out_neighbors)
+    s = in_flows.shape[1]
     try:
         fit, paths, named_paths, score_margin = sz.deconvolution.deconvolve_junction(
             in_neighbors,
@@ -126,7 +129,8 @@ def _calculate_junction_deconvolution(args):
             np.nan,
             np.nan,
             np.nan,
-            np.nan,
+            np.nan * np.empty(s),
+            np.nan * np.empty(s),
             None,
         )
     if len(paths) == 0:
@@ -135,21 +139,24 @@ def _calculate_junction_deconvolution(args):
             0.0,
             0,
             0,
-            np.nan,
+            np.nan * np.empty(s),
+            np.nan * np.empty(s),
             None,
         )
 
     X = sz.deconvolution.design_paths(n, m)[0]
     excess_paths = len(paths) - max(n, m)
     completeness_ratio = (X[:, paths].sum(1) > 0).mean()
-    max_relative_stderr = (fit.stderr_beta / (fit.beta + 1)).max()
+    relative_stderr = fit.stderr_beta / (np.abs(fit.beta) + 1)
+    absolute_stderr = fit.stderr_beta
 
     return (
         True,
         score_margin,
         completeness_ratio,
         excess_paths,
-        max_relative_stderr,
+        relative_stderr,
+        absolute_stderr,
         (junction, named_paths, {"path_depths": np.array(fit.beta.clip(0))}),  # Result
     )
 
@@ -164,11 +171,12 @@ def _parallel_calculate_junction_deconvolutions(
     backward_stop=0.0,
     score_margin_thresh=20.0,
     relative_stderr_thresh=0.1,
+    absolute_stderr_thresh=1.0,
     excess_thresh=1,
     completeness_thresh=1.0,
     max_paths=20,
 ):
-    deconv_results = pool.imap(
+    deconv_results = pool.imap_unordered(
         _calculate_junction_deconvolution,
         (
             (
@@ -207,14 +215,18 @@ def _parallel_calculate_junction_deconvolutions(
         score_margin,
         completeness_ratio,
         excess_paths,
-        max_relative_stderr,
+        relative_stderr,
+        absolute_stderr,
         result,
     ) in pbar:
         if not is_converged:
             continue
 
-        passes_score_margin = score_margin > score_margin_thresh
-        passes_identifiability = max_relative_stderr <= relative_stderr_thresh
+        passes_identifiability = (
+            (relative_stderr <= relative_stderr_thresh)
+            | (absolute_stderr <= absolute_stderr_thresh)
+        ).all()
+        passes_score_margin = score_margin >= score_margin_thresh
         passes_excess = excess_paths <= excess_thresh
         passes_completeness = completeness_ratio >= completeness_thresh
 
@@ -278,13 +290,26 @@ class DeconvolveGraph(App):
             help="Maximum rounds of graph deconvolution.",
         )
         self.parser.add_argument(
-            "--error-thresh",
-            "-e",
+            "--forward-stop",
+            type=float,
+            default=DEFAULT_FORWARD_STOP,
+            help="TODO",
+        )
+        self.parser.add_argument(
+            "--relative-error-thresh",
             type=float,
             default=DEFAULT_RELATIVE_ERROR_THRESH,
             help=(
-                "Maximum estimated relative standard error to still deconvolve a junction. "
+                "Maximum standard error to estimate ratio to still deconvolve a junction. "
                 "This is used as a proxy for how identifiable the depth estimates are."
+            ),
+        )
+        self.parser.add_argument(
+            "--absolute-error-thresh",
+            type=float,
+            default=DEFAULT_ABSOLUTE_ERROR_THRESH,
+            help=(
+                "Relative error is not checked if the absolute error is less than this number. (To prevent very low-depth estimates from stopping deconvolution.)"
             ),
         )
         self.parser.add_argument(
@@ -453,10 +478,11 @@ class DeconvolveGraph(App):
                                 flow,
                                 args.depth_model,
                                 pool=process_pool,
-                                forward_stop=0.0,
+                                forward_stop=args.forward_stop,
                                 backward_stop=0.0,
                                 score_margin_thresh=args.score_thresh,
-                                relative_stderr_thresh=args.error_thresh,
+                                relative_stderr_thresh=args.relative_error_thresh,
+                                absolute_stderr_thresh=args.absolute_error_thresh,
                                 excess_thresh=args.excess_thresh,
                                 completeness_thresh=args.completeness_thresh,
                                 max_paths=100,  # TODO (2024-05-01): Consider whether I want this parameter at all.
