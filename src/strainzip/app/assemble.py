@@ -129,6 +129,7 @@ def _calculate_junction_deconvolution(args):
             np.nan * np.empty(s),
             None,
         )
+
     if len(paths) == 0:
         return (
             True,
@@ -472,6 +473,9 @@ class DeconvolveGraph(App):
                                 max_paths=100,  # TODO (2024-05-01): Consider whether I want this parameter at all.
                             )
                             # TODO (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
+                            # TODO: (2024-05-16): Is this fixed now that I'm purging
+                            # between each round (which I assume works because their was a
+                            # problem with filtering)?
                             deconvolutions = list(sorted(deconvolutions))
                         with phase_info("Unzipping junctions"):
                             new_unzipped_vertices = gm.batch_unzip(
