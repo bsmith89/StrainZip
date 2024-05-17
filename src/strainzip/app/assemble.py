@@ -455,23 +455,82 @@ class DeconvolveGraph(App):
                                 graph,
                                 process_pool,
                             )
-                        with phase_info("Finding junctions"):
-                            junctions = sz.topology.find_junctions(graph)
-                            logging.info(f"Found {len(junctions)} junctions.")
-                        with phase_info("Optimizing junction deconvolutions"):
-                            deconvolutions = _parallel_calculate_junction_deconvolutions(
-                                junctions,
-                                graph,
-                                flow,
-                                args.depth_model,
-                                pool=process_pool,
-                                score_margin_thresh=args.score_thresh,
-                                relative_stderr_thresh=args.relative_error_thresh,
-                                absolute_stderr_thresh=args.absolute_error_thresh,
-                                excess_thresh=args.excess_thresh,
-                                completeness_thresh=args.completeness_thresh,
-                                max_paths=100,  # TODO (2024-05-01): Consider whether I want this parameter at all.
-                            )
+                        with phase_info("Deconvolving junctions"):
+                            deconvolutions = []
+                            in_degree = graph.degree_property_map("in")
+                            out_degree = graph.degree_property_map("out")
+                            with phase_info("Safe junctions (Nx1 or 1xM)"):
+                                is_safe_junction = (in_degree.a == 1) | (
+                                    out_degree.a == 1
+                                )
+                                junctions_subset = sz.topology.find_junctions(
+                                    graph, also_required=is_safe_junction
+                                )
+                                logging.info(
+                                    f"Found {len(junctions_subset)} safe junctions"
+                                )
+                                deconvolutions_subset = _parallel_calculate_junction_deconvolutions(
+                                    junctions_subset,
+                                    graph,
+                                    flow,
+                                    args.depth_model,
+                                    pool=process_pool,
+                                    score_margin_thresh=args.score_thresh,
+                                    relative_stderr_thresh=args.relative_error_thresh,
+                                    absolute_stderr_thresh=args.absolute_error_thresh,
+                                    excess_thresh=args.excess_thresh,
+                                    completeness_thresh=args.completeness_thresh,
+                                    max_paths=100,  # TODO (2024-05-01): Consider whether I want this parameter at all.
+                                )
+                                deconvolutions.extend(deconvolutions_subset)
+                            with phase_info("Canonical junctions (2x2)"):
+                                is_canonincal_junction = (in_degree.a == 2) & (
+                                    out_degree.a == 2
+                                )
+                                junctions_subset = sz.topology.find_junctions(
+                                    graph, also_required=is_canonincal_junction
+                                )
+                                logging.info(
+                                    f"Found {len(junctions_subset)} canonical junctions"
+                                )
+                                deconvolutions_subset = _parallel_calculate_junction_deconvolutions(
+                                    junctions_subset,
+                                    graph,
+                                    flow,
+                                    args.depth_model,
+                                    pool=process_pool,
+                                    score_margin_thresh=args.score_thresh,
+                                    relative_stderr_thresh=args.relative_error_thresh,
+                                    absolute_stderr_thresh=args.absolute_error_thresh,
+                                    excess_thresh=args.excess_thresh,
+                                    completeness_thresh=args.completeness_thresh,
+                                    max_paths=100,  # TODO (2024-05-01): Consider whether I want this parameter at all.
+                                )
+                                deconvolutions.extend(deconvolutions_subset)
+                            with phase_info("Large junctions (> 2x2)"):
+                                is_large_junction = (
+                                    (in_degree.a >= 2) & (out_degree.a >= 2)
+                                ) & ((in_degree.a + out_degree.a) > 4)
+                                junctions_subset = sz.topology.find_junctions(
+                                    graph, also_required=is_large_junction
+                                )
+                                logging.info(
+                                    f"Found {len(junctions_subset)} large junctions"
+                                )
+                                deconvolutions_subset = _parallel_calculate_junction_deconvolutions(
+                                    junctions_subset,
+                                    graph,
+                                    flow,
+                                    args.depth_model,
+                                    pool=process_pool,
+                                    score_margin_thresh=args.score_thresh,
+                                    relative_stderr_thresh=args.relative_error_thresh,
+                                    absolute_stderr_thresh=args.absolute_error_thresh,
+                                    excess_thresh=args.excess_thresh,
+                                    completeness_thresh=args.completeness_thresh,
+                                    max_paths=100,  # TODO (2024-05-01): Consider whether I want this parameter at all.
+                                )
+                                deconvolutions.extend(deconvolutions_subset)
                             # TODO (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
                             # TODO: (2024-05-16): Is this fixed now that I'm purging
                             # between each round (which I assume works because their was a
