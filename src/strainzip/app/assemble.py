@@ -186,7 +186,7 @@ def _parallel_calculate_junction_deconvolutions(
                 junctions, graph, flow, max_paths=max_paths
             )
         ),
-        chunksize=500,
+        chunksize=20,
     )
 
     batch = []
