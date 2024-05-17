@@ -13,7 +13,6 @@ from ..logging_util import tqdm_info
 from ._base import App
 
 DEFAULT_MAX_ROUNDS = 100
-DEFAULT_FORWARD_STOP = -0
 DEFAULT_SCORE_THRESH = 10.0
 DEFAULT_OPT_MAXITER = 10000
 DEFAULT_RELATIVE_ERROR_THRESH = 0.1
@@ -107,8 +106,6 @@ def _calculate_junction_deconvolution(args):
         in_flows,
         out_neighbors,
         out_flows,
-        forward_stop,
-        backward_stop,
         depth_model,
     ) = args
 
@@ -121,8 +118,6 @@ def _calculate_junction_deconvolution(args):
             out_neighbors,
             out_flows,
             model=depth_model,
-            forward_stop=forward_stop,
-            backward_stop=backward_stop,
         )
     except sz.errors.ConvergenceException:
         return (
@@ -145,7 +140,7 @@ def _calculate_junction_deconvolution(args):
             None,
         )
 
-    X = sz.deconvolution.design_paths(n, m)[0]
+    X = sz.deconvolution.design_all_paths(n, m)[0]
     excess_paths = len(paths) - max(n, m)
     completeness_ratio = (X[:, paths].sum(1) > 0).mean()
     relative_stderr = fit.stderr_beta / (np.abs(fit.beta) + 1)
@@ -168,8 +163,6 @@ def _parallel_calculate_junction_deconvolutions(
     flow,
     depth_model,
     pool,
-    forward_stop=0.0,
-    backward_stop=0.0,
     score_margin_thresh=20.0,
     relative_stderr_thresh=0.1,
     absolute_stderr_thresh=1.0,
@@ -186,8 +179,6 @@ def _parallel_calculate_junction_deconvolutions(
                 in_flows,
                 out_neighbors,
                 out_flows,
-                forward_stop,
-                backward_stop,
                 depth_model,
             )
             for junction, in_neighbors, in_flows, out_neighbors, out_flows in _iter_junction_deconvolution_data(
@@ -290,12 +281,6 @@ class DeconvolveGraph(App):
             type=int,
             default=DEFAULT_MAX_ROUNDS,
             help="Maximum rounds of graph deconvolution.",
-        )
-        self.parser.add_argument(
-            "--forward-stop",
-            type=float,
-            default=DEFAULT_FORWARD_STOP,
-            help="TODO",
         )
         self.parser.add_argument(
             "--relative-error-thresh",
@@ -479,8 +464,6 @@ class DeconvolveGraph(App):
                                 flow,
                                 args.depth_model,
                                 pool=process_pool,
-                                forward_stop=args.forward_stop,
-                                backward_stop=0.0,
                                 score_margin_thresh=args.score_thresh,
                                 relative_stderr_thresh=args.relative_error_thresh,
                                 absolute_stderr_thresh=args.absolute_error_thresh,

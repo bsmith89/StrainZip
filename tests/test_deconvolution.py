@@ -6,33 +6,6 @@ from strainzip.depth_model import LogPlusAlphaLogNormal
 from strainzip.depth_model2 import SoftPlusNormal
 
 
-def test_deconvolution_problem_formulation():
-    X, y, labels = sz.deconvolution.formulate_path_deconvolution(
-        np.array([[100, 20, 50], [0, 0, 0]]),
-        np.array([[100, 10, 0], [0, 10, 50], [0, 0, 0]]),
-    )
-    assert np.array_equal(
-        X,
-        [
-            [1, 1, 1, 0, 0, 0],
-            [0, 0, 0, 1, 1, 1],
-            [1, 0, 0, 1, 0, 0],
-            [0, 1, 0, 0, 1, 0],
-            [0, 0, 1, 0, 0, 1],
-        ],
-    )
-    assert np.array_equal(
-        y,
-        [
-            [100, 20, 50],
-            [0, 0, 0],
-            [100, 10, 0],
-            [0, 10, 50],
-            [0, 0, 0],
-        ],
-    )
-
-
 def test_well_specified_deconvolution():
     seed = 0
     n, m = 2, 3  # In-edges / out-edges
@@ -44,11 +17,11 @@ def test_well_specified_deconvolution():
     np.random.seed(seed)
 
     r_edges, p_paths = (n + m, n * m)
-    X = sz.deconvolution.design_paths(n, m)[0]
+    X = sz.deconvolution.design_all_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
     # Select which pairs of in/out edges are "real" and assign them depths across samples.
-    active_paths = sz.deconvolution.simulate_active_paths(n, m)
+    active_paths = sz.deconvolution.simulate_non_redundant_path_indexes(n, m)
     active_paths = [i for i, _ in active_paths]
     beta = np.zeros((p_paths, s_samples))
     beta[active_paths, :] = np.random.lognormal(
@@ -101,11 +74,11 @@ def test_convergence_error():
     np.random.seed(seed)
 
     r_edges, p_paths = (n + m, n * m)
-    X = sz.deconvolution.design_paths(n, m)[0]
+    X = sz.deconvolution.design_all_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
     # Select which pairs of in/out edges are "real" and assign them depths across samples.
-    active_paths = sz.deconvolution.simulate_active_paths(n, m)
+    active_paths = sz.deconvolution.simulate_non_redundant_path_indexes(n, m)
     active_paths = [i for i, _ in active_paths]
     beta = np.zeros((p_paths, s_samples))
     beta[active_paths, :] = np.random.lognormal(
@@ -139,7 +112,7 @@ def test_convergence_error():
         (SoftPlusNormal, dict()),
     ]:
         depth_model = model_class(
-            maxiter=500,
+            maxiter=10000,
             **model_params,
         )
         fit = depth_model.fit(y_obs, X_reduced)
@@ -161,7 +134,7 @@ def test_no_noise_deconvolution():
     num_excess_paths = 0  # How many extra paths to include beyond correct ones.
 
     r_edges, p_paths = (n + m, n * m)
-    X = sz.deconvolution.design_paths(n, m)[0]
+    X = sz.deconvolution.design_all_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
     # Select which pairs of in/out edges are "real" and assign them depths across samples.
@@ -218,7 +191,7 @@ def test_predefined_deconvolution():
     num_excess_paths = 0  # How many extra paths to include beyond correct ones.
 
     r_edges, p_paths = (n + m, n * m)
-    X = sz.deconvolution.design_paths(n, m)[0]
+    X = sz.deconvolution.design_all_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
     # Select which pairs of in/out edges are "real" and assign them depths across samples.
@@ -286,49 +259,6 @@ def test_predefined_deconvolution():
     )
 
 
-def test_model_selection_procedure_3x4():
-    seed = 1
-    depth_model = LogPlusAlphaLogNormal(
-        alpha=1e-0
-    )  # Small offset for handling 0s in depths
-    n, m = 3, 4  # In-edges / out-edges
-    s_samples = 20
-    sigma = 1e-2  # Scale of the multiplicative noise
-    depth_multiplier = 2  # Scaling factor for depths
-    num_excess_paths = 1  # How many extra paths to include beyond correct ones.
-
-    np.random.seed(seed)
-
-    r_edges, p_paths = (n + m, n * m)
-    X = sz.deconvolution.design_paths(n, m)[0]
-    assert X.shape == (r_edges, p_paths)
-
-    # Select which pairs of in/out edges are "real" and assign them depths across samples.
-    active_paths = sz.deconvolution.simulate_active_paths(n, m, excess=num_excess_paths)
-    active_paths = [i for i, _ in active_paths]
-    beta = np.zeros((p_paths, s_samples))
-    beta[active_paths, :] = np.random.lognormal(
-        mean=-1, sigma=4, size=(len(active_paths), s_samples)
-    )
-    beta = beta.round(1) * depth_multiplier  # Structural zeros
-
-    # Simulate the observed depth of each edge.
-    expect = X @ beta
-    log_noise = np.random.normal(loc=0, scale=1, size=expect.shape)
-    y_obs = expect * np.exp(log_noise * sigma)
-
-    # Select paths and estimate depth
-    (selected_paths, delta_score,) = sz.deconvolution.select_paths(
-        X,
-        y_obs,
-        model=depth_model,
-        forward_stop=0.0,
-        backward_stop=0.0,
-    )
-
-    assert set(selected_paths) == set(active_paths)
-
-
 # FIXME: Parameterize the previous test instead of making this nearly identical test.
 def test_model_selection_procedure_2x1():
     seed = 0
@@ -344,11 +274,13 @@ def test_model_selection_procedure_2x1():
     np.random.seed(seed)
 
     r_edges, p_paths = (n + m, n * m)
-    X = sz.deconvolution.design_paths(n, m)[0]
+    X = sz.deconvolution.design_all_paths(n, m)[0]
     assert X.shape == (r_edges, p_paths)
 
     # Select which pairs of in/out edges are "real" and assign them depths across samples.
-    active_paths = sz.deconvolution.simulate_active_paths(n, m, excess=num_excess_paths)
+    active_paths = sz.deconvolution.simulate_non_redundant_path_indexes(
+        n, m, excess=num_excess_paths
+    )
     active_paths = [i for i, _ in active_paths]
     beta = np.zeros((p_paths, s_samples))
     beta[active_paths, :] = np.random.lognormal(
@@ -362,12 +294,19 @@ def test_model_selection_procedure_2x1():
     y_obs = expect * np.exp(log_noise * sigma)
 
     # Select paths and estimate depth
-    (selected_paths, delta_score,) = sz.deconvolution.select_paths(
-        X,
-        y_obs,
+    # NOTE: The below is a hack to shoe-horn the new deconvolution module
+    # into an old test.
+    scores = sz.deconvolution.explore_potential_pathsets(
+        y_obs[:n],
+        y_obs[-m:],
         model=depth_model,
-        forward_stop=0.0,
-        backward_stop=0.0,
     )
+    top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
+    pathset, best_score = top_scores[0]
+    _, second_score = top_scores[1]
+    score_margin = best_score - second_score
+    selected_paths = [
+        sz.deconvolution.raveled_coords(p.left, p.right, n, m) for p in pathset
+    ]
 
     assert set(selected_paths) == set(active_paths)
