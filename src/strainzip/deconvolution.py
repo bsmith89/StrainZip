@@ -136,6 +136,7 @@ def explore_potential_pathsets(
     y = np.concatenate([in_flows, out_flows])
     curr_pathset = PathSet(frozenset(), n, m)  # Empty
     curr_score = model.fit(y, pathset_to_design(curr_pathset, n, m)).score
+    curr_score = np.nan_to_num(curr_score, nan=-np.inf)
     scores = {curr_pathset: curr_score}
     while True:
         if verbose:
@@ -145,6 +146,7 @@ def explore_potential_pathsets(
                 next_score = scores[next_pathset]
             else:
                 next_score = model.fit(y, pathset_to_design(next_pathset, n, m)).score
+                next_score = np.nan_to_num(next_score, nan=-np.inf)
                 scores[next_pathset] = next_score
 
             if next_score > curr_score:
@@ -171,7 +173,10 @@ def deconvolve_junction(
 
     pathset, best_score = top_scores[0]
     _, second_score = top_scores[1]
-    score_margin = best_score - second_score
+    if not np.isfinite(best_score):
+        score_margin = -np.inf
+    else:
+        score_margin = best_score - second_score
 
     y = np.concatenate([in_flows, out_flows])
     X = pathset_to_design(pathset, n, m)
