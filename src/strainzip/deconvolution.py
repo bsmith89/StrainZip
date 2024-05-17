@@ -168,8 +168,11 @@ def deconvolve_junction(
     verbose=False,
 ):
     n, m = len(in_vertices), len(out_vertices)
-    scores = explore_potential_pathsets(in_flows, out_flows, model, verbose)
+    scores = explore_potential_pathsets(in_flows, out_flows, model, verbose=False)
     top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
+    if verbose:
+        for _paths, _score in top_scores:
+            print(_score, _paths)
 
     pathset, best_score = top_scores[0]
     _, second_score = top_scores[1]
