@@ -228,12 +228,12 @@ def _parallel_calculate_junction_deconvolutions(
             postfix["converged"] += 1
             if passes_score_margin:
                 postfix["best"] += 1
-                if passes_identifiability:
-                    postfix["identifiable"] += 1
-                if passes_completeness:
-                    postfix["complete"] += 1
-                if passes_excess:
-                    postfix["minimal"] += 1
+            if passes_identifiability:
+                postfix["identifiable"] += 1
+            if passes_completeness:
+                postfix["complete"] += 1
+            if passes_excess:
+                postfix["minimal"] += 1
         if (
             is_converged
             and passes_score_margin
@@ -242,8 +242,19 @@ def _parallel_calculate_junction_deconvolutions(
             and passes_excess
         ):
             postfix["split"] += 1
+
             batch.append(result)
         pbar.set_postfix(postfix, refresh=False)
+        logging.debug(
+            "{}\t{:.1f}\t{:.1f}\t{:d}\t{:.2f}\t{:.1f}".format(
+                is_converged,
+                score_margin,
+                completeness_ratio,
+                excess_paths,
+                relative_stderr.max(),
+                absolute_stderr.max(),
+            )
+        )
 
     return batch
 
