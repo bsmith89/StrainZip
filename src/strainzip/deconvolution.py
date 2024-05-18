@@ -1,13 +1,11 @@
-from dataclasses import dataclass
 from functools import cache
-from itertools import chain, combinations, product
-from typing import Any, FrozenSet
+from itertools import product
 
 import numpy as np
 
 
 @cache
-def design_all_paths(n, m):
+def design_paths(n, m):
     in_designs = np.eye(n, dtype=int)
     out_designs = np.eye(m, dtype=int)
     design_products = product(in_designs, out_designs)
@@ -19,13 +17,12 @@ def design_all_paths(n, m):
     return design, list(label_products)
 
 
-def raveled_coords(i, j, n, m):
-    assert i < n
-    assert j < m
-    return i * m + j
+def simulate_active_paths(n, m, excess=0):
+    def raveled_coords(i, j, n, m):
+        assert i < n
+        assert j < m
+        return i * m + j
 
-
-def simulate_non_redundant_path_indexes(n, m, excess=0):
     a = min(n, m)
     b = max(n, m) - a
 
@@ -53,128 +50,111 @@ def simulate_non_redundant_path_indexes(n, m, excess=0):
     return sorted(active_paths)
 
 
-@dataclass
-class LocalPath:
-    left: Any  # Integer
-    right: Any  # Integer
-
-    def __hash__(self):
-        return hash((self.left, self.right))
-
-    def __gt__(self, other):
-        return (self.left, self.right) > (other.left, other.right)
-
-
-def swap_edges(pathA: LocalPath, pathB: LocalPath):
-    return LocalPath(pathA.left, pathB.right), LocalPath(pathB.left, pathA.right)
-
-
-@dataclass
-class PathSet:
-    paths: FrozenSet[LocalPath]
-    n: int
-    m: int
-
-    def iter_drops(self):
-        for to_drop in self.paths:
-            yield PathSet(self.paths - {to_drop}, self.n, self.m)
-
-    def iter_adds(self):
-        for left, right in product(range(self.n), range(self.m)):
-            to_add = LocalPath(left, right)
-            if to_add not in self.paths:
-                yield PathSet(self.paths | {to_add}, self.n, self.m)
-
-    def iter_swaps(self):
-        for pathA, pathB in combinations(self.paths, 2):
-            if (pathA.left == pathB.left) | (pathA.right == pathB.right):
-                continue
-            else:
-                paths = (self.paths - {pathA, pathB}) | set(swap_edges(pathA, pathB))
-                yield PathSet(paths, self.n, self.m)
-
-    def iter_neighbors(self):
-        return chain(self.iter_drops(), self.iter_swaps(), self.iter_adds())
-
-    def __iter__(self):
-        return iter(self.paths)
-
-    def __hash__(self):
-        return hash(self.paths)
-
-    def __len__(self):
-        return len(self.paths)
-
-    @property
-    def empty(self):
-        return len(self.paths) == 0
-
-
-@cache
-def path_to_design_col(path: LocalPath, n: int, m: int):
-    if path.left >= n:
-        raise ValueError(f"Left edge {path.left} invalid: >= {n}.")
-    if path.right >= m:
-        raise ValueError(f"Right edge {path.right} invalid: >= {m}.")
-    in_designs = np.eye(n, dtype=int)
-    out_designs = np.eye(m, dtype=int)
-    return np.concatenate([in_designs[path.left], out_designs[path.right]])
-
-
-def pathset_to_design(paths: PathSet, n, m):
-    cols = [path_to_design_col(p, n, m) for p in sorted(paths)]
-    if len(cols) == 0:
-        return np.ones((n + m, 0))
-    else:
-        return np.stack(cols, axis=1)
-
-
-def explore_potential_pathsets(
-    in_flows,
-    out_flows,
-    model,
-    verbose=False,
-):
+def formulate_path_deconvolution(in_flows, out_flows):
     n, m = in_flows.shape[0], out_flows.shape[0]
-    y = np.concatenate([in_flows, out_flows])
-    # TODO (2024-05-17): Figure out if NaN log-likelihoods are driving the failure to pick any paths.
-    # NOTE: Trying to be smarter about picking first path?
-    top_inflow, top_outflow = np.argmax(in_flows.sum(1)), np.argmax(out_flows.sum(1))
-    curr_pathset = PathSet(
-        frozenset([LocalPath(top_inflow, top_outflow)]), n, m
-    )  # Best contender for a single path.
-    # curr_pathset = PathSet(frozenset(), n, m)  # Empty
-    curr_score = model.fit(y, pathset_to_design(curr_pathset, n, m)).score
-    curr_score = np.nan_to_num(curr_score, nan=-np.inf)
-    scores = {curr_pathset: curr_score}
-    while True:
+    s = in_flows.shape[1]
+    assert in_flows.shape[1] == out_flows.shape[1]
+    X, labels = design_paths(n, m)
+    y = np.concatenate([in_flows, out_flows], axis=0)
+    return X, y, labels
+
+
+# def aic_score(loglik, p_paths, e_edges, s_samples):
+#     n = e_edges * s_samples
+#     k = p_paths * s_samples
+#     # TODO?
+#     # See https://en.wikipedia.org/wiki/Akaike_information_criterion#Modification_for_small_sample_size
+#     # FIXME: Figure out if this is actually the correct formula.
+#     # aicc = -2 * loglik + 2 * k + (2 * k**2 + 2*k) / (n - k - 1)
+#     # return aicc
+#     return -2 * loglik + 2 * k
+
+
+def iter_forward_greedy_path_selection(X, y, model, init_paths=None):
+    p_paths = X.shape[1]
+    all_paths = set(range(p_paths))
+
+    if init_paths is None:
+        active_paths = set()
+    else:
+        active_paths = set(init_paths)
+    inactive_paths = all_paths - active_paths
+
+    while inactive_paths:
+        scores = []
+        for p in inactive_paths:
+            trial_paths = active_paths | {p}
+            X_trial = X[:, list(trial_paths)]
+            fit = model.fit(y, X_trial)
+            scores.append((fit.score, trial_paths))
+        _, best_paths = sorted(scores, reverse=True)[0]
+        active_paths = best_paths
+        inactive_paths = all_paths - active_paths
+        yield tuple(sorted(active_paths)), {tuple(sorted(pp)): s for s, pp in scores}
+
+
+def iter_backward_greedy_path_selection(X, y, model, init_paths=None):
+    p_paths = X.shape[1]
+    all_paths = set(range(p_paths))
+
+    if init_paths is None:
+        active_paths = set(all_paths)
+    else:
+        active_paths = set(init_paths)
+
+    while active_paths:
+        scores = []
+        for p in active_paths:
+            trial_paths = active_paths - {p}
+            X_trial = X[:, list(trial_paths)]
+            fit = model.fit(y, X_trial)
+            scores.append((fit.score, trial_paths))
+        _, best_paths = sorted(scores, reverse=True)[0]
+        active_paths = best_paths
+        yield tuple(sorted(active_paths)), {tuple(sorted(pp)): s for s, pp in scores}
+
+
+def select_paths(X, y, model, forward_stop, backward_stop, verbose=False):
+    curr_score = np.nan
+    all_scores = {}
+    active_paths = ()
+    for active_paths, multi_scores in iter_forward_greedy_path_selection(
+        X, y, model, init_paths=[]
+    ):
+        all_scores |= multi_scores
+        prev_score = curr_score
+        curr_score = all_scores[active_paths]
         if verbose:
-            print(f"{curr_score}: {curr_pathset}")
-        for next_pathset in curr_pathset.iter_neighbors():
-            if next_pathset in scores:
-                continue
-            else:
-                next_score = model.fit(y, pathset_to_design(next_pathset, n, m)).score
-                scores[next_pathset] = np.nan_to_num(next_score, nan=-np.inf)
-
-        top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
-        best_pathset, best_score = top_scores[0]
-        if best_pathset == curr_pathset:
-            curr_pathset = best_pathset
-            curr_score = best_score
+            print(active_paths, curr_score)
+        delta_score = curr_score - prev_score
+        if delta_score < forward_stop:
             break
-        elif best_score > curr_score:
-            curr_pathset = best_pathset
-            curr_score = best_score
 
-    # # FIXME: Debugging
-    # if (n > 1) and (m > 1) and (len(best_pathset) == 0):
-    #     breakpoint()
-    # if ((n == 1) or (m == 1)) and (len(best_pathset) < n*m):
-    #     breakpoint()
+    prev_active_paths = active_paths
+    for active_paths, multi_scores in iter_backward_greedy_path_selection(
+        X, y, model, init_paths=active_paths
+    ):
+        all_scores |= multi_scores
+        prev_score = curr_score
+        curr_score = all_scores[active_paths]
+        if verbose:
+            print(active_paths, curr_score)
+        delta_score = curr_score - prev_score
+        if delta_score < backward_stop:
+            active_paths = prev_active_paths  # Backtrack
+            break
+        else:
+            prev_active_paths = active_paths
 
-    # TODO: Return the best pathset itself, instead of the score list. Consider returning the fit, as well.
-    return scores
+    # How does this compare to the best model seen?
+    curr_score = all_scores.pop(active_paths)
+    compare_score = max(all_scores.values())
+    delta_score = curr_score - compare_score
+
+    return (
+        active_paths,
+        delta_score,
+    )
 
 
 def deconvolve_junction(
@@ -183,25 +163,26 @@ def deconvolve_junction(
     out_vertices,
     out_flows,
     model,
+    forward_stop=0,
+    backward_stop=0,
     verbose=False,
 ):
-    n, m = len(in_vertices), len(out_vertices)
-    scores = explore_potential_pathsets(in_flows, out_flows, model, verbose=False)
-    top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
-    if verbose:
-        for _paths, _score in top_scores:
-            print(_score, _paths)
+    X, y, labels = formulate_path_deconvolution(in_flows, out_flows)
 
-    pathset, best_score = top_scores[0]
-    _, second_score = top_scores[1]
-    if not np.isfinite(best_score):
-        score_margin = -np.inf
-    else:
-        score_margin = best_score - second_score
+    selected_paths, delta_aic = select_paths(
+        X,
+        y,
+        model=model,
+        forward_stop=forward_stop,
+        backward_stop=backward_stop,
+        verbose=verbose,
+    )
+    named_paths = []
+    for path_idx in selected_paths:
+        left = in_vertices[labels[path_idx][0]]
+        right = out_vertices[labels[path_idx][1]]
+        named_paths.append((left, right))
 
-    y = np.concatenate([in_flows, out_flows])
-    X = pathset_to_design(pathset, n, m)
-    fit = model.fit(y, X)
-    named_paths = [(in_vertices[p.left], out_vertices[p.right]) for p in pathset]
-    selected_paths = [raveled_coords(p.left, p.right, n, m) for p in pathset]
-    return fit, selected_paths, named_paths, score_margin
+    fit = model.fit(y, X[:, selected_paths])
+
+    return fit, selected_paths, named_paths, delta_aic

@@ -129,14 +129,12 @@ def load_mean_sequence_depth(con, sequence, k, n):
     return total_tally / num_kmers
 
 
-def dump_graph(graph, path, purge=False):
-    graph = gt.Graph(graph, prune=purge)
+def dump_graph(graph, path, prune=False):
+    graph = gt.Graph(graph, prune=prune)
     graph.save(path, fmt="gt")
 
 
 def load_graph(path):
     graph = gt.load_graph(path, fmt="gt")
     graph.set_vertex_filter(graph.vp["filter"])
-    # TODO (2024-05-15): Add filter as a default edge property.
-    # graph.set_edge_filter(graph.vp["filter"])
     return graph
