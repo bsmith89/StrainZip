@@ -146,6 +146,31 @@ class TouchedPresser(PropertyPresser):
         graph.vp["touched"].a[child] = True
 
 
+# class HistoryUnzipper(PropertyUnzipper):
+#     mutates = ["history"]
+#     requires = []
+#     free_args = ["round_i"]
+#
+#     def unzip(self, graph, parent, children, args):
+#         kwargs = self.name_free_args(args)
+#         note = kwargs['round_i']
+#         parent_histories = graph.vp["history"].a[parent]
+#         graph.vp["history"].a[children] = unzipped_history  # TODO: Access differently, since it's a str type property.
+#         graph.vp["history"][parent] = parent_history  # TODO: For each residual vertex, mark as residual.
+#
+# class HistoryPresser(PropertyPresser):
+#     mutates = ["history"]
+#     requires = []
+#     free_args = ["round_i"]
+#
+#     def press(self, graph, parents, child, args=()):
+#         kwargs = self.name_free_args(args)
+#         round = kwargs["round_i"]
+#         parent_histories = graph.vp["history"].a[parents]  # TODO: Need to access differently, since this is a str.
+#         graph.vp["history"][child] = path_history  # TODO: Construct a new history string based on the parents being combined.
+#         graph.vp["history"][parents] = parent_history  # TODO: For each residual vertex, mark as residual.
+
+
 class LengthUnzipper(PropertyUnzipper):
     mutates = ["length"]
     requires = []
