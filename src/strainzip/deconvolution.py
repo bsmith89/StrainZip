@@ -102,6 +102,9 @@ class PathSet:
     def __hash__(self):
         return hash(self.paths)
 
+    def __len__(self):
+        return len(self.paths)
+
     @property
     def empty(self):
         return len(self.paths) == 0
@@ -134,7 +137,13 @@ def explore_potential_pathsets(
 ):
     n, m = in_flows.shape[0], out_flows.shape[0]
     y = np.concatenate([in_flows, out_flows])
-    curr_pathset = PathSet(frozenset(), n, m)  # Empty
+    # TODO (2024-05-17): Figure out if NaN log-likelihoods are driving the failure to pick any paths.
+    # NOTE: Trying to be smarter about picking first path?
+    top_inflow, top_outflow = np.argmax(in_flows.sum(1)), np.argmax(out_flows.sum(1))
+    curr_pathset = PathSet(
+        frozenset([LocalPath(top_inflow, top_outflow)]), n, m
+    )  # Best contender for a single path.
+    # curr_pathset = PathSet(frozenset(), n, m)  # Empty
     curr_score = model.fit(y, pathset_to_design(curr_pathset, n, m)).score
     curr_score = np.nan_to_num(curr_score, nan=-np.inf)
     scores = {curr_pathset: curr_score}
@@ -143,19 +152,28 @@ def explore_potential_pathsets(
             print(f"{curr_score}: {curr_pathset}")
         for next_pathset in curr_pathset.iter_neighbors():
             if next_pathset in scores:
-                next_score = scores[next_pathset]
+                continue
             else:
                 next_score = model.fit(y, pathset_to_design(next_pathset, n, m)).score
-                next_score = np.nan_to_num(next_score, nan=-np.inf)
-                scores[next_pathset] = next_score
+                scores[next_pathset] = np.nan_to_num(next_score, nan=-np.inf)
 
-            if next_score > curr_score:
-                curr_pathset = next_pathset
-                curr_score = next_score
-                break
-        else:
+        top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
+        best_pathset, best_score = top_scores[0]
+        if best_pathset == curr_pathset:
+            curr_pathset = best_pathset
+            curr_score = best_score
             break
+        elif best_score > curr_score:
+            curr_pathset = best_pathset
+            curr_score = best_score
 
+    # # FIXME: Debugging
+    # if (n > 1) and (m > 1) and (len(best_pathset) == 0):
+    #     breakpoint()
+    # if ((n == 1) or (m == 1)) and (len(best_pathset) < n*m):
+    #     breakpoint()
+
+    # TODO: Return the best pathset itself, instead of the score list. Consider returning the fit, as well.
     return scores
 
 
