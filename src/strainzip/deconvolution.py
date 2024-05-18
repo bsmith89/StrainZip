@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from functools import cache
 from itertools import chain, combinations, product
-from typing import FrozenSet
+from typing import Any, FrozenSet
 
 import numpy as np
 
@@ -55,8 +55,8 @@ def simulate_non_redundant_path_indexes(n, m, excess=0):
 
 @dataclass
 class LocalPath:
-    left: int
-    right: int
+    left: Any  # Integer
+    right: Any  # Integer
 
     def __hash__(self):
         return hash((self.left, self.right))
