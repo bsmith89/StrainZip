@@ -5,7 +5,7 @@ import numpy as np
 
 
 @cache
-def design_paths(n, m):
+def design_all_paths(n, m):
     in_designs = np.eye(n, dtype=int)
     out_designs = np.eye(m, dtype=int)
     design_products = product(in_designs, out_designs)
@@ -54,7 +54,7 @@ def formulate_path_deconvolution(in_flows, out_flows):
     n, m = in_flows.shape[0], out_flows.shape[0]
     s = in_flows.shape[1]
     assert in_flows.shape[1] == out_flows.shape[1]
-    X, labels = design_paths(n, m)
+    X, labels = design_all_paths(n, m)
     y = np.concatenate([in_flows, out_flows], axis=0)
     return X, y, labels
 
