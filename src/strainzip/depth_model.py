@@ -46,9 +46,9 @@ class FitResult:
 
     @property
     def num_params(self):
-        # # FIXME (2024-05-17): Experimenting with a global variance.
-        # return self.num_paths * self.num_samples + self.num_samples
-        return self.num_paths * self.num_samples + 1
+        # # NOTE (2024-05-17): Experimenting with a global variance.
+        # return self.num_paths * self.num_samples + 1
+        return self.num_paths * self.num_samples + self.num_samples
 
     @property
     def num_edges(self):
@@ -154,9 +154,9 @@ def _optimize(y, X, alpha, maxiter=500):
     beta_est = _inv_trsfm(beta_est_trsfm, alpha)
     # Estimate sigma as the root mean sum of squared residuals.
     sigma_est = jnp.sqrt(
-        # # FIXME (2024-05-17): Experimenting with a variance pooled across samples.
-        # ((_trsfm(y, alpha) - _trsfm(X @ beta_est, alpha)) ** 2).mean(0, keepdims=True)
-        ((_trsfm(y, alpha) - _trsfm(X @ beta_est, alpha)) ** 2).mean(keepdims=True)
+        ((_trsfm(y, alpha) - _trsfm(X @ beta_est, alpha)) ** 2).mean(0, keepdims=True)
+        # # NOTE (2024-05-17): Experimenting with a variance pooled across samples.
+        # ((_trsfm(y, alpha) - _trsfm(X @ beta_est, alpha)) ** 2).mean(keepdims=True)
     )
     return (beta_est, sigma_est), opt
 
