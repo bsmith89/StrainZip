@@ -121,7 +121,8 @@ def path_to_design_col(path: LocalPath, n: int, m: int):
     return np.concatenate([in_designs[path.left], out_designs[path.right]])
 
 
-def pathset_to_design(paths: PathSet, n, m):
+def pathset_to_design(paths: PathSet):
+    n, m = paths.n, paths.m
     cols = [path_to_design_col(p, n, m) for p in sorted(paths)]
     if len(cols) == 0:
         return np.ones((n + m, 0))
@@ -144,7 +145,7 @@ def explore_potential_pathsets(
         frozenset([LocalPath(top_inflow, top_outflow)]), n, m
     )  # Best contender for a single path.
     # curr_pathset = PathSet(frozenset(), n, m)  # Empty
-    curr_score = model.fit(y, pathset_to_design(curr_pathset, n, m)).score
+    curr_score = model.fit(y, pathset_to_design(curr_pathset)).score
     curr_score = np.nan_to_num(curr_score, nan=-np.inf)
     scores = {curr_pathset: curr_score}
     while True:
@@ -154,7 +155,7 @@ def explore_potential_pathsets(
             if next_pathset in scores:
                 continue
             else:
-                next_score = model.fit(y, pathset_to_design(next_pathset, n, m)).score
+                next_score = model.fit(y, pathset_to_design(next_pathset)).score
                 scores[next_pathset] = np.nan_to_num(next_score, nan=-np.inf)
 
         top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
@@ -200,7 +201,7 @@ def deconvolve_junction(
         score_margin = best_score - second_score
 
     y = np.concatenate([in_flows, out_flows])
-    X = pathset_to_design(pathset, n, m)
+    X = pathset_to_design(pathset)
     fit = model.fit(y, X)
     named_paths = [(in_vertices[p.left], out_vertices[p.right]) for p in pathset]
     selected_paths = [raveled_coords(p.left, p.right, n, m) for p in pathset]
