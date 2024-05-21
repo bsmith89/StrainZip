@@ -1,6 +1,13 @@
 from dataclasses import dataclass
 from functools import cache
-from itertools import chain, combinations, product
+from itertools import (
+    chain,
+    combinations,
+    combinations_with_replacement,
+    permutations,
+    product,
+)
+from math import factorial
 from typing import Any, FrozenSet
 
 import numpy as np
@@ -110,6 +117,45 @@ class PathSet:
         return len(self.paths) == 0
 
 
+def num_minimal_complete_pathsets(n, m):
+    if n < m:
+        n, m = m, n
+    return factorial(m) * (m ** (n - m))
+
+
+def iter_all_minimal_complete_pathsets(n, m):
+    # Assuming that M < N
+    # Pick one, arbitrary order of the longer list (presumably index order [1...N])
+    # All pathsets can be constructed by then taking the shorter list and:
+    # Take every permutation of the shorter list (M! of these)
+    # Then append every random sample of the shorter list of size |N-M|, with replacement. (M^(N-M) of these)
+    # Match this list of length max(N, M) with the longer list to construct all pairs.
+
+    flipped = n < m
+    if flipped:
+        n, m = m, n
+    fixed_order = range(n)
+    for permutation_of_m in permutations(range(m), r=m):
+        for remaining_sample in combinations_with_replacement(range(m), r=(n - m)):
+            selected_order = list(permutation_of_m) + list(remaining_sample)
+            if not flipped:
+                yield PathSet(
+                    frozenset(
+                        LocalPath(*pair) for pair in zip(fixed_order, selected_order)
+                    ),
+                    n=n,
+                    m=m,
+                )
+            else:
+                yield PathSet(
+                    frozenset(
+                        LocalPath(*pair) for pair in zip(selected_order, fixed_order)
+                    ),
+                    n=m,
+                    m=n,
+                )
+
+
 @cache
 def path_to_design_col(path: LocalPath, n: int, m: int):
     if path.left >= n:
@@ -130,7 +176,7 @@ def pathset_to_design(paths: PathSet):
         return np.stack(cols, axis=1)
 
 
-def explore_potential_pathsets(
+def greedy_search_potential_pathsets(
     in_flows,
     out_flows,
     model,
@@ -178,17 +224,58 @@ def explore_potential_pathsets(
     return scores
 
 
+def exhaustive_fit_minimal_complete_pathsets(
+    in_flows,
+    out_flows,
+    model,
+    include_empty_pathset=False,
+    verbose=False,
+):
+    n, m = in_flows.shape[0], out_flows.shape[0]
+    y = np.concatenate([in_flows, out_flows])
+
+    if include_empty_pathset:
+        # Add the most-reduced (noise only) model.
+        empty_pathset = PathSet(
+            frozenset([]), n, m
+        )  # Best contender for a single path.
+        empty_score = model.fit(y, pathset_to_design(empty_pathset)).score
+        empty_score = np.nan_to_num(empty_score, nan=-np.inf)
+        scores = {empty_pathset: empty_score}
+    else:
+        scores = {}
+
+    for pathset in iter_all_minimal_complete_pathsets(n, m):
+        s = model.fit(y, pathset_to_design(pathset)).score
+        scores[pathset] = np.nan_to_num(s, nan=-np.inf)
+    if verbose:
+        print(scores)
+    return scores
+
+
 def deconvolve_junction(
     in_vertices,
     in_flows,
     out_vertices,
     out_flows,
     model,
+    exhaustive_thresh=50,
     verbose=False,
 ):
     n, m = len(in_vertices), len(out_vertices)
-    scores = explore_potential_pathsets(in_flows, out_flows, model, verbose=False)
+
+    # Decide if we're doing an exhaustive or greedy search.
+    if num_minimal_complete_pathsets(n, m) < exhaustive_thresh:
+        scores = exhaustive_fit_minimal_complete_pathsets(
+            in_flows, out_flows, model, include_empty_pathset=True, verbose=False
+        )
+    else:
+        scores = greedy_search_potential_pathsets(
+            in_flows, out_flows, model, verbose=False
+        )
+
     top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
+
     if verbose:
         for _paths, _score in top_scores:
             print(_score, _paths)

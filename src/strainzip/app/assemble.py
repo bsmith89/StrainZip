@@ -118,6 +118,7 @@ def _calculate_junction_deconvolution(args):
             out_neighbors,
             out_flows,
             model=depth_model,
+            exhaustive_thresh=50,
         )
     except sz.errors.ConvergenceException:
         return (

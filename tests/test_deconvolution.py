@@ -296,7 +296,7 @@ def test_model_selection_procedure_2x1():
     # Select paths and estimate depth
     # NOTE: The below is a hack to shoe-horn the new deconvolution module
     # into an old test.
-    scores = sz.deconvolution.explore_potential_pathsets(
+    scores = sz.deconvolution.greedy_search_potential_pathsets(
         y_obs[:n],
         y_obs[-m:],
         model=depth_model,
