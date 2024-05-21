@@ -18,7 +18,9 @@ def mediate_batch_unzipping_conflicts(unmodified_path_splits):
     child_update = {}
     left_update = defaultdict(list)
     right_update = defaultdict(list)
+    all_parents = []
     for parent, children, child_paths in unmodified_path_splits:
+        all_parents.append(parent)
         for child, (left, right) in zip(children, child_paths):
             # print(f"Adding info for {left} -> {parent}/{child} -> {right}")
             path_list.append((left, parent, right))
@@ -55,6 +57,11 @@ def mediate_batch_unzipping_conflicts(unmodified_path_splits):
         for right in right_list:
             edge_list.append((child, right))
 
+    # FIXME: WORKHERE (2024-05-21)
+    all_vertices_in_edges = [left for left, _ in edge_list] + [
+        right for _, right in edge_list
+    ]
+    assert not (set(all_parents) & set(all_vertices_in_edges))
     return list(set(edge_list))
 
 
