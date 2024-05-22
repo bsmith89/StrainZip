@@ -61,7 +61,9 @@ def mediate_batch_unzipping_conflicts(unmodified_path_splits):
     all_vertices_in_edges = [left for left, _ in edge_list] + [
         right for _, right in edge_list
     ]
-    assert not (set(all_parents) & set(all_vertices_in_edges))
+    assert not (
+        set(all_parents) & set(all_vertices_in_edges)
+    ), "No parents should remain in the output edges."
     return list(set(edge_list))
 
 
