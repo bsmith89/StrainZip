@@ -269,6 +269,11 @@ class DeconvolveGraph(App):
 
     def add_custom_cli_args(self):
         self.parser.add_argument("inpath", help="StrainZip formatted graph.")
+        self.parser.add_argument("outpath")
+        self.parser.add_argument(
+            "--checkpoint-dir",
+            help="Write graph to checkpoint directory before each round of deconvolution.",
+        )
         self.parser.add_argument(
             "--score-thresh",
             type=float,
@@ -278,8 +283,6 @@ class DeconvolveGraph(App):
                 "Selected model must have a delta-BIC of greater than this amount"
             ),
         )
-        self.parser.add_argument("outpath")
-
         self.parser.add_argument(
             "--score", default=DEFAULT_SCORE, choices=["bic", "aic", "aicc"]
         )
@@ -469,6 +472,13 @@ class DeconvolveGraph(App):
                             # filter after purging:
                             graph.set_vertex_filter(graph.vp["filter"])
                             graph.set_edge_filter(graph.ep["filter"])
+                        if args.checkpoint_dir:
+                            with phase_info("Writing checkpoint"):
+                                sz.io.dump_graph(
+                                    graph,
+                                    f"{args.checkpoint_dir}/checkpoint_preunzipping_{i+1}.sz",
+                                    purge=False,
+                                )
                         with phase_info("Optimize flow"):
                             flow = _parallel_estimate_all_flows(
                                 graph,
@@ -571,6 +581,13 @@ class DeconvolveGraph(App):
                             logging.info(
                                 f"Unzipped junctions into {len(new_unzipped_vertices)} vertices."
                             )
+                        if args.checkpoint_dir:
+                            with phase_info("Writing checkpoint"):
+                                sz.io.dump_graph(
+                                    graph,
+                                    f"{args.checkpoint_dir}/checkpoint_prepressing_{i+1}.sz",
+                                    purge=False,
+                                )
                         with phase_info("Finding non-branching paths"):
                             unitig_paths = list(
                                 sz.topology.iter_maximal_unitig_paths(graph)
@@ -583,6 +600,13 @@ class DeconvolveGraph(App):
                             logging.info(
                                 f"Pressed non-branching paths into {len(new_pressed_vertices)} new tigs."
                             )
+                        if args.checkpoint_dir:
+                            with phase_info("Writing checkpoint"):
+                                sz.io.dump_graph(
+                                    graph,
+                                    f"{args.checkpoint_dir}/checkpoint_postpressing_{i+1}.sz",
+                                    purge=False,
+                                )
                         if len(new_unzipped_vertices) == 0:
                             logging.info("No junctions were unzipped. Stopping early.")
                             break
