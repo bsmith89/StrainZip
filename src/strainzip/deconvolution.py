@@ -104,7 +104,7 @@ class PathSet:
         return chain(self.iter_drops(), self.iter_swaps(), self.iter_adds())
 
     def __iter__(self):
-        return iter(self.paths)
+        return iter(sorted(self.paths))
 
     def __hash__(self):
         return hash(self.paths)
@@ -292,4 +292,8 @@ def deconvolve_junction(
     fit = model.fit(y, X)
     named_paths = [(in_vertices[p.left], out_vertices[p.right]) for p in pathset]
     selected_paths = [raveled_coords(p.left, p.right, n, m) for p in pathset]
+    # NOTE (2024-05-21): Iterating through a PathSet is now in sorted order,
+    # however, it's not obvious that this will always solve the issue of
+    # named_paths and fit.beta being in the same order...
+
     return fit, selected_paths, named_paths, score_margin
