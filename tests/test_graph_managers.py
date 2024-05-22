@@ -484,6 +484,31 @@ def test_batch_unzip_topology_complex2():
     )
 
 
+def test_batch_unzip_topology_complex3():
+    _graph = gt.Graph()
+    _graph.add_edge_list([(0, 1), (0, 2), (0, 3), (0, 0)])
+    _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
+    _graph.set_vertex_filter(_graph.vp["filter"])
+    gm = sz.graph_manager.GraphManager()
+    gm.validate(_graph)
+    gm.batch_unzip(
+        _graph,
+        (0, [(0, 1), (0, 2), (0, 3), (0, 0)], {}),
+    )
+
+    _graph = gt.Graph()
+    _graph.add_edge_list([(1, 0), (2, 0), (3, 0), (0, 0)])
+    _graph.vp["filter"] = _graph.new_vertex_property("bool", val=True)
+    _graph.set_vertex_filter(_graph.vp["filter"])
+    gm = sz.graph_manager.GraphManager()
+    gm.validate(_graph)
+    gm.batch_unzip(
+        _graph,
+        (0, [(1, 0), (2, 0), (3, 0), (0, 0)], {}),
+    )
+    # TODO: Add checks that these two deconvolutions are identical
+
+
 def test_batch_operations_on_properties():
     _graph = gt.Graph()
     _graph.add_edge_list([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7)])
