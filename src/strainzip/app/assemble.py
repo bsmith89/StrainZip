@@ -456,6 +456,9 @@ class DeconvolveGraph(App):
                         logging.info(
                             f"Pressed non-branching paths into {len(new_pressed_vertices)} new tigs."
                         )
+            else:
+                graph.ep["filter"] = graph.new_edge_property("bool", val=1)
+                graph.set_edge_filter(graph.ep["filter"])
 
             with phase_info("Main loop"):
                 for i in range(args.max_rounds):
