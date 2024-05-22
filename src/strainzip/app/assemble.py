@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 from multiprocessing import Pool as ProcessPool
 
 import graph_tool as gt
@@ -55,8 +56,8 @@ def _estimate_flow(args):
     return flow.fa
 
 
-def _parallel_estimate_all_flows(graph, pool):
-    flow_procs = pool.imap(
+def _parallel_estimate_all_flows(graph, mapping_func):
+    flow_procs = mapping_func(
         _estimate_flow,
         (
             (
@@ -65,7 +66,6 @@ def _parallel_estimate_all_flows(graph, pool):
             )
             for sample_id in range(graph.gp["num_samples"])
         ),
-        chunksize=4,
     )
 
     # Collect rows of the flow table.
@@ -164,7 +164,7 @@ def _parallel_calculate_junction_deconvolutions(
     graph,
     flow,
     depth_model,
-    pool,
+    mapping_func,
     score_margin_thresh=20.0,
     relative_stderr_thresh=0.1,
     absolute_stderr_thresh=1.0,
@@ -172,7 +172,7 @@ def _parallel_calculate_junction_deconvolutions(
     completeness_thresh=1.0,
     max_paths=20,
 ):
-    deconv_results = pool.imap_unordered(
+    deconv_results = mapping_func(
         _calculate_junction_deconvolution,
         (
             (
@@ -187,7 +187,6 @@ def _parallel_calculate_junction_deconvolutions(
                 junctions, graph, flow, max_paths=max_paths
             )
         ),
-        chunksize=20,
     )
 
     batch = []
@@ -421,7 +420,7 @@ class DeconvolveGraph(App):
                     with phase_info("Optimizing flow"):
                         flow = _parallel_estimate_all_flows(
                             graph,
-                            process_pool,
+                            partial(process_pool.imap, chunksize=4),
                         )
                     # TODO (2024-05-10): Confirm that setting vals from a get_2d_array has the right shape.
                     not_low_depth_edge = (
@@ -465,7 +464,7 @@ class DeconvolveGraph(App):
                         with phase_info("Optimize flow"):
                             flow = _parallel_estimate_all_flows(
                                 graph,
-                                process_pool,
+                                partial(process_pool.imap, chunksize=4),
                             )
                         with phase_info("Deconvolving junctions"):
                             deconvolutions = []
@@ -486,7 +485,9 @@ class DeconvolveGraph(App):
                                     graph,
                                     flow,
                                     args.depth_model,
-                                    pool=process_pool,
+                                    mapping_func=partial(
+                                        process_pool.imap_unordered, chunksize=40
+                                    ),
                                     score_margin_thresh=args.score_thresh,
                                     relative_stderr_thresh=args.relative_error_thresh,
                                     absolute_stderr_thresh=args.absolute_error_thresh,
@@ -510,7 +511,9 @@ class DeconvolveGraph(App):
                                     graph,
                                     flow,
                                     args.depth_model,
-                                    pool=process_pool,
+                                    mapping_func=partial(
+                                        process_pool.imap_unordered, chunksize=40
+                                    ),
                                     score_margin_thresh=args.score_thresh,
                                     relative_stderr_thresh=args.relative_error_thresh,
                                     absolute_stderr_thresh=args.absolute_error_thresh,
@@ -534,7 +537,9 @@ class DeconvolveGraph(App):
                                     graph,
                                     flow,
                                     args.depth_model,
-                                    pool=process_pool,
+                                    mapping_func=partial(
+                                        process_pool.imap_unordered, chunksize=40
+                                    ),
                                     score_margin_thresh=args.score_thresh,
                                     relative_stderr_thresh=args.relative_error_thresh,
                                     absolute_stderr_thresh=args.absolute_error_thresh,
