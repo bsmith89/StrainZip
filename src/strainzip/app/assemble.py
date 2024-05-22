@@ -14,6 +14,7 @@ from ..logging_util import tqdm_info
 from ._base import App
 
 DEFAULT_MAX_ROUNDS = 100
+DEFAULT_SCORE = "bic"
 DEFAULT_SCORE_THRESH = 10.0
 DEFAULT_OPT_MAXITER = 10000
 DEFAULT_RELATIVE_ERROR_THRESH = 0.1
@@ -107,6 +108,7 @@ def _calculate_junction_deconvolution(args):
         out_neighbors,
         out_flows,
         depth_model,
+        score_name,
     ) = args
 
     n, m = len(in_neighbors), len(out_neighbors)
@@ -119,6 +121,7 @@ def _calculate_junction_deconvolution(args):
             out_flows,
             model=depth_model,
             exhaustive_thresh=50,
+            score_name=score_name,
         )
     except sz.errors.ConvergenceException:
         return (
@@ -165,6 +168,7 @@ def _parallel_calculate_junction_deconvolutions(
     flow,
     depth_model,
     mapping_func,
+    score_name="bic",
     score_margin_thresh=20.0,
     relative_stderr_thresh=0.1,
     absolute_stderr_thresh=1.0,
@@ -182,6 +186,7 @@ def _parallel_calculate_junction_deconvolutions(
                 out_neighbors,
                 out_flows,
                 depth_model,
+                score_name,
             )
             for junction, in_neighbors, in_flows, out_neighbors, out_flows in _iter_junction_deconvolution_data(
                 junctions, graph, flow, max_paths=max_paths
@@ -275,6 +280,9 @@ class DeconvolveGraph(App):
         )
         self.parser.add_argument("outpath")
 
+        self.parser.add_argument(
+            "--score", default=DEFAULT_SCORE, choices=["bic", "aic", "aicc"]
+        )
         self.parser.add_argument(
             "--skip-drop-low-depth",
             action="store_true",
@@ -488,6 +496,7 @@ class DeconvolveGraph(App):
                                     mapping_func=partial(
                                         process_pool.imap_unordered, chunksize=40
                                     ),
+                                    score_name=args.score,
                                     score_margin_thresh=args.score_thresh,
                                     relative_stderr_thresh=args.relative_error_thresh,
                                     absolute_stderr_thresh=args.absolute_error_thresh,
@@ -514,6 +523,7 @@ class DeconvolveGraph(App):
                                     mapping_func=partial(
                                         process_pool.imap_unordered, chunksize=40
                                     ),
+                                    score_name=args.score,
                                     score_margin_thresh=args.score_thresh,
                                     relative_stderr_thresh=args.relative_error_thresh,
                                     absolute_stderr_thresh=args.absolute_error_thresh,
@@ -540,6 +550,7 @@ class DeconvolveGraph(App):
                                     mapping_func=partial(
                                         process_pool.imap_unordered, chunksize=40
                                     ),
+                                    score_name=args.score,
                                     score_margin_thresh=args.score_thresh,
                                     relative_stderr_thresh=args.relative_error_thresh,
                                     absolute_stderr_thresh=args.absolute_error_thresh,

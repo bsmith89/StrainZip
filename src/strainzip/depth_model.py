@@ -62,6 +62,16 @@ class FitResult:
     def score(self):
         return -self.bic
 
+    def get_score(self, score_name):
+        if score_name == "aic":
+            return -self.aic
+        elif score_name == "bic":
+            return -self.bic
+        elif score_name == "aicc":
+            return -self.aicc
+        else:
+            raise ValueError(f"Requested {score_name} is not a known score name.")
+
     @property
     def bic(self):
         num_observations = self.num_edges * self.num_samples

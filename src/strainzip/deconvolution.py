@@ -180,6 +180,7 @@ def greedy_search_potential_pathsets(
     in_flows,
     out_flows,
     model,
+    score_name="bic",
     verbose=False,
 ):
     n, m = in_flows.shape[0], out_flows.shape[0]
@@ -191,7 +192,7 @@ def greedy_search_potential_pathsets(
         frozenset([LocalPath(top_inflow, top_outflow)]), n, m
     )  # Best contender for a single path.
     # curr_pathset = PathSet(frozenset(), n, m)  # Empty
-    curr_score = model.fit(y, pathset_to_design(curr_pathset)).score
+    curr_score = model.fit(y, pathset_to_design(curr_pathset)).get_score(score_name)
     curr_score = np.nan_to_num(curr_score, nan=-np.inf)
     scores = {curr_pathset: curr_score}
     while True:
@@ -201,7 +202,9 @@ def greedy_search_potential_pathsets(
             if next_pathset in scores:
                 continue
             else:
-                next_score = model.fit(y, pathset_to_design(next_pathset)).score
+                next_score = model.fit(y, pathset_to_design(next_pathset)).get_score(
+                    score_name
+                )
                 scores[next_pathset] = np.nan_to_num(next_score, nan=-np.inf)
 
         top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
@@ -229,6 +232,7 @@ def exhaustive_fit_minimal_complete_pathsets(
     out_flows,
     model,
     include_empty_pathset=False,
+    score_name="bic",
     verbose=False,
 ):
     n, m = in_flows.shape[0], out_flows.shape[0]
@@ -239,14 +243,16 @@ def exhaustive_fit_minimal_complete_pathsets(
         empty_pathset = PathSet(
             frozenset([]), n, m
         )  # Best contender for a single path.
-        empty_score = model.fit(y, pathset_to_design(empty_pathset)).score
+        empty_score = model.fit(y, pathset_to_design(empty_pathset)).get_score(
+            score_name
+        )
         empty_score = np.nan_to_num(empty_score, nan=-np.inf)
         scores = {empty_pathset: empty_score}
     else:
         scores = {}
 
     for pathset in iter_all_minimal_complete_pathsets(n, m):
-        s = model.fit(y, pathset_to_design(pathset)).score
+        s = model.fit(y, pathset_to_design(pathset)).get_score(score_name)
         scores[pathset] = np.nan_to_num(s, nan=-np.inf)
     if verbose:
         print(scores)
@@ -260,6 +266,7 @@ def deconvolve_junction(
     out_flows,
     model,
     exhaustive_thresh=50,
+    score_name="bic",
     verbose=False,
 ):
     n, m = len(in_vertices), len(out_vertices)
@@ -267,11 +274,16 @@ def deconvolve_junction(
     # Decide if we're doing an exhaustive or greedy search.
     if num_minimal_complete_pathsets(n, m) < exhaustive_thresh:
         scores = exhaustive_fit_minimal_complete_pathsets(
-            in_flows, out_flows, model, include_empty_pathset=True, verbose=False
+            in_flows,
+            out_flows,
+            model,
+            include_empty_pathset=True,
+            score_name=score_name,
+            verbose=False,
         )
     else:
         scores = greedy_search_potential_pathsets(
-            in_flows, out_flows, model, verbose=False
+            in_flows, out_flows, model, score_name=score_name, verbose=False
         )
 
     top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
