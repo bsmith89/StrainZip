@@ -217,12 +217,6 @@ def greedy_search_potential_pathsets(
             curr_pathset = best_pathset
             curr_score = best_score
 
-    # # FIXME: Debugging
-    # if (n > 1) and (m > 1) and (len(best_pathset) == 0):
-    #     breakpoint()
-    # if ((n == 1) or (m == 1)) and (len(best_pathset) < n*m):
-    #     breakpoint()
-
     # TODO: Return the best pathset itself, instead of the score list. Consider returning the fit, as well.
     return scores
 
