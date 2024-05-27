@@ -71,7 +71,7 @@ def _estimate_flow(args):
     return flow.fa
 
 
-def _parallel_estimate_all_flows(graph, mapping_func):
+def _run_estimate_all_flows(graph, mapping_func):
     flow_procs = mapping_func(
         _estimate_flow,
         (
@@ -176,7 +176,7 @@ def _calculate_junction_deconvolution(args):
     )
 
 
-def _parallel_calculate_junction_deconvolutions(
+def _run_calculate_junction_deconvolutions(
     junctions,
     graph,
     flow,
@@ -443,7 +443,7 @@ class DeconvolveGraph(App):
             if not args.skip_drop_low_depth:
                 with phase_info("Pruning low-depth edges"):
                     with phase_info("Optimizing flow"):
-                        flow = _parallel_estimate_all_flows(
+                        flow = _run_estimate_all_flows(
                             graph,
                             partial(process_pool.imap, chunksize=4),
                         )
@@ -485,7 +485,7 @@ class DeconvolveGraph(App):
                                     f"{args.checkpoint_dir}/checkpoint_{i+1}.sz",
                                 )
                         with phase_info("Optimize flow"):
-                            flow = _parallel_estimate_all_flows(
+                            flow = _run_estimate_all_flows(
                                 graph,
                                 partial(process_pool.imap, chunksize=4),
                             )
@@ -503,7 +503,7 @@ class DeconvolveGraph(App):
                                 logging.info(
                                     f"Found {len(junctions_subset)} safe junctions"
                                 )
-                                deconvolutions_subset = _parallel_calculate_junction_deconvolutions(
+                                deconvolutions_subset = _run_calculate_junction_deconvolutions(
                                     junctions_subset,
                                     graph,
                                     flow,
@@ -530,7 +530,7 @@ class DeconvolveGraph(App):
                                 logging.info(
                                     f"Found {len(junctions_subset)} canonical junctions"
                                 )
-                                deconvolutions_subset = _parallel_calculate_junction_deconvolutions(
+                                deconvolutions_subset = _run_calculate_junction_deconvolutions(
                                     junctions_subset,
                                     graph,
                                     flow,
@@ -557,7 +557,7 @@ class DeconvolveGraph(App):
                                 logging.info(
                                     f"Found {len(junctions_subset)} large junctions"
                                 )
-                                deconvolutions_subset = _parallel_calculate_junction_deconvolutions(
+                                deconvolutions_subset = _run_calculate_junction_deconvolutions(
                                     junctions_subset,
                                     graph,
                                     flow,
