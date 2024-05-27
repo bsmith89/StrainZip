@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from .app.assemble import DeconvolveGraph
+from .app.deconvolve import DeconvolveGraph
 from .app.depth import EstimateUnitigDepth
 from .app.describe import DescribeGraph
 from .app.example import Example
@@ -18,7 +18,7 @@ APPLICATIONS = {
     "smooth": SmoothDepths,
     "trim": TrimTips,
     "focus": SelectLocalGraph,
-    "assemble": DeconvolveGraph,
+    "deconvolve": DeconvolveGraph,
     "extract": ExtractResults,
     "describe": DescribeGraph,
 }
