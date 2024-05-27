@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import sys
-from multiprocessing.pool import Pool
+from multiprocessing import Pool
 
 import pandas as pd
 from tqdm import tqdm
