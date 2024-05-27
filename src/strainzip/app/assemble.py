@@ -482,8 +482,7 @@ class DeconvolveGraph(App):
                             with phase_info("Writing checkpoint"):
                                 sz.io.dump_graph(
                                     graph,
-                                    f"{args.checkpoint_dir}/checkpoint_preunzipping_{i+1}.sz",
-                                    purge=False,
+                                    f"{args.checkpoint_dir}/checkpoint_{i+1}.sz",
                                 )
                         with phase_info("Optimize flow"):
                             flow = _parallel_estimate_all_flows(
@@ -587,21 +586,7 @@ class DeconvolveGraph(App):
                             logging.info(
                                 f"Unzipped junctions into {len(new_unzipped_vertices)} vertices."
                             )
-                        if args.checkpoint_dir:
-                            with phase_info("Writing checkpoint"):
-                                sz.io.dump_graph(
-                                    graph,
-                                    f"{args.checkpoint_dir}/checkpoint_prepressing_{i+1}.sz",
-                                    purge=False,
-                                )
                         _run_press_unitigs(graph, gm)
-                        if args.checkpoint_dir:
-                            with phase_info("Writing checkpoint"):
-                                sz.io.dump_graph(
-                                    graph,
-                                    f"{args.checkpoint_dir}/checkpoint_postpressing_{i+1}.sz",
-                                    purge=False,
-                                )
                         if len(new_unzipped_vertices) == 0:
                             logging.info("No junctions were unzipped. Stopping early.")
                             break
