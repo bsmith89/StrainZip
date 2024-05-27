@@ -29,6 +29,20 @@ DEPTH_MODELS = {
 DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 
 
+def _run_press_unitigs(graph, graph_manager):
+    with phase_info("Pressing unitigs"):
+        with phase_info("Finding non-branching paths"):
+            unitig_paths = list(sz.topology.iter_maximal_unitig_paths(graph))
+        with phase_info("Compressing paths"):
+            new_pressed_vertices = graph_manager.batch_press(
+                graph,
+                *[(path, {}) for path in unitig_paths],
+            )
+            logging.info(
+                f"Pressed non-branching paths into {len(new_pressed_vertices)} new tigs."
+            )
+
+
 def _estimate_flow(args):
     # Limit each flow process to use just 1 core.
     gt.openmp_set_num_threads(1)
@@ -444,18 +458,7 @@ class DeconvolveGraph(App):
                     num_low_depth_edge = (not_low_depth_edge == 0).sum()
                     logging.info(f"Filtering out {num_low_depth_edge} low-depth edges.")
                     graph.set_edge_filter(graph.ep["filter"])
-                    with phase_info("Finding non-branching paths"):
-                        unitig_paths = list(
-                            sz.topology.iter_maximal_unitig_paths(graph)
-                        )
-                    with phase_info("Pressing tigs"):
-                        new_pressed_vertices = gm.batch_press(
-                            graph,
-                            *[(path, {}) for path in unitig_paths],
-                        )
-                        logging.info(
-                            f"Pressed non-branching paths into {len(new_pressed_vertices)} new tigs."
-                        )
+                    _run_press_unitigs(graph, gm)
             else:
                 graph.ep["filter"] = graph.new_edge_property("bool", val=1)
                 graph.set_edge_filter(graph.ep["filter"])
@@ -591,18 +594,7 @@ class DeconvolveGraph(App):
                                     f"{args.checkpoint_dir}/checkpoint_prepressing_{i+1}.sz",
                                     purge=False,
                                 )
-                        with phase_info("Finding non-branching paths"):
-                            unitig_paths = list(
-                                sz.topology.iter_maximal_unitig_paths(graph)
-                            )
-                        with phase_info("Pressing tigs"):
-                            new_pressed_vertices = gm.batch_press(
-                                graph,
-                                *[(path, {}) for path in unitig_paths],
-                            )
-                            logging.info(
-                                f"Pressed non-branching paths into {len(new_pressed_vertices)} new tigs."
-                            )
+                        _run_press_unitigs(graph, gm)
                         if args.checkpoint_dir:
                             with phase_info("Writing checkpoint"):
                                 sz.io.dump_graph(
