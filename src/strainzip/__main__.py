@@ -1,6 +1,7 @@
 import argparse
 import sys
 
+from .app.cluster import ClusterTigs
 from .app.deconvolve import DeconvolveGraph
 from .app.depth import EstimateUnitigDepth
 from .app.describe import DescribeGraph
@@ -21,6 +22,7 @@ APPLICATIONS = {
     "deconvolve": DeconvolveGraph,
     "extract": ExtractResults,
     "describe": DescribeGraph,
+    "cluster": ClusterTigs,
 }
 
 
