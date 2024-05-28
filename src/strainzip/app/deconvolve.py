@@ -89,31 +89,32 @@ def _estimate_flow(args):
 
 
 def _run_estimate_all_flows(graph, mapping_func):
-    flow_procs = mapping_func(
-        _estimate_flow,
-        (
+    with phase_info("Optimize flow"):
+        flow_procs = mapping_func(
+            _estimate_flow,
             (
-                graph,
-                sample_id,
-            )
-            for sample_id in range(graph.gp["num_samples"])
-        ),
-    )
+                (
+                    graph,
+                    sample_id,
+                )
+                for sample_id in range(graph.gp["num_samples"])
+            ),
+        )
 
-    # Collect rows of the flow table.
-    flow_values = np.stack(
-        [
-            f
-            for f in tqdm_info(
-                flow_procs,
-                total=graph.gp["num_samples"],
-                bar_format="{l_bar}{r_bar}",
-            )
-        ]
-    )
-    flow = graph.new_edge_property("vector<float>")
-    flow.set_2d_array(flow_values)
-    return flow
+        # Collect rows of the flow table.
+        flow_values = np.stack(
+            [
+                f
+                for f in tqdm_info(
+                    flow_procs,
+                    total=graph.gp["num_samples"],
+                    bar_format="{l_bar}{r_bar}",
+                )
+            ]
+        )
+        flow = graph.new_edge_property("vector<float>")
+        flow.set_2d_array(flow_values)
+        return flow
 
 
 def _iter_junction_deconvolution_data(junction_iter, graph, flow, max_paths):
@@ -488,11 +489,10 @@ class DeconvolveGraph(App):
                                     graph,
                                     f"{args.checkpoint_dir}/checkpoint_{i+1}.sz",
                                 )
-                        with phase_info("Optimize flow"):
-                            flow = _run_estimate_all_flows(
-                                graph,
-                                partial(process_pool.imap, chunksize=4),
-                            )
+                        flow = _run_estimate_all_flows(
+                            graph,
+                            partial(process_pool.imap, chunksize=4),
+                        )
                         with phase_info("Deconvolving junctions"):
                             deconvolutions = []
                             in_degree = graph.degree_property_map("in")
