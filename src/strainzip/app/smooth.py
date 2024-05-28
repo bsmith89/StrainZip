@@ -1,5 +1,5 @@
 import logging
-import multiprocessing
+from multiprocessing import Pool as processPool
 
 import graph_tool as gt
 import numpy as np
@@ -12,7 +12,7 @@ from ._base import App
 DEFAULT_EPS = 1e-4
 
 
-def _load_graph_and_smooth_one_sample(arg):
+def _smooth_one_sample(arg):
     gt.openmp_set_num_threads(1)
     graph, sample_id, eps = arg
 
@@ -52,9 +52,11 @@ class SmoothDepths(App):
     def execute(self, args):
         graph = sz.io.load_graph(args.inpath)
 
-        with multiprocessing.Pool(processes=args.processes) as process_pool:
+        with processPool(processes=args.processes) as process_pool:
+            # depth_procs = map(  # FIXME (2024-05-28): Debugging overflow in flow.py:40
+            # This overflow only happens using a multiprocessing.Pool
             depth_procs = process_pool.imap(
-                _load_graph_and_smooth_one_sample,
+                _smooth_one_sample,
                 (
                     (graph, sample_id, args.eps)
                     for sample_id in range(graph.gp["num_samples"])

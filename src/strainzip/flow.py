@@ -136,8 +136,13 @@ def estimate_flow(
         correction = _calculate_delta(
             flow, graph, depth, static_terms, preallocated_terms
         )
-        # FIXME: Overflow on square of the correction.
-        loss_hist.append(np.sqrt((correction.fa**2).sum()) / depth.fa.sum())
+        # FIXME: Overflow on square of the correction when using multiprocessing.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "error",
+                category=RuntimeWarning,
+            )
+            loss_hist.append(np.sqrt((correction.fa**2).sum()) / depth.fa.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during flow estimation.")
         elif loss_hist[-1] == 0:
@@ -169,8 +174,13 @@ def estimate_flow(
         correction = _calculate_delta(
             flow, graph, depth, static_terms, preallocated_terms
         )
-        # FIXME: Overflow on square of the correction.
-        loss_hist.append(np.sqrt((correction.fa**2).sum()) / depth.fa.sum())
+        # FIXME: Overflow on square of the correction when using multiprocessing.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "error",
+                category=RuntimeWarning,
+            )
+            loss_hist.append(np.sqrt((correction.fa**2).sum()) / depth.fa.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during flow estimation.")
         elif loss_hist[-1] == 0:
@@ -282,9 +292,14 @@ def smooth_depth(
     for _ in pbar:
         flow, _ = estimate_flow(graph, depth, length, **estimate_flow_kwargs)
         next_depth = estimate_depth(graph, flow, pseudoflow)
-        change_in_depth = next_depth.fa - depth.fa
-        # FIXME: Overflow on square of the correction.
-        loss_hist.append(np.sqrt((change_in_depth**2).sum()) / depth.fa.sum())
+        correction = next_depth.fa - depth.fa
+        # FIXME: Overflow on square of the correction when using multiprocessing.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "error",
+                category=RuntimeWarning,
+            )
+            loss_hist.append(np.sqrt((correction**2).sum()) / depth.fa.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during depth estimation.")
         elif loss_hist[-1] == 0:
