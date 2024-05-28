@@ -8,6 +8,7 @@ import strainzip as sz
 from ._base import App
 
 DEFAULT_NUM_PRECLUST = 5000
+DEFAULT_EXPONENT = 1 / 2
 
 
 class ClusterTigs(App):
@@ -32,6 +33,12 @@ class ClusterTigs(App):
             help="Number of clusters to find during preclustering.",
         )
         self.parser.add_argument(
+            "--exponent",
+            type=float,
+            default=DEFAULT_EXPONENT,
+            help="Transform depths before clustering by raising to this exponent.",
+        )
+        self.parser.add_argument(
             "--random-seed",
             type=int,
             default=0,
@@ -46,18 +53,24 @@ class ClusterTigs(App):
             vertex_depth = sz.results.depth_table(graph, graph.get_vertices()).T
             vertex_length = pd.Series(graph.vp["length"], index=graph.get_vertices())
             # Drop any zero-total-depth vertices
+            num_zeros = (vertex_depth.sum(1) == 0).sum()
+            logging.info(f"Dropping {num_zeros} 0-depth vertices.")
             vertex_depth, vertex_length = vertex_depth[lambda x: x.sum(1) > 0].align(
                 vertex_length, axis=0, join="left"
             )
-            num_vertices, num_samples = vertex_depth.shape
-            logging.info(
-                f"Clustering {num_vertices} tigs using depths across {num_samples} samples."
-            )
 
         with sz.logging_util.phase_info("Preclustering"):
+            num_vertices, num_samples = vertex_depth.shape
+            logging.info(
+                f"Preclustering {num_vertices} tigs using depths across {num_samples} samples."
+            )
+            trsfm_vertex_depth = vertex_depth**args.exponent
+            trsfm_vertex_depth_normalized = trsfm_vertex_depth.divide(
+                (trsfm_vertex_depth ** (2)).sum(1) ** (1 / 2), axis=0
+            )
             kmeans = MiniBatchKMeans(
                 n_clusters=args.num_preclust, random_state=args.random_seed
-            ).fit(vertex_depth)
+            ).fit(trsfm_vertex_depth_normalized)
             vertex_preclust = pd.Series(kmeans.labels_, index=vertex_depth.index)
             preclust_length = vertex_length.groupby(vertex_preclust).sum()
             preclust_depth = (
@@ -73,7 +86,7 @@ class ClusterTigs(App):
                 metric="cosine",
                 linkage="average",
                 distance_threshold=args.thresh,
-            ).fit(preclust_depth)
+            ).fit(preclust_depth**args.exponent)
             clust = pd.Series(agglom.labels_, index=preclust_depth.index)
             clust_length = preclust_length.groupby(clust).sum()
             clust_depth = (
