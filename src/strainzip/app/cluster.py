@@ -1,3 +1,5 @@
+import logging
+
 import pandas as pd
 from sklearn.cluster import AgglomerativeClustering, MiniBatchKMeans
 
@@ -29,6 +31,12 @@ class ClusterTigs(App):
             default=DEFAULT_NUM_PRECLUST,
             help="Number of clusters to find during preclustering.",
         )
+        self.parser.add_argument(
+            "--random-seed",
+            type=int,
+            default=0,
+            help="Random seed to initialize MiniBatchKMeans for preclustering.",
+        )
 
     def execute(self, args):
         with sz.logging_util.phase_info("Loading graph"):
@@ -41,14 +49,23 @@ class ClusterTigs(App):
             vertex_depth, vertex_length = vertex_depth[lambda x: x.sum(1) > 0].align(
                 vertex_length, axis=0, join="left"
             )
+            num_vertices, num_samples = vertex_depth.shape
+            logging.info(
+                f"Clustering {num_vertices} tigs using depths across {num_samples} samples."
+            )
 
         with sz.logging_util.phase_info("Preclustering"):
-            kmeans = MiniBatchKMeans(n_clusters=args.num_preclust).fit(vertex_depth)
+            kmeans = MiniBatchKMeans(
+                n_clusters=args.num_preclust, random_state=args.random_seed
+            ).fit(vertex_depth)
             vertex_preclust = pd.Series(kmeans.labels_, index=vertex_depth.index)
             preclust_length = vertex_length.groupby(vertex_preclust).sum()
-            preclust_depth = (vertex_depth * vertex_length).groupby(
-                vertex_preclust
-            ).sum() / preclust_length
+            preclust_depth = (
+                (vertex_depth.multiply(vertex_length, axis=0))
+                .groupby(vertex_preclust)
+                .sum()
+                .divide(preclust_length, axis=0)
+            )
 
         with sz.logging_util.phase_info("Clustering"):
             agglom = AgglomerativeClustering(
@@ -59,9 +76,12 @@ class ClusterTigs(App):
             ).fit(preclust_depth)
             clust = pd.Series(agglom.labels_, index=preclust_depth.index)
             clust_length = preclust_length.groupby(clust).sum()
-            clust_depth = (preclust_depth * preclust_length).groupby(
-                clust
-            ).sum() / clust_length
+            clust_depth = (
+                (preclust_depth.multiply(preclust_length, axis=0))
+                .groupby(clust)
+                .sum()
+                .divide(clust_length, axis=0)
+            )
             vertex_clust = vertex_preclust.map(clust)
             meta = pd.DataFrame(
                 dict(
@@ -69,7 +89,7 @@ class ClusterTigs(App):
                     total_length=clust_length,
                     total_depth=clust_depth.sum(1),
                 )
-            )
+            ).rename_axis(index="cluster")
 
         with sz.logging_util.phase_info("Writing outputs"):
             clust.to_csv(args.cluster_outpath, sep="\t", header=False)
