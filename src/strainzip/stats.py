@@ -1,4 +1,5 @@
 import graph_tool as gt
+import numpy as np
 import pandas as pd
 
 from strainzip.topology import backlinked_graph
@@ -53,3 +54,10 @@ def pairwise_distance_matrix(graph, vs):
         columns=vs,
     )
     return dmat
+
+
+def normalized_root_mean_squared_error(obs_depth_table, pred_depth_table):
+    return (
+        np.sqrt(np.square(obs_depth_table - pred_depth_table).sum().sum())
+        / obs_depth_table.sum().sum()
+    )
