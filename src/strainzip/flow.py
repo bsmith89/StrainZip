@@ -228,22 +228,25 @@ def estimate_all_flows(
     return flow
 
 
-def estimate_depth(graph, flow):
+def estimate_depth(graph, flow, pseudoflow):
     total_in_flow = graph.degree_property_map("in", weight=flow)
     total_in_degree = graph.degree_property_map("in")
     total_out_flow = graph.degree_property_map("out", weight=flow)
     total_out_degree = graph.degree_property_map("out")
 
-    twoway_flow = total_in_flow.a + total_out_flow.a
-    # If in_degree or out_degree == 0, then don't take the mean of both, but rather just the "mean" of one.
-    mean_flow = np.where(
-        (total_in_degree.a > 0) & (total_out_degree.a > 0),
-        twoway_flow / 2,
-        twoway_flow / 1,
-    )
+    # If in_degree or out_degree == 0, then replace the inflow with the pseudoflow.
+    in_flow = np.where(total_in_degree.a > 0, total_in_flow.a, pseudoflow.a)
+    out_flow = np.where(total_out_degree.a > 0, total_out_flow.a, pseudoflow.a)
+    mean_flow = (in_flow + out_flow) / 2
     # TODO (2024-05-22): Consider whether this results in a problematic bias towards higher
     # depth for tips and therefore more weight going into unzipped paths.
     return graph.new_vertex_property("float", vals=mean_flow)
+
+
+def calculate_vertex_pseudoflow(graph, depth, length):
+    return graph.new_vertex_property(
+        "float", vals=(depth.a * length.a) / (length.a + 1)
+    )
 
 
 def smooth_depth(
@@ -261,6 +264,12 @@ def smooth_depth(
     if estimate_flow_kwargs is None:
         estimate_flow_kwargs = {}
 
+    # NOTE: The pseudoflow is a value for every vertex based on an imaginary
+    # edge connecting it to a length-1 unitig with depth 0.
+    # In order to estimate the depth of vertices with 0 in-degree or 0 out-degree,
+    # we'll replace the in/out-flow with this value.
+    pseudoflow = calculate_vertex_pseudoflow(graph, depth_init, length)
+
     depth = depth_init.copy()
 
     loss_hist = []
@@ -272,7 +281,7 @@ def smooth_depth(
     )
     for _ in pbar:
         flow, _ = estimate_flow(graph, depth, length, **estimate_flow_kwargs)
-        next_depth = estimate_depth(graph, flow)
+        next_depth = estimate_depth(graph, flow, pseudoflow)
         change_in_depth = next_depth.fa - depth.fa
         # FIXME: Overflow on square of the correction.
         loss_hist.append(np.sqrt((change_in_depth**2).sum()) / depth.fa.sum())
