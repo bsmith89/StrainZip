@@ -95,7 +95,9 @@ class ClusterTigs(App):
                 .sum()
                 .divide(clust_length, axis=0)
             )
-            vertex_clust = vertex_preclust.map(clust)
+            vertex_clust = (
+                vertex_preclust.map(clust).rename_axis("vertex").rename("cluster")
+            )
             meta = pd.DataFrame(
                 dict(
                     num_vertices=vertex_clust.value_counts(),
@@ -105,6 +107,6 @@ class ClusterTigs(App):
             ).rename_axis(index="cluster")
 
         with sz.logging_util.phase_info("Writing outputs"):
-            clust.to_csv(args.cluster_outpath, sep="\t", header=False)
+            vertex_clust.to_csv(args.cluster_outpath, sep="\t")
             clust_depth.to_csv(args.depth_outpath, sep="\t")
             meta.to_csv(args.meta_outpath, sep="\t")
