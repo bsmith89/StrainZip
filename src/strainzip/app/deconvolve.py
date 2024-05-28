@@ -29,6 +29,23 @@ DEPTH_MODELS = {
 DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 
 
+def _run_drop_low_depth_edges(graph, gm, min_depth, mapping_func):
+    with phase_info("Pruning low-depth edges"):
+        flow = _run_estimate_all_flows(
+            graph,
+            mapping_func=mapping_func,  # partial(process_pool.imap, chunksize=4),
+        )
+        # TODO (2024-05-10): Confirm that setting vals from a get_2d_array has the right shape.
+        not_low_depth_edge = (
+            flow.get_2d_array(pos=range(graph.gp["num_samples"])).sum(0) >= min_depth
+        )
+        num_low_depth_edge = (not_low_depth_edge == 0).sum()
+        logging.info(f"Filtering out {num_low_depth_edge} low-depth edges.")
+        graph.ep["filter"].a = not_low_depth_edge
+        num_low_depth_edge = (not_low_depth_edge == 0).sum()
+        _run_press_unitigs(graph, gm)
+
+
 def _run_press_unitigs(graph, graph_manager):
     with phase_info("Pressing unitigs"):
         with phase_info("Finding non-branching paths"):
@@ -430,6 +447,9 @@ class DeconvolveGraph(App):
                     sz.graph_manager.VectorDepthPresser(),
                 ],
             )
+            # NOTE: The edge_property "filter" is un-managed and un-validated.
+            graph.ep["filter"] = graph.new_edge_property("bool", val=1)
+            graph.set_edge_filter(graph.ep["filter"])
             gm.validate(graph)
             logging.info(
                 f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
@@ -441,28 +461,12 @@ class DeconvolveGraph(App):
             )
 
             if not args.skip_drop_low_depth:
-                with phase_info("Pruning low-depth edges"):
-                    with phase_info("Optimizing flow"):
-                        flow = _run_estimate_all_flows(
-                            graph,
-                            partial(process_pool.imap, chunksize=4),
-                        )
-                    # TODO (2024-05-10): Confirm that setting vals from a get_2d_array has the right shape.
-                    not_low_depth_edge = (
-                        flow.get_2d_array(pos=range(graph.gp["num_samples"])).sum(0)
-                        >= args.min_depth
-                    )
-                    graph.ep["filter"] = graph.new_edge_property(
-                        "bool", vals=not_low_depth_edge
-                    )
-                    num_low_depth_edge = (not_low_depth_edge == 0).sum()
-                    logging.info(f"Filtering out {num_low_depth_edge} low-depth edges.")
-                    graph.set_edge_filter(graph.ep["filter"])
-                    _run_press_unitigs(graph, gm)
-            else:
-                graph.ep["filter"] = graph.new_edge_property("bool", val=1)
-                graph.set_edge_filter(graph.ep["filter"])
-
+                _run_drop_low_depth_edges(
+                    graph,
+                    gm,
+                    args.min_depth,
+                    mapping_func=partial(process_pool.imap_unordered, chunksize=4),
+                )
             with phase_info("Main loop"):
                 for i in range(args.max_rounds):
                     logging.info(
