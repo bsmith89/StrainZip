@@ -567,7 +567,7 @@ class DeconvolveGraph(App):
                                     flow,
                                     args.depth_model,
                                     mapping_func=partial(
-                                        process_pool.imap_unordered, chunksize=40
+                                        process_pool.imap_unordered, chunksize=8
                                     ),
                                     score_name=args.score,
                                     score_margin_thresh=args.score_thresh,
