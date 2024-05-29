@@ -151,7 +151,7 @@ def estimate_flow(
                 "error",
                 category=RuntimeWarning,
             )
-            loss_hist.append(np.sqrt((correction.fa**2).sum()) / depth.fa.sum())
+            loss_hist.append(np.sqrt((correction.a**2).sum()) / depth.a.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during flow estimation.")
         elif loss_hist[-1] == 0:
@@ -197,7 +197,7 @@ def estimate_flow(
                 "error",
                 category=RuntimeWarning,
             )
-            loss_hist.append(np.sqrt((correction.fa**2).sum()) / depth.fa.sum())
+            loss_hist.append(np.sqrt((correction.a**2).sum()) / depth.a.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during flow estimation.")
         elif loss_hist[-1] == 0:
@@ -316,14 +316,14 @@ def smooth_depth(
     for _ in pbar:
         flow, _ = estimate_flow(graph, depth, length, **estimate_flow_kwargs)
         next_depth = estimate_depth(graph, flow, pseudoflow)
-        correction = next_depth.fa - depth.fa
+        correction = next_depth.a - depth.a
         # FIXME: Overflow on square of the correction when using multiprocessing.
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "error",
                 category=RuntimeWarning,
             )
-            loss_hist.append(np.sqrt((correction**2).sum()) / depth.fa.sum())
+            loss_hist.append(np.sqrt((correction**2).sum()) / depth.a.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during depth estimation.")
         elif loss_hist[-1] == 0:
