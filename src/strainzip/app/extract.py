@@ -1,6 +1,3 @@
-import logging
-
-import graph_tool as gt
 import xarray as xr
 
 import strainzip as sz
@@ -40,29 +37,20 @@ class ExtractResults(App):
                 ["length"], ascending=False
             )
             dereplicated_vertices = sz.results.dereplicate_vertices_by_segments(results)
-            with phase_info("Re-adding orphan sequences"):
-                unitigs_in_main_results = set(
-                    results.segments.explode().str[:-1].drop_duplicates()
-                )
-                orphan_unitigs = set(unitig_to_sequence) - unitigs_in_main_results
-                orphan_depth_table = unitig_depth_table.sel(unitig=list(orphan_unitigs))
-                orphan_depth_table["unitig"] = [
-                    f"orphan_{u}" for u in orphan_depth_table["unitig"].values
-                ]
-                assembly_depth_table = (
-                    sz.results.full_depth_table(graph)
-                    .rename_axis(index="sequence", columns="sample")
-                    .rename(str)
-                    .T.stack()
-                    .to_xarray()
-                )
-                depth_table = xr.concat(
-                    [
-                        assembly_depth_table,
-                        orphan_depth_table.rename({"unitig": "sequence"}),
-                    ],
-                    dim="sequence",
-                )
+            assembly_depth_table = (
+                sz.results.full_depth_table(graph)
+                .rename_axis(index="sequence", columns="sample")
+                .rename(str)
+                .T.stack()
+                .to_xarray()
+            )
+            depth_table = xr.concat(
+                [
+                    assembly_depth_table,
+                    # orphan_depth_table.rename({"unitig": "sequence"}),
+                ],
+                dim="sequence",
+            )
 
         with phase_info("Writing results"):
             with phase_info("Writing FASTA"), open(
@@ -78,12 +66,6 @@ class ExtractResults(App):
                         k=graph.gp["kmer_length"],
                     )
                     print(f">{header}\n{assembly}", file=fasta_handle)
-                with phase_info("Writing orphan unitigs"):
-                    for unitig in tqdm_debug(orphan_unitigs):
-                        print(
-                            f">orphan_{unitig}\n{unitig_to_sequence[unitig]}",
-                            file=fasta_handle,
-                        )
             with phase_info("Writing depth"):
                 depth_table.to_netcdf(args.depth_outpath)
             with phase_info("Writing segments"):
