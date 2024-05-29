@@ -81,6 +81,7 @@ def parse_linked_fasta(lines_iter, k, header_tokenizer):
     sequences = {}
     lengths = {}
     all_edge_list = []
+    orphan_unitigs = []
     for header, sequence in iter_linked_fasta_entries(lines_iter):
         unitig_id_string, length_string, edge_strings_list = header_tokenizer(header)
         unitig_id, length, edge_list = parse_linked_fasta_entry_header(
@@ -89,13 +90,22 @@ def parse_linked_fasta(lines_iter, k, header_tokenizer):
         sequences[unitig_id] = sequence
         lengths[unitig_id] = length
         all_edge_list.extend(edge_list)
-    return list(set(all_edge_list)), lengths, sequences
+        if not edge_list:
+            orphan_unitigs.extend([unitig_id + "+", unitig_id + "-"])
+    return list(set(all_edge_list)), orphan_unitigs, lengths, sequences
 
 
 def load_graph_and_sequences_from_linked_fasta(file_handle, k, header_tokenizer):
-    edge_list, lengths, sequences = parse_linked_fasta(file_handle, k, header_tokenizer)
+    edge_list, orphan_unitigs, lengths, sequences = parse_linked_fasta(
+        file_handle, k, header_tokenizer
+    )
 
     graph = gt.Graph(set(edge_list), hashed=True, directed=True)
+    num_non_orphan_unitigs = len(graph)
+    graph.add_vertex(n=len(orphan_unitigs))
+    for (i, unitig_id) in enumerate(orphan_unitigs, start=num_non_orphan_unitigs):
+        graph.vp["ids"][i] = unitig_id
+
     graph.vp["filter"] = graph.new_vertex_property("bool", val=1)
     graph.vp["length"] = graph.new_vertex_property("int")
     for i, _hash in enumerate(graph.vp["ids"]):
@@ -110,7 +120,6 @@ def load_graph_and_sequences_from_linked_fasta(file_handle, k, header_tokenizer)
 def load_mean_sequence_depth(con, sequence, k, n):
     query = "SELECT * FROM count_ WHERE kmer IN (?, ?)"
     num_kmers = len(sequence) - k + 1
-    results = []
     total_tally = np.zeros(n)
     for kmer in iter_kmers(sequence, k=k, circularize=False):
         kmer_rc = reverse_complement(kmer)

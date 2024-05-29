@@ -26,8 +26,7 @@ TCCCGTGAGGGGTTTCTGATAGTGGTGCTGTTCTGGACCGTGCTGGGTAGCGTCGGTGCGCTCCCTCTTATCTTCT
         f, 51, sz.io.bcalm_header_tokenizer
     )
     assert graph.num_edges() == 6
-    # NOTE: num_vertices would be 10 if we didn't implicitly drop orphan vertices during graph loading.
-    assert graph.num_vertices() == 8
+    assert graph.num_vertices() == 10
     assert len(sequences) == 5
 
 
@@ -50,8 +49,7 @@ TCCCGTGAGGGGTTTCTGATAGTGGTGCTGTTCTGGACCGTGCTGGGTAGCGTCGGTGCGCTCCCTCTTATCTTCT
         f, 51, sz.io.ggcat_header_tokenizer
     )
     assert graph.num_edges() == 6
-    # NOTE: num_vertices would be 10 if we didn't implicitly drop orphan vertices during graph loading.
-    assert graph.num_vertices() == 8
+    assert graph.num_vertices() == 10
     assert len(sequences) == 5
 
 
