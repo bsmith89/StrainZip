@@ -74,6 +74,14 @@ def extract_vertex_data(graph):
     return vertex_data
 
 
+def extract_segment_depth(graph):
+    vertex_data = extract_vertex_data(graph)
+    vertex_depth = depth_table(graph, graph.get_vertices()).T
+    vertex_to_segment = vertex_data.segments.explode()
+    segment_depth = vertex_depth.join(vertex_to_segment).groupby("segments").sum()
+    return segment_depth
+
+
 def assemble_segments(graph, unitig_sequences):
     vertex_data = (
         pd.DataFrame(
