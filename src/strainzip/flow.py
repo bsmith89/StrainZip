@@ -11,19 +11,12 @@ def _calculate_static_terms(graph, depth, length, alpha):
     length_source = gt.edge_endpoint_property(graph, length, "source")
     length_target = gt.edge_endpoint_property(graph, length, "target")
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            category=RuntimeWarning,
-        )
-        length_frac_source = graph.new_edge_property(
-            "float",
-            vals=length_source.a ** (alpha)
-            / (length_source.a ** (alpha) + length_target.a ** (alpha)),
-        )
-        length_frac_target = graph.new_edge_property(
-            "float", vals=1 - length_frac_source.a
-        )
+    length_frac_source = graph.new_edge_property(
+        "float",
+        vals=length_source.a ** (alpha)
+        / (length_source.a ** (alpha) + length_target.a ** (alpha)),
+    )
+    length_frac_target = graph.new_edge_property("float", vals=1 - length_frac_source.a)
     return (
         depth_source,
         depth_target,
@@ -146,12 +139,7 @@ def estimate_flow(
         )
         # FIXME: Overflow on square of the correction when using multiprocessing.
         # FIXME (2024-05-28): I may have solved this with clipping.
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "error",
-                category=RuntimeWarning,
-            )
-            loss_hist.append(np.sqrt((correction.a**2).sum()) / depth.a.sum())
+        loss_hist.append(np.sqrt((correction.a**2).sum()) / depth.a.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during flow estimation.")
         elif loss_hist[-1] == 0:
@@ -192,12 +180,7 @@ def estimate_flow(
         )
         # FIXME: Overflow on square of the correction when using multiprocessing.
         # FIXME (2024-05-28): I may have solved this with clipping.
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "error",
-                category=RuntimeWarning,
-            )
-            loss_hist.append(np.sqrt((correction.a**2).sum()) / depth.a.sum())
+        loss_hist.append(np.sqrt((correction.a**2).sum()) / depth.a.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during flow estimation.")
         elif loss_hist[-1] == 0:
@@ -318,12 +301,8 @@ def smooth_depth(
         next_depth = estimate_depth(graph, flow, pseudoflow)
         correction = next_depth.a - depth.a
         # FIXME: Overflow on square of the correction when using multiprocessing.
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "error",
-                category=RuntimeWarning,
-            )
-            loss_hist.append(np.sqrt((correction**2).sum()) / depth.a.sum())
+        # FIXME (2024-05-28): I may have solved this with clipping.
+        loss_hist.append(np.sqrt((correction**2).sum()) / depth.a.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during depth estimation.")
         elif loss_hist[-1] == 0:
