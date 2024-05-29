@@ -63,6 +63,14 @@ def _calculate_delta(flow, graph, depth, static_terms, preallocated_terms):
     gt.incident_edges_op(graph, "in", "sum", flow, total_inflow)
     gt.edge_endpoint_property(graph, total_outflow, "source", total_outflow_source)
     gt.edge_endpoint_property(graph, total_inflow, "target", total_inflow_target)
+    # NOTE (2024-05-28): This error is due to edges with zero flow going to nodes with zero total
+    # flow. We redefine *_fraction_* to be 1, but this doesn't really matter;
+    # That 1 is later multiplied by error_*, and should have no effect on the final
+    # "correction" value... Yeah...?
+    # NOTE (2024-05-28): If this code is run multithreaded (not but not with multiprocessing
+    # or single-threaded) the catch_warnings context manager can do weird things.
+    # While I could replace this with manual setting/resetting filters, I'm almost
+    # never using threading here. (Although I am often using multiprocessing.)
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
@@ -137,6 +145,7 @@ def estimate_flow(
             flow, graph, depth, static_terms, preallocated_terms
         )
         # FIXME: Overflow on square of the correction when using multiprocessing.
+        # FIXME (2024-05-28): I may have solved this with clipping.
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "error",
@@ -148,7 +157,14 @@ def estimate_flow(
         elif loss_hist[-1] == 0:
             break  # This should only happen if d is all 0's.
 
+        # Update flow
         flow.a += correction.a
+        # NOTE (2024-05-28):
+        # Very small negative values can show up (numerical precision issues?)
+        # which then baloon into large negative values.
+        # Clipping seems to solve this.
+        flow.a = np.clip(flow.a, 0, None)
+
         pbar1.set_postfix({"relative_loss": loss_hist[-1]})
         if loss_hist[-1] < eps:
             break
@@ -175,6 +191,7 @@ def estimate_flow(
             flow, graph, depth, static_terms, preallocated_terms
         )
         # FIXME: Overflow on square of the correction when using multiprocessing.
+        # FIXME (2024-05-28): I may have solved this with clipping.
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "error",
@@ -186,7 +203,14 @@ def estimate_flow(
         elif loss_hist[-1] == 0:
             break  # This should only happen if d is all 0's.
 
+        # Update flow
         flow.a += correction.a
+        # NOTE (2024-05-28):
+        # Very small negative values can show up (numerical precision issues?)
+        # which then baloon into large negative values.
+        # Clipping seems to solve this.
+        flow.a = np.clip(flow.a, 0, None)
+
         pbar2.set_postfix({"relative_loss": loss_hist[-1]})
         if loss_hist[-1] < eps:
             break
