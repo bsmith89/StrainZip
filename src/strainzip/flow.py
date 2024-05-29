@@ -330,7 +330,7 @@ def smooth_depth(
             break  # TODO: Ask if/when this happens.
 
         depth = next_depth
-        pbar.set_postfix
+        pbar.set_postfix({"relative_loss": loss_hist[-1]})
         if loss_hist[-1] < eps:
             break
     else:
