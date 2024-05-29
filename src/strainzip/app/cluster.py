@@ -20,7 +20,10 @@ class ClusterTigs(App):
             "thresh", type=float, help="Distance threshold for clustering."
         )
         self.parser.add_argument(
-            "cluster_outpath", help="Outpath for mapping from vertices to clusters."
+            "vertex_outpath", help="Outpath for mapping from vertices to clusters."
+        )
+        self.parser.add_argument(
+            "segment_outpath", help="Outpath for mapping from segments to clusters."
         )
         self.parser.add_argument(
             "depth_outpath", help="Outpath for depth table for each cluster."
@@ -71,14 +74,15 @@ class ClusterTigs(App):
             kmeans = MiniBatchKMeans(
                 n_clusters=args.num_preclust, random_state=args.random_seed
             ).fit(trsfm_vertex_depth_normalized)
-            vertex_preclust = pd.Series(kmeans.labels_, index=vertex_depth.index)
-            preclust_length = vertex_length.groupby(vertex_preclust).sum()
-            preclust_depth = (
-                (vertex_depth.multiply(vertex_length, axis=0))
-                .groupby(vertex_preclust)
-                .sum()
-                .divide(preclust_length, axis=0)
-            )
+            with sz.logging_util.phase_info("Aggregating precluster stats"):
+                vertex_preclust = pd.Series(kmeans.labels_, index=vertex_depth.index)
+                preclust_length = vertex_length.groupby(vertex_preclust).sum()
+                preclust_depth = (
+                    (vertex_depth.multiply(vertex_length, axis=0))
+                    .groupby(vertex_preclust)
+                    .sum()
+                    .divide(preclust_length, axis=0)
+                )
 
         with sz.logging_util.phase_info("Clustering"):
             agglom = AgglomerativeClustering(
@@ -87,26 +91,42 @@ class ClusterTigs(App):
                 linkage="average",
                 distance_threshold=args.thresh,
             ).fit(preclust_depth**args.exponent)
-            clust = pd.Series(agglom.labels_, index=preclust_depth.index)
-            clust_length = preclust_length.groupby(clust).sum()
-            clust_depth = (
-                (preclust_depth.multiply(preclust_length, axis=0))
-                .groupby(clust)
-                .sum()
-                .divide(clust_length, axis=0)
-            )
-            vertex_clust = (
-                vertex_preclust.map(clust).rename_axis("vertex").rename("cluster")
-            )
-            meta = pd.DataFrame(
-                dict(
-                    num_vertices=vertex_clust.value_counts(),
-                    total_length=clust_length,
-                    total_depth=clust_depth.sum(1),
+            with sz.logging_util.phase_info("Aggregating cluster stats"):
+                clust = pd.Series(agglom.labels_, index=preclust_depth.index)
+                clust_length = preclust_length.groupby(clust).sum()
+                clust_depth = (
+                    (preclust_depth.multiply(preclust_length, axis=0))
+                    .groupby(clust)
+                    .sum()
+                    .divide(clust_length, axis=0)
                 )
-            ).rename_axis(index="cluster")
+                vertex_clust = (
+                    vertex_preclust.map(clust).rename_axis("vertex").rename("cluster")
+                )
+                vertex_segment = (
+                    pd.Series(graph.vp["sequence"], index=graph.get_vertices())
+                    .str.split(",")
+                    .explode()
+                    .rename("segment")
+                    .rename_axis("vertex")
+                    .reset_index()
+                )
+                segment_clust = vertex_segment.join(vertex_clust, on="vertex")[
+                    ["segment", "cluster"]
+                ]
+                meta = pd.DataFrame(
+                    dict(
+                        num_vertices=vertex_clust.value_counts(),
+                        num_segments=segment_clust.cluster.value_counts(),
+                        total_length=clust_length,
+                        total_depth=clust_depth.sum(1),
+                    )
+                ).rename_axis(index="cluster")
 
         with sz.logging_util.phase_info("Writing outputs"):
-            vertex_clust.to_csv(args.cluster_outpath, sep="\t")
+            vertex_clust.to_csv(args.vertex_outpath, sep="\t")
+            segment_clust.drop_duplicates().to_csv(
+                args.segment_outpath, sep="\t", index=False
+            )
             clust_depth.to_csv(args.depth_outpath, sep="\t")
             meta.to_csv(args.meta_outpath, sep="\t")
