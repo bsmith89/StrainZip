@@ -48,19 +48,25 @@ class SmoothDepths(App):
             default=1,
             help="Number of parallel processes.",
         )
+        self.parser.add_argument(
+            "--sample-list",
+            help="Only smooth a subset of samples. (Primarily useful for debugging.)",
+        )
+
+    def validate_and_transform_args(self, args):
+        if args.sample_list:
+            args.sample_list = [int(s) for s in args.sample_list.split(",")]
+        return args
 
     def execute(self, args):
         graph = sz.io.load_graph(args.inpath)
+        if not args.sample_list:
+            args.sample_list = list(range(graph.gp["num_samples"]))
 
         with processPool(processes=args.processes) as process_pool:
-            # depth_procs = map(  # FIXME (2024-05-28): Debugging overflow in flow.py:40
-            # This overflow only happens using a multiprocessing.Pool
             depth_procs = process_pool.imap(
                 _smooth_one_sample,
-                (
-                    (graph, sample_id, args.eps)
-                    for sample_id in range(graph.gp["num_samples"])
-                ),
+                ((graph, sample_id, args.eps) for sample_id in args.sample_list),
             )
 
             depth_values = np.stack(
@@ -74,6 +80,6 @@ class SmoothDepths(App):
                 ]
             )
 
-        graph.vp["depth"].set_2d_array(depth_values)
+        graph.vp["depth"].set_2d_array(depth_values, pos=args.sample_list)
 
         sz.io.dump_graph(graph, args.outpath)
