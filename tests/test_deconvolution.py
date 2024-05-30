@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 import strainzip as sz
-from strainzip.depth_model import LogPlusAlphaLogNormal, SoftPlusNormal
+from strainzip.depth_model import NAMED_DEPTH_MODELS
 
 
 def test_well_specified_deconvolution():
@@ -50,9 +50,8 @@ def test_well_specified_deconvolution():
     X_reduced = X[:, _active_paths]
 
     # Estimate model parameters
-    depth_model = LogPlusAlphaLogNormal(
-        alpha=1e-5  # Small offset for handling 0s in depths
-    )
+    model_class, default_model_params = NAMED_DEPTH_MODELS["Default"]
+    depth_model = model_class(**default_model_params)
     fit = depth_model.fit(y_obs, X_reduced)
 
     # Calculate likelihood
@@ -106,27 +105,24 @@ def test_convergence_error():
     )
     X_reduced = X[:, _active_paths]
 
-    for model_class, model_params in [
-        (LogPlusAlphaLogNormal, dict(alpha=1e-5)),
-        (SoftPlusNormal, dict()),
-    ]:
+    for model_name in NAMED_DEPTH_MODELS:
+        model_class, default_model_params = NAMED_DEPTH_MODELS[model_name]
         depth_model = model_class(
             maxiter=10000,
-            **model_params,
+            **default_model_params,
         )
         fit = depth_model.fit(y_obs, X_reduced)
         with pytest.raises(sz.errors.ConvergenceException):
             depth_model = model_class(
-                maxiter=5,
-                **model_params,
+                maxiter=2,
+                **default_model_params,
             )
             fit = depth_model.fit(y_obs, X_reduced)
 
 
 def test_no_noise_deconvolution():
-    depth_model = LogPlusAlphaLogNormal(
-        alpha=1e-5
-    )  # Small offset for handling 0s in depths
+    model_class, default_model_params = NAMED_DEPTH_MODELS["Default"]
+    depth_model = model_class(**default_model_params)
     n, m = 2, 3  # In-edges / out-edges
     s_samples = 3
     depth_multiplier = 1  # Scaling factor for depths
@@ -180,9 +176,8 @@ def test_no_noise_deconvolution():
 
 
 def test_predefined_deconvolution():
-    depth_model = LogPlusAlphaLogNormal(
-        alpha=1e-5
-    )  # Small offset for handling 0s in depths
+    model_class, default_model_params = NAMED_DEPTH_MODELS["Default"]
+    depth_model = model_class(**default_model_params)
     n, m = 2, 3  # In-edges / out-edges
     s_samples = 3
     sigma = 1  # Scale of the multiplicative noise
@@ -261,9 +256,8 @@ def test_predefined_deconvolution():
 # FIXME: Parameterize the previous test instead of making this nearly identical test.
 def test_model_selection_procedure_2x1():
     seed = 0
-    depth_model = LogPlusAlphaLogNormal(
-        alpha=1e-0
-    )  # Small offset for handling 0s in depths
+    model_class, default_model_params = NAMED_DEPTH_MODELS["Default"]
+    depth_model = model_class(**default_model_params)
     n, m = 2, 1  # In-edges / out-edges
     s_samples = 4
     sigma = 1e-1  # Scale of the multiplicative noise
