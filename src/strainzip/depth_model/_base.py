@@ -1,13 +1,15 @@
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Tuple
 
 import jax.numpy as jnp
 import numpy as np
+from jax import hessian as jax_hessian
+from jax.tree_util import Partial
 
 
 @dataclass
 class DepthModelResult:
-    model: "BaseDepthModel"
+    model: "DepthModel"
     params: Mapping[str, Any]
     X: Any
     y: Any
@@ -18,23 +20,12 @@ class DepthModelResult:
         return self.params["beta"]
 
     @property
-    def hessian_beta(self):
-        num_betas = self.num_paths * self.num_samples
-        return self.model.hessian(
-            beta=self.beta, y=self.y, X=self.X, sigma=self.params["sigma"]
-        )[0][0].reshape((num_betas, num_betas))
+    def stderr_beta(self):
+        return self.model.stderr_beta(**self.params, y=self.y, X=self.X)
 
     @property
     def loglik(self):
         return self.model.loglik(**self.params, y=self.y, X=self.X)
-
-    @property
-    def covariance_beta(self):
-        try:
-            cov = jnp.linalg.inv(self.hessian_beta)
-        except np.linalg.LinAlgError:
-            cov = np.nan * np.ones_like(self.hessian_beta)
-        return cov
 
     @property
     def num_paths(self):
@@ -54,63 +45,106 @@ class DepthModelResult:
     def num_samples(self):
         return self.y.shape[1]
 
-    @property
-    def score(self):
-        return -self.bic
-
     def get_score(self, score_name):
         if score_name == "aic":
-            return -self.aic
+            return -self._aic
         elif score_name == "bic":
-            return -self.bic
+            return -self._bic
         elif score_name == "aicc":
-            return -self.aicc
+            return -self._aicc
         else:
             raise ValueError(f"Requested {score_name} is not a known score name.")
 
     @property
-    def bic(self):
+    def _bic(self):
         num_observations = self.num_edges * self.num_samples
         bic = -2 * self.loglik + 2 * self.num_params * np.log(num_observations)
         return bic
 
     @property
-    def aic(self):
+    def _aic(self):
         aic = -2 * self.loglik + 2 * self.num_params
         return aic
 
     @property
-    def aicc(self):
+    def _aicc(self):
         num_observations = self.num_edges * self.num_samples
-        aicc = self.aic + (2 * self.num_params**2 + 2 * self.num_params) / (
+        aicc = self._aic + (2 * self.num_params**2 + 2 * self.num_params) / (
             num_observations - self.num_params - 1
         )
         return aicc
 
-    @property
-    def stderr_beta(self):
-        return np.nan_to_num(
-            jnp.sqrt(jnp.diag(self.covariance_beta)).reshape(self.beta.shape),
-            nan=np.inf,
+
+class DepthModel:
+    param_names = []
+
+    def _fit(self, y, X) -> Tuple[Mapping[str, Any], Any]:
+        raise NotImplementedError(
+            "Subclasses of DepthModel must implement the *_fit* method "
+            "that returns a dictionary of estimated parameters. "
+            "It also returns a second value (optional; may be None), which "
+            "is passed on for debugging/information purposes. "
+            "Implementations of DepthModel._fit are also responsible for "
+            "tracking optimization error, checking for "
+            "convergence, etc., and raising appropriate errors."
         )
 
-    @property
-    def residual(self):
-        return self.y - self.X @ self.beta
+    def loglik(self, beta, y, X, **params):
+        raise NotImplementedError(
+            "Subclasses of DepthModel must implement the *loglik* method that returns the parameter log-likelihood given the data."
+        )
 
+    def stderr_beta(self, beta, y, X, **params):
+        raise NotImplementedError(
+            "Subclasses of DepthModel must implement the *loglik* method that returns the parameter log-likelihood given the data."
+        )
 
-class BaseDepthModel:
     def fit(self, y, X) -> DepthModelResult:
-        raise NotImplementedError(
-            "Subclasses of DepthModel must implement the *fit* method that returns a model result."
+        params, debug = self._fit(y, X)
+        return DepthModelResult(
+            model=self,
+            params=params,
+            X=X,
+            y=y,
+            debug=debug,
         )
 
-    def loglik(self, beta, y, X, **kwargs):
+
+class HessianDepthModel(DepthModel):
+    def hessian_beta(self, beta, y, X, **params):
         raise NotImplementedError(
-            "Subclasses of DepthModel must implement the *loglik* method that returns the parameter log-likelihood given the data."
+            "Subclasses of DepthModelWithHessian must implement the *hessian_beta* method that returns the hessian matrix across beta elements evaluated at a point."
         )
 
-    def hessian(self, beta, y, X, **kwargs):
-        raise NotImplementedError(
-            "Subclasses of DepthModel must implement the *loglik* method that returns the parameter log-likelihood given the data."
+    def covariance_beta(self, beta, y, X, **params):
+        try:
+            cov = np.linalg.inv(self.hessian_beta(beta, y, X, **params))
+        except np.linalg.LinAlgError:
+            cov = np.nan * np.ones_like(self.hessian_beta)
+        return cov
+
+    def stderr_beta(self, beta, y, X, **params):
+        stderr = np.sqrt(np.diag(self.covariance_beta(beta, y, X, **params))).reshape(
+            beta.shape
         )
+        return np.nan_to_num(stderr, nan=np.inf)
+
+
+class JaxDepthModel(HessianDepthModel):
+    def _jax_loglik(self, beta, y, X, **params):
+        raise NotImplementedError(
+            "Subclasses of JaxDepthModel must implement the *_jax_loglik* method that returns a JAX version of the loglik"
+        )
+
+    def loglik(self, *args, **kwargs):
+        return self._jax_loglik(*args, **kwargs)
+
+    def _negloglik(self, *args, **kwargs):
+        return -self._jax_loglik(*args, **kwargs)
+
+    def hessian_beta(self, beta, y, X, **params):
+        num_betas = beta.shape[0] * beta.shape[1]
+        hessian = jax_hessian(
+            Partial(self._negloglik, y=y, X=X, **params), argnums=[0]
+        )(beta)
+        return hessian[0][0].reshape((num_betas, num_betas))

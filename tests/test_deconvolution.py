@@ -4,6 +4,11 @@ import pytest
 import strainzip as sz
 from strainzip.depth_model import NAMED_DEPTH_MODELS
 
+# TODO (2024-05-30): BIG refactor of this test set, splitting out tests of the depth model and depth model result interfaces.
+# Testing deconvolution means testing the model search procedure and everything in strainzip.deconvolution
+# Testing depth models is just a part of this (and should be isolated)
+# Be sure to test the shapes of the beta_stderr results, for instance.
+
 
 def test_well_specified_deconvolution():
     seed = 0
@@ -55,7 +60,7 @@ def test_well_specified_deconvolution():
     fit = depth_model.fit(y_obs, X_reduced)
 
     # Calculate likelihood
-    assert np.isfinite(fit.score)
+    assert np.isfinite(fit.get_score("bic"))
 
     # Estimate standard errors / Check model identifiable.
     assert np.isfinite(fit.stderr_beta).all()
@@ -164,7 +169,7 @@ def test_no_noise_deconvolution():
     assert np.allclose(fit.sigma, np.zeros_like(fit.sigma), atol=1e-4)
 
     # Check BIC
-    assert np.allclose(fit.score, 203.59065)
+    assert np.allclose(fit.get_score("bic"), 203.59065)
 
     # Estimate standard errors.
     # Check estimates.
@@ -237,7 +242,7 @@ def test_predefined_deconvolution():
     )
 
     # Check BIC
-    assert np.allclose(fit.score, -63.953182)
+    assert np.allclose(fit.get_score("bic"), -63.953182)
 
     # Estimate standard errors.
     # Check estimates.
@@ -293,6 +298,7 @@ def test_model_selection_procedure_2x1():
         y_obs[:n],
         y_obs[-m:],
         model=depth_model,
+        score_name="bic",
     )
     top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
     pathset, best_score = top_scores[0]
