@@ -1,6 +1,7 @@
 import logging
 
 import pandas as pd
+import scipy as sp
 from sklearn.cluster import AgglomerativeClustering, MiniBatchKMeans
 
 import strainzip as sz
@@ -27,6 +28,10 @@ class ClusterTigs(App):
         )
         self.parser.add_argument(
             "depth_outpath", help="Outpath for depth table for each cluster."
+        )
+        self.parser.add_argument(
+            "shared_outpath",
+            help="Outpath for unique, shared segments between pairs of clusters.",
         )
         self.parser.add_argument("meta_outpath", help="Outpath for cluster metadata.")
         self.parser.add_argument(
@@ -118,10 +123,51 @@ class ClusterTigs(App):
                     dict(
                         num_vertices=vertex_clust.value_counts(),
                         num_segments=segment_clust.cluster.value_counts(),
+                        num_unique_segments=segment_clust.drop_duplicates().cluster.value_counts(),
                         total_length=clust_length,
-                        total_depth=clust_depth.sum(1),
+                        total_depth=clust_depth.sum(
+                            1
+                        ),  # Estimated cluster depth summed across all samples.
                     )
                 ).rename_axis(index="cluster")
+
+        with sz.logging_util.phase_info("Tallying shared segments"):
+            segment_idx = (
+                pd.Series(segment_clust.segment.unique(), name="segment")
+                .rename_axis("segment_idx")
+                .reset_index()
+                .set_index(["segment"])
+            )
+            sparse_segment_clust_matrix = (
+                segment_clust.drop_duplicates()
+                .join(segment_idx, on="segment")
+                .assign(tally=1)
+            )
+            sparse_segment_clust_matrix = sp.sparse.csc_array(
+                (
+                    sparse_segment_clust_matrix.tally,
+                    (
+                        sparse_segment_clust_matrix.segment_idx,
+                        sparse_segment_clust_matrix.cluster,
+                    ),
+                )
+            )
+            # TODO (2024-05-30): Consider loading shared segments counts into the sparse, multi-indexed pd.Series without going through a dense matrix stage.
+            shared_segments_matrix = pd.DataFrame(
+                (sparse_segment_clust_matrix.T @ sparse_segment_clust_matrix).todense()
+            ).rename_axis(index="clusterA", columns="clusterB")
+            shared_segments = (
+                shared_segments_matrix.stack()
+                .to_frame(name="num_shared_segments")
+                .assign(
+                    num_clusterA_segments=lambda x: x.clusterA.map(
+                        meta.num_unique_segments
+                    ),
+                    num_clusterB_segments=lambda x: x.clusterB.map(
+                        meta.num_unique_segments
+                    ),
+                )[lambda x: (x.num_shared_segments > 0) & (x.clusterA < x.clusterB)]
+            )
 
         with sz.logging_util.phase_info("Writing outputs"):
             vertex_clust.to_csv(args.vertex_outpath, sep="\t")
@@ -129,4 +175,5 @@ class ClusterTigs(App):
                 args.segment_outpath, sep="\t", index=False
             )
             clust_depth.to_csv(args.depth_outpath, sep="\t")
+            shared_segments.to_csv(args.shared_outpath, sep="\t", index=False)
             meta.to_csv(args.meta_outpath, sep="\t")
