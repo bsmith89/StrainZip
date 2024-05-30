@@ -20,7 +20,7 @@ DEFAULT_RELATIVE_ERROR_THRESH = 0.1
 DEFAULT_ABSOLUTE_ERROR_THRESH = 1.0
 DEFAULT_MIN_DEPTH = 0
 
-DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
+DEFAULT_DEPTH_MODEL = "Default"
 
 
 def _run_drop_low_depth_edges(graph, gm, min_depth, mapping_func):
