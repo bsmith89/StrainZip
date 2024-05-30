@@ -2,8 +2,7 @@ import numpy as np
 import pytest
 
 import strainzip as sz
-from strainzip.depth_model import LogPlusAlphaLogNormal
-from strainzip.depth_model2 import SoftPlusNormal
+from strainzip.depth_model import LogPlusAlphaLogNormal, SoftPlusNormal
 
 
 def test_well_specified_deconvolution():

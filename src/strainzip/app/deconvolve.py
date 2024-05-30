@@ -8,8 +8,7 @@ import numpy as np
 import strainzip as sz
 from strainzip.logging_util import phase_info
 
-from ..depth_model import LogPlusAlphaLogNormal
-from ..depth_model2 import SoftPlusNormal
+from ..depth_model import NAMED_DEPTH_MODELS
 from ..logging_util import tqdm_info
 from ._base import App
 
@@ -20,11 +19,6 @@ DEFAULT_OPT_MAXITER = 10000
 DEFAULT_RELATIVE_ERROR_THRESH = 0.1
 DEFAULT_ABSOLUTE_ERROR_THRESH = 1.0
 DEFAULT_MIN_DEPTH = 0
-
-DEPTH_MODELS = {
-    "LogPlusAlphaLogNormal": (LogPlusAlphaLogNormal, dict(alpha=1.0)),
-    "SoftPlusNormal": (SoftPlusNormal, dict()),
-}
 
 DEFAULT_DEPTH_MODEL = "LogPlusAlphaLogNormal"
 
@@ -371,7 +365,7 @@ class DeconvolveGraph(App):
             dest="model_name",
             type=str,
             help="Which depth model to use.",
-            choices=DEPTH_MODELS.keys(),
+            choices=NAMED_DEPTH_MODELS.keys(),
             default=DEFAULT_DEPTH_MODEL,
         )
         self.parser.add_argument(
@@ -409,7 +403,9 @@ class DeconvolveGraph(App):
 
     def validate_and_transform_args(self, args):
         # Fetch model and default hyperparameters by name.
-        depth_model_class, model_default_hyperparameters = DEPTH_MODELS[args.model_name]
+        depth_model_class, model_default_hyperparameters = NAMED_DEPTH_MODELS[
+            args.model_name
+        ]
 
         # Populate a dictionary of hyperparameters from the provided KEY=VALUE pairs.
         model_hyperparameters = {}
