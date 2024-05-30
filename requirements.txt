@@ -1,5 +1,6 @@
 black
 cython
+fastcluster
 graph-tool
 ipython
 isort
@@ -10,16 +11,17 @@ line_profiler
 lz4
 matplotlib
 memory_profiler
+netCDF4
 nptyping
-numba
 numpy
 pandas
-patsy
 pip
 pre-commit
 pynvim
 pyright
 pytest
 scipy
+seaborn
+snakemake
 tqdm
 xarray
