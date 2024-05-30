@@ -6,7 +6,7 @@ from jax.tree_util import Partial
 
 from strainzip.errors import ConvergenceException
 
-from ._base import BaseDepthModel, FitResult
+from ._base import BaseDepthModel, DepthModelResult
 
 
 def _trsfm(x, alpha):
@@ -82,30 +82,32 @@ def fit(y, X, alpha, maxiter=500):
     if not opt.iter_num < maxiter:
         raise ConvergenceException(opt)
 
-    # NOTE: Hessian of the *negative* log likelihood, because this is what's being
-    # minimized? (How does this make sense??)
-    hessian_func = hessian(
-        Partial(_negloglik, y=y, X=X, alpha=alpha), argnums=range(len(params_est))
-    )
     # NOTE: Doesn't generalize well to other models. I'll have to change this line.
     beta_est, sigma_est = params_est
-    fit_result = FitResult(
-        beta=beta_est,
-        sigma=sigma_est,
-        hessian_func=hessian_func,
-        loglik_func=loglik,
-        X=X,
-        y=y,
-        alpha=alpha,
-        opt=opt,
-    )
-    return fit_result
+    return beta_est, sigma_est, opt
 
 
-class OffsetLogDepthModel(BaseDepthModel):
+class OffsetLogNormalDepthModel(BaseDepthModel):
     def __init__(self, alpha, maxiter=500):
         self.alpha = alpha
         self.maxiter = maxiter
 
     def fit(self, y, X):
-        return fit(y, X, self.alpha, self.maxiter)
+        beta_est, sigma_est, opt = fit(y, X, self.alpha, self.maxiter)
+        return DepthModelResult(
+            model=self,
+            params=dict(beta=beta_est, sigma=sigma_est),
+            X=X,
+            y=y,
+            debug=dict(opt=opt),
+        )
+
+    def loglik(self, beta, y, X, **kwargs):
+        return loglik(beta, kwargs["sigma"], y, X, self.alpha)
+
+    # NOTE: Hessian of the *negative* log likelihood, because this is what's being
+    # minimized? (How does this make sense??)
+    def hessian(self, beta, y, X, **kwargs):
+        return hessian(Partial(_negloglik, y=y, X=X, alpha=self.alpha), argnums=[0, 1])(
+            beta, kwargs["sigma"]
+        )

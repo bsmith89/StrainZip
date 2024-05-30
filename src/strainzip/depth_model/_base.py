@@ -5,34 +5,28 @@ import jax.numpy as jnp
 import numpy as np
 
 
-class BaseDepthModel:
-    def fit(self, y, X):
-        raise NotImplementedError(
-            "Subclasses of DepthModel must implement the *fit* method."
-        )
-
-
 @dataclass
-class FitResult:
-    beta: Any
-    sigma: Any
-    hessian_func: Any
-    loglik_func: Any
+class DepthModelResult:
+    model: "BaseDepthModel"
+    params: Mapping[str, Any]
     X: Any
     y: Any
-    alpha: float
-    opt: Any
+    debug: Mapping[str, Any]
+
+    @property
+    def beta(self):
+        return self.params["beta"]
 
     @property
     def hessian_beta(self):
         num_betas = self.num_paths * self.num_samples
-        return self.hessian_func(self.beta, self.sigma)[0][0].reshape(
-            (num_betas, num_betas)
-        )
+        return self.model.hessian(
+            beta=self.beta, y=self.y, X=self.X, sigma=self.params["sigma"]
+        )[0][0].reshape((num_betas, num_betas))
 
     @property
     def loglik(self):
-        return self.loglik_func(self.beta, self.sigma, self.y, self.X, self.alpha)
+        return self.model.loglik(**self.params, y=self.y, X=self.X)
 
     @property
     def covariance_beta(self):
@@ -77,7 +71,7 @@ class FitResult:
     @property
     def bic(self):
         num_observations = self.num_edges * self.num_samples
-        bic = -2 * self.loglik + 2 * self.num_params * jnp.log(num_observations)
+        bic = -2 * self.loglik + 2 * self.num_params * np.log(num_observations)
         return bic
 
     @property
@@ -103,3 +97,20 @@ class FitResult:
     @property
     def residual(self):
         return self.y - self.X @ self.beta
+
+
+class BaseDepthModel:
+    def fit(self, y, X) -> DepthModelResult:
+        raise NotImplementedError(
+            "Subclasses of DepthModel must implement the *fit* method that returns a model result."
+        )
+
+    def loglik(self, beta, y, X, **kwargs):
+        raise NotImplementedError(
+            "Subclasses of DepthModel must implement the *loglik* method that returns the parameter log-likelihood given the data."
+        )
+
+    def hessian(self, beta, y, X, **kwargs):
+        raise NotImplementedError(
+            "Subclasses of DepthModel must implement the *loglik* method that returns the parameter log-likelihood given the data."
+        )
