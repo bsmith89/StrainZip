@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from multiprocessing import Pool as ProcessPool
+from multiprocessing.dummy import Pool as ProcessPool
 
 import graph_tool as gt
 import numpy as np
