@@ -1,11 +1,11 @@
 import jax.numpy as jnp
 import jaxopt
-from jax import hessian, jit
+from jax import jit
 from jax.nn import softplus
-from jax.scipy.stats.laplace import logpdf as LaplaceLogPDF
+from jax.scipy.stats.laplace import logpdf as laplace_logpdf
 from jax.tree_util import Partial
 
-from ._base import DepthModelResult, JaxDepthModel
+from ._base import JaxDepthModel
 
 
 def _residual(beta, y, X):
@@ -19,7 +19,7 @@ def _fit_laplace_model(y, X, maxiter=500):
     e_edges, p_paths = X.shape
     init_beta_raw = jnp.ones((p_paths, s_samples))
 
-    def objective(beta_raw, y, X):
+    def objective(beta_raw):
         beta = softplus(beta_raw)
         return (jnp.abs(_residual(beta, y, X))).sum()
 
@@ -28,10 +28,10 @@ def _fit_laplace_model(y, X, maxiter=500):
         init_params=init_beta_raw,
     )
     beta_est = softplus(beta_est_raw)
-    # Estimate sigma as the root mean sum of squared residuals.
-    sigma_est = (jnp.abs(_residual(beta_est, y, X))).mean(0, keepdims=True)
+    # Estimate scale as the mean of absolute residuals.
+    scale_est = (jnp.abs(_residual(beta_est, y, X))).mean(0, keepdims=True)
     # NOTE: This has a separate sigma estimate for each sample.
-    return dict(beta=beta_est, sigma=sigma_est), opt
+    return dict(beta=beta_est, sigma=scale_est), opt
 
 
 class LaplaceDepthModel(JaxDepthModel):
@@ -52,4 +52,4 @@ class LaplaceDepthModel(JaxDepthModel):
 
     def _jax_loglik(self, beta, y, X, **params):
         expect = X @ beta
-        return LaplaceLogPDF(y, loc=expect, scale=params["sigma"]).sum()
+        return laplace_logpdf(y, loc=expect, scale=params["sigma"]).sum()

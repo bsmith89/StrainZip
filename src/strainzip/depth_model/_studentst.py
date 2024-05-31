@@ -1,11 +1,11 @@
 import jax.numpy as jnp
 import jaxopt
-from jax import hessian, jit
+from jax import jit
 from jax.nn import softplus
-from jax.scipy.stats.t import logpdf as StudentsTLogPDF
+from jax.scipy.stats.t import logpdf as studentst_logpdf
 from jax.tree_util import Partial
 
-from ._base import DepthModelResult, JaxDepthModel
+from ._base import JaxDepthModel
 
 
 def _residual(beta, y, X):
@@ -34,7 +34,7 @@ def _fit_studentst_model(y, X, df, maxiter=500):
 
     def objective2(scale_raw):
         scale = softplus(scale_raw)
-        return -StudentsTLogPDF(residuals, df=df, loc=0, scale=scale).sum()
+        return -studentst_logpdf(residuals, df=df, loc=0, scale=scale).sum()
 
     scale_est_raw, opt2 = jaxopt.LBFGS(Partial(objective2), maxiter=maxiter).run(
         init_params=init_scale_raw,
@@ -66,4 +66,4 @@ class StudentsTDepthModel(JaxDepthModel):
 
     def _jax_loglik(self, beta, y, X, **params):
         expect = X @ beta
-        return StudentsTLogPDF(y, df=self.df, loc=expect, scale=params["scale"]).sum()
+        return studentst_logpdf(y, df=self.df, loc=expect, scale=params["scale"]).sum()

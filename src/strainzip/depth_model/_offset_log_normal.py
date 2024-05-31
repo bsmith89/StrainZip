@@ -1,10 +1,10 @@
 import jax.numpy as jnp
 import jaxopt
-from jax import hessian, jit
-from jax.scipy.stats.norm import logpdf as NormalLogPDF
+from jax import jit
+from jax.scipy.stats.norm import logpdf as normal_logpdf
 from jax.tree_util import Partial
 
-from ._base import DepthModelResult, JaxDepthModel
+from ._base import JaxDepthModel
 
 
 def _trsfm(x, alpha):
@@ -70,4 +70,4 @@ class OffsetLogNormalDepthModel(JaxDepthModel):
         expect = X @ beta
         y_trsfm = _trsfm(y, alpha=self.alpha)
         expect_trsfm = _trsfm(expect, alpha=self.alpha)
-        return NormalLogPDF(y_trsfm, loc=expect_trsfm, scale=params["sigma"]).sum()
+        return normal_logpdf(y_trsfm, loc=expect_trsfm, scale=params["sigma"]).sum()

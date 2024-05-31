@@ -1,11 +1,11 @@
 import jax.numpy as jnp
 import jaxopt
-from jax import hessian, jit
+from jax import jit
 from jax.nn import softplus
-from jax.scipy.stats.norm import logpdf as NormalLogPDF
+from jax.scipy.stats.norm import logpdf as normal_logpdf
 from jax.tree_util import Partial
 
-from ._base import DepthModelResult, JaxDepthModel
+from ._base import JaxDepthModel
 
 
 def _residual(beta, y, X):
@@ -54,4 +54,4 @@ class NormalPooledDepthModel(JaxDepthModel):
 
     def _jax_loglik(self, beta, y, X, **params):
         expect = X @ beta
-        return NormalLogPDF(y, loc=expect, scale=params["sigma"]).sum()
+        return normal_logpdf(y, loc=expect, scale=params["sigma"]).sum()
