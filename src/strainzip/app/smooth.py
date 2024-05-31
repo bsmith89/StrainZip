@@ -37,7 +37,7 @@ class SmoothDepths(App):
         self.parser.add_argument(
             "--eps",
             "-e",
-            type=int,
+            type=float,
             default=DEFAULT_EPS,
             help="Stopping condition for depth smoothing. Smaller values will be more precise and take longer to run.",
         )
