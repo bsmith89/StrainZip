@@ -20,6 +20,7 @@ pre-commit
 pynvim
 pyright
 pytest
+scikit-learn
 scipy
 seaborn
 snakemake
