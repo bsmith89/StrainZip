@@ -116,13 +116,13 @@ def test_convergence_error():
             maxiter=10000,
             **default_model_params,
         )
-        fit = depth_model.fit(y_obs, X_reduced)
         with pytest.raises(sz.errors.ConvergenceException):
             depth_model = model_class(
                 maxiter=2,
                 **default_model_params,
             )
             fit = depth_model.fit(y_obs, X_reduced)
+        fit = depth_model.fit(y_obs, X_reduced)
 
 
 def test_no_noise_deconvolution():
