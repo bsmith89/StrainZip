@@ -3,7 +3,6 @@ import jaxopt
 from jax import jit
 from jax.nn import softplus
 from jax.scipy.stats.laplace import logpdf as laplace_logpdf
-from jax.tree_util import Partial
 
 from ._base import JaxDepthModel
 
@@ -24,7 +23,7 @@ def _fit_laplace_model(y, X, maxiter=500):
         return (jnp.abs(_residual(beta, y, X))).sum()
 
     # Estimate beta by minimizing the sum of squared residuals.
-    beta_est_raw, opt = jaxopt.LBFGS(Partial(objective, y=y, X=X), maxiter=maxiter).run(
+    beta_est_raw, opt = jaxopt.LBFGS(objective, maxiter=maxiter).run(
         init_params=init_beta_raw,
     )
     beta_est = softplus(beta_est_raw)

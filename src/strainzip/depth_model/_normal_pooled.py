@@ -3,7 +3,6 @@ import jaxopt
 from jax import jit
 from jax.nn import softplus
 from jax.scipy.stats.norm import logpdf as normal_logpdf
-from jax.tree_util import Partial
 
 from ._base import JaxDepthModel
 
@@ -19,12 +18,12 @@ def _fit_normal_model(y, X, maxiter=500):
     e_edges, p_paths = X.shape
     init_beta_raw = jnp.ones((p_paths, s_samples))
 
-    def objective(beta_raw, y, X):
+    def objective(beta_raw):
         beta = softplus(beta_raw)
         return (_residual(beta, y, X) ** 2).sum()
 
     # Estimate beta by minimizing the sum of squared residuals.
-    beta_est_raw, opt = jaxopt.LBFGS(Partial(objective, y=y, X=X), maxiter=maxiter).run(
+    beta_est_raw, opt = jaxopt.LBFGS(objective, maxiter=maxiter).run(
         init_params=init_beta_raw,
     )
     beta_est = softplus(beta_est_raw)

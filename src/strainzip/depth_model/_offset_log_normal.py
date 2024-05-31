@@ -2,7 +2,6 @@ import jax.numpy as jnp
 import jaxopt
 from jax import jit
 from jax.scipy.stats.norm import logpdf as normal_logpdf
-from jax.tree_util import Partial
 
 from ._base import JaxDepthModel
 
@@ -28,13 +27,11 @@ def _fit_offset_log_normal_model(y, X, alpha, maxiter=500):
     e_edges, p_paths = X.shape
     init_beta = jnp.ones((p_paths, s_samples))
 
-    def objective(beta_trsfm, y, X, alpha):
+    def objective(beta_trsfm):
         return (_residual(_inv_trsfm(beta_trsfm, alpha), y, X, alpha) ** 2).sum()
 
     # Estimate beta by minimizing the sum of squared residuals.
-    beta_est_trsfm, opt = jaxopt.LBFGS(
-        Partial(objective, y=y, X=X, alpha=alpha), maxiter=maxiter
-    ).run(
+    beta_est_trsfm, opt = jaxopt.LBFGS(objective, maxiter=maxiter).run(
         init_params=init_beta,
     )
     beta_est = _inv_trsfm(beta_est_trsfm, alpha)
