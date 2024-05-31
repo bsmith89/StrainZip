@@ -48,7 +48,7 @@ def _fit_studentst_model(y, X, df, maxiter=500):
 class StudentsTDepthModel(JaxDepthModel):
     param_names = ["scale"]
 
-    def __init__(self, maxiter=500, df=25):
+    def __init__(self, df, maxiter=500):
         self.maxiter = maxiter
         self.df = df
 
