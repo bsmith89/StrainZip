@@ -2,7 +2,6 @@ from . import (
     build,
     deconvolution,
     draw,
-    errors,
     flow,
     graph_manager,
     io,
