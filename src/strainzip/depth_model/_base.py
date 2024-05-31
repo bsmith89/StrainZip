@@ -120,7 +120,7 @@ class HessianDepthModel(DepthModel):
         try:
             cov = np.linalg.inv(self.hessian_beta(beta, y, X, **params))
         except np.linalg.LinAlgError:
-            cov = np.nan * np.ones_like(self.hessian_beta)
+            cov = np.nan * np.ones_like(self.hessian_beta(beta, y, X, **params))
         return cov
 
     def stderr_beta(self, beta, y, X, **params):
@@ -144,5 +144,7 @@ class JaxDepthModel(HessianDepthModel):
 
     def hessian_beta(self, beta, y, X, **params):
         num_betas = beta.shape[0] * beta.shape[1]
-        hessian = jax_hessian(Partial(self._negloglik, y=y, X=X, **params), argnums=[0])(beta)
+        hessian = jax_hessian(
+            Partial(self._negloglik, y=y, X=X, **params), argnums=[0]
+        )(beta)
         return hessian[0][0].reshape((num_betas, num_betas))
