@@ -8,7 +8,13 @@ from ._studentst import StudentsTDepthModel
 NAMED_DEPTH_MODELS: Mapping[str, Any] = {
     "OffsetLogNormal": (OffsetLogNormalDepthModel, dict(alpha=1.0)),
     "Normal": (NormalDepthModel, dict()),
-    "Laplace": (LaplaceDepthModel, dict()),
-    "StudentsT": (StudentsTDepthModel, dict(df=5)),
+    "Laplace": (
+        LaplaceDepthModel,
+        dict(),
+    ),  # FIXME (2024-05-31): The hessian is completely flat at the "optimum".
+    "StudentsT": (
+        StudentsTDepthModel,
+        dict(df=5),
+    ),  # FIXME (2024-05-31): Lots of convergence errors (maybe due to optimizing loc and scale together?).
     "Default": (OffsetLogNormalDepthModel, dict(alpha=1.0)),
 }
