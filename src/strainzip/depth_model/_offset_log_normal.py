@@ -66,6 +66,9 @@ class OffsetLogNormalDepthModel(JaxDepthModel):
 
         return params, dict(opt=opt)
 
+    def count_params(self, num_samples, num_edges, num_paths):
+        return num_paths * num_samples + num_samples
+
     def _jax_loglik(self, beta, y, X, **params):
         expect = X @ beta
         y_trsfm = _trsfm(y, alpha=self.alpha)

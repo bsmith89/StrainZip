@@ -32,7 +32,7 @@ def _fit_laplace_model(y, X, maxiter=500):
     beta_est = softplus(beta_est_raw)
     # Estimate sigma as the root mean sum of squared residuals.
     sigma_est = (jnp.abs(_residual(beta_est, y, X))).mean(0, keepdims=True)
-        # NOTE: This has a separate sigma estimate for each sample.
+    # NOTE: This has a separate sigma estimate for each sample.
     return dict(beta=beta_est, sigma=sigma_est), opt
 
 
@@ -49,6 +49,9 @@ class LaplaceDepthModel(JaxDepthModel):
             raise ConvergenceException(opt)
 
         return params, dict(opt=opt)
+
+    def count_params(self, num_samples, num_edges, num_paths):
+        return num_paths * num_samples + num_samples
 
     def _jax_loglik(self, beta, y, X, **params):
         expect = X @ beta

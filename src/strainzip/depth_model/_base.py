@@ -37,9 +37,7 @@ class DepthModelResult:
 
     @property
     def num_params(self):
-        # # NOTE (2024-05-17): Experimenting with a global variance.
-        # return self.num_paths * self.num_samples + 1
-        return self.num_paths * self.num_samples + self.num_samples
+        return self.model.count_params(self.num_samples, self.num_edges, self.num_paths)
 
     @property
     def num_edges(self):
@@ -96,6 +94,11 @@ class DepthModel:
     def loglik(self, beta, y, X, **params):
         raise NotImplementedError(
             "Subclasses of DepthModel must implement the *loglik* method that returns the parameter log-likelihood given the data."
+        )
+
+    def count_params(self, num_samples, num_edges, num_paths):
+        raise NotImplementedError(
+            "Subclasses of DepthModel must implement the *count_params* method that returns the number of parameters to use in score calculations."
         )
 
     def stderr_beta(self, beta, y, X, **params):
