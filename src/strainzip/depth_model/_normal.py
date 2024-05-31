@@ -16,7 +16,7 @@ def _residual(beta, y, X):
 
 
 @jit
-def _fit_softplus_normal_model(y, X, maxiter=500):
+def _fit_normal_model(y, X, maxiter=500):
     e_edges, s_samples = y.shape
     e_edges, p_paths = X.shape
     init_beta_raw = jnp.ones((p_paths, s_samples))
@@ -35,17 +35,17 @@ def _fit_softplus_normal_model(y, X, maxiter=500):
         # NOTE: This has a separate sigma estimate for each sample.
         (_residual(beta_est, y, X) ** 2).mean(0, keepdims=True)
     )
-    return dict(beta=beta_est, sigma=sigma_est), opt # beta -> p by s
+    return dict(beta=beta_est, sigma=sigma_est), opt  # beta -> p by s
 
 
-class SoftplusNormalDepthModel(JaxDepthModel):
+class NormalDepthModel(JaxDepthModel):
     param_names = ["sigma"]
 
     def __init__(self, maxiter=500):
         self.maxiter = maxiter
 
     def _fit(self, y, X):
-        params, opt = _fit_softplus_normal_model(y=y, X=X, maxiter=self.maxiter)
+        params, opt = _fit_normal_model(y=y, X=X, maxiter=self.maxiter)
 
         if not opt.iter_num < self.maxiter:
             raise ConvergenceException(opt)
