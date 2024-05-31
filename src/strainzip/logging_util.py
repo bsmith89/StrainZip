@@ -34,12 +34,12 @@ def push_to_phase_id_stack():
 def phase_info(name):
     start_time = time.time()
     with push_to_phase_id_stack() as phase_id:
-        logging.info(f"     ({phase_id}) {name}")
+        logging.info(f"({phase_id}) {name}")
         yield None
         end_time = time.time()
         delta_time = end_time - start_time
         delta_time_rounded = round(delta_time)
-        logging.info(f"DONE ({phase_id}) {name} ({delta_time_rounded} sec)")
+        logging.info(f"({phase_id}) {name} (DONE {delta_time_rounded} sec)")
 
 
 @contextmanager
