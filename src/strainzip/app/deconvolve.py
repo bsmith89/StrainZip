@@ -200,7 +200,7 @@ def _run_calculate_junction_deconvolutions(
     absolute_stderr_thresh=1.0,
     excess_thresh=1,
     completeness_thresh=1.0,
-    max_paths=20,
+    max_paths=10000,  # Basically no limit
 ):
     deconv_results = mapping_func(
         _calculate_junction_deconvolution,
@@ -517,7 +517,6 @@ class DeconvolveGraph(App):
                                     absolute_stderr_thresh=args.absolute_error_thresh,
                                     excess_thresh=args.excess_thresh,
                                     completeness_thresh=args.completeness_thresh,
-                                    max_paths=100,  # TODO (2024-05-01): Consider whether I want this parameter at all.
                                 )
                                 deconvolutions.extend(deconvolutions_subset)
                             with phase_info("Canonical junctions (2x2)"):
@@ -544,7 +543,6 @@ class DeconvolveGraph(App):
                                     absolute_stderr_thresh=args.absolute_error_thresh,
                                     excess_thresh=args.excess_thresh,
                                     completeness_thresh=args.completeness_thresh,
-                                    max_paths=100,  # TODO (2024-05-01): Consider whether I want this parameter at all.
                                 )
                                 deconvolutions.extend(deconvolutions_subset)
                             with phase_info("Large junctions (> 2x2)"):
@@ -571,7 +569,6 @@ class DeconvolveGraph(App):
                                     absolute_stderr_thresh=args.absolute_error_thresh,
                                     excess_thresh=args.excess_thresh,
                                     completeness_thresh=args.completeness_thresh,
-                                    max_paths=100,  # TODO (2024-05-01): Consider whether I want this parameter at all.
                                 )
                                 deconvolutions.extend(deconvolutions_subset)
                             # TODO (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
