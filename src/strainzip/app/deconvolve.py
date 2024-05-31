@@ -1,4 +1,5 @@
 import logging
+import pickle
 from functools import partial
 from multiprocessing import Pool as ProcessPool
 
@@ -158,6 +159,7 @@ def _calculate_junction_deconvolution(args):
             np.nan * np.empty(s),
             np.nan * np.empty(s),
             None,
+            None,
         )
 
     if len(paths) == 0:
@@ -169,6 +171,7 @@ def _calculate_junction_deconvolution(args):
             np.nan * np.empty(s),
             np.nan * np.empty(s),
             None,
+            fit,
         )
 
     X = sz.deconvolution.design_all_paths(n, m)[0]
@@ -185,6 +188,7 @@ def _calculate_junction_deconvolution(args):
         relative_stderr,
         absolute_stderr,
         (junction, named_paths, {"path_depths": np.array(fit.beta.clip(0))}),  # Result
+        fit,
     )
 
 
@@ -221,6 +225,7 @@ def _run_calculate_junction_deconvolutions(
     )
 
     batch = []
+    all_fits = []
     postfix = dict(
         converged=0,
         best=0,
@@ -243,9 +248,11 @@ def _run_calculate_junction_deconvolutions(
         relative_stderr,
         absolute_stderr,
         result,
+        _fit,
     ) in pbar:
         if not is_converged:
             continue
+        all_fits.append(_fit)
 
         passes_identifiability = (
             (relative_stderr <= relative_stderr_thresh)
@@ -287,7 +294,7 @@ def _run_calculate_junction_deconvolutions(
             )
         )
 
-    return batch
+    return batch, all_fits
 
 
 class DeconvolveGraph(App):
@@ -485,10 +492,10 @@ class DeconvolveGraph(App):
                             graph.set_vertex_filter(graph.vp["filter"])
                             graph.set_edge_filter(graph.ep["filter"])
                         if args.checkpoint_dir:
-                            with phase_info("Writing checkpoint"):
+                            with phase_info("Checkpointing graph"):
                                 sz.io.dump_graph(
                                     graph,
-                                    f"{args.checkpoint_dir}/checkpoint_{i+1}.sz",
+                                    f"{args.checkpoint_dir}/checkpoint_{i}.sz",
                                 )
                         flow = _run_estimate_all_flows(
                             graph,
@@ -508,7 +515,10 @@ class DeconvolveGraph(App):
                                 logging.info(
                                     f"Found {len(junctions_subset)} safe junctions"
                                 )
-                                deconvolutions_subset = _run_calculate_junction_deconvolutions(
+                                (
+                                    deconvolutions_subset,
+                                    fits_subset,
+                                ) = _run_calculate_junction_deconvolutions(
                                     junctions_subset,
                                     graph,
                                     flow,
@@ -524,6 +534,13 @@ class DeconvolveGraph(App):
                                     completeness_thresh=args.completeness_thresh,
                                 )
                                 deconvolutions.extend(deconvolutions_subset)
+                                if args.checkpoint_dir:
+                                    with phase_info("Checkpointing deconvolutions"):
+                                        with open(
+                                            f"{args.checkpoint_dir}/junctions_safe_{i}.pkl",
+                                            "wb",
+                                        ) as f:
+                                            pickle.dump(fits_subset, f)
                             with phase_info("Canonical junctions (2x2)"):
                                 is_canonincal_junction = (in_degree.a == 2) & (
                                     out_degree.a == 2
@@ -534,7 +551,10 @@ class DeconvolveGraph(App):
                                 logging.info(
                                     f"Found {len(junctions_subset)} canonical junctions"
                                 )
-                                deconvolutions_subset = _run_calculate_junction_deconvolutions(
+                                (
+                                    deconvolutions_subset,
+                                    fits_subset,
+                                ) = _run_calculate_junction_deconvolutions(
                                     junctions_subset,
                                     graph,
                                     flow,
@@ -550,6 +570,13 @@ class DeconvolveGraph(App):
                                     completeness_thresh=args.completeness_thresh,
                                 )
                                 deconvolutions.extend(deconvolutions_subset)
+                                if args.checkpoint_dir:
+                                    with phase_info("Checkpointing deconvolutions"):
+                                        with open(
+                                            f"{args.checkpoint_dir}/junctions_canonical_{i}.pkl",
+                                            "wb",
+                                        ) as f:
+                                            pickle.dump(fits_subset, f)
                             with phase_info("Large junctions (NxM < 30)"):
                                 is_large_junction = (
                                     ((in_degree.a >= 2) & (out_degree.a >= 2))
@@ -562,7 +589,10 @@ class DeconvolveGraph(App):
                                 logging.info(
                                     f"Found {len(junctions_subset)} large junctions"
                                 )
-                                deconvolutions_subset = _run_calculate_junction_deconvolutions(
+                                (
+                                    deconvolutions_subset,
+                                    fits_subset,
+                                ) = _run_calculate_junction_deconvolutions(
                                     junctions_subset,
                                     graph,
                                     flow,
@@ -578,6 +608,13 @@ class DeconvolveGraph(App):
                                     completeness_thresh=args.completeness_thresh,
                                 )
                                 deconvolutions.extend(deconvolutions_subset)
+                                if args.checkpoint_dir:
+                                    with phase_info("Checkpointing deconvolutions"):
+                                        with open(
+                                            f"{args.checkpoint_dir}/junctions_large_{i}.pkl",
+                                            "wb",
+                                        ) as f:
+                                            pickle.dump(fits_subset, f)
                             if not args.skip_extra_large:
                                 with phase_info("Extra-large junctions (NxM >= 30)"):
                                     is_extralarge_junction = (
@@ -591,7 +628,10 @@ class DeconvolveGraph(App):
                                     logging.info(
                                         f"Found {len(junctions_subset)} extra-large junctions"
                                     )
-                                    deconvolutions_subset = _run_calculate_junction_deconvolutions(
+                                    (
+                                        deconvolutions_subset,
+                                        fits_subset,
+                                    ) = _run_calculate_junction_deconvolutions(
                                         junctions_subset,
                                         graph,
                                         flow,
@@ -607,6 +647,13 @@ class DeconvolveGraph(App):
                                         completeness_thresh=args.completeness_thresh,
                                     )
                                     deconvolutions.extend(deconvolutions_subset)
+                                    if args.checkpoint_dir:
+                                        with phase_info("Checkpointing deconvolutions"):
+                                            with open(
+                                                f"{args.checkpoint_dir}/junctions_extralarge_{i}.pkl",
+                                                "wb",
+                                            ) as f:
+                                                pickle.dump(fits_subset, f)
                             else:
                                 logging.info(
                                     "Skipping extra-large junctions (NxM >= 30)."
