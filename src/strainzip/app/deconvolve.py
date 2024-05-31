@@ -332,6 +332,11 @@ class DeconvolveGraph(App):
             help="Maximum rounds of graph deconvolution.",
         )
         self.parser.add_argument(
+            "--skip-extra-large",
+            action="store_true",
+            help="Don't try to deconvolve extra large junctions (NxM >= 30).",
+        )
+        self.parser.add_argument(
             "--relative-error-thresh",
             type=float,
             default=DEFAULT_RELATIVE_ERROR_THRESH,
@@ -545,10 +550,12 @@ class DeconvolveGraph(App):
                                     completeness_thresh=args.completeness_thresh,
                                 )
                                 deconvolutions.extend(deconvolutions_subset)
-                            with phase_info("Large junctions (> 2x2)"):
+                            with phase_info("Large junctions (NxM < 30)"):
                                 is_large_junction = (
-                                    (in_degree.a >= 2) & (out_degree.a >= 2)
-                                ) & ((in_degree.a + out_degree.a) > 4)
+                                    ((in_degree.a >= 2) & (out_degree.a >= 2))
+                                    & ((in_degree.a + out_degree.a) > 4)
+                                    & ((in_degree.a * out_degree.a) < 30)
+                                )
                                 junctions_subset = sz.topology.find_junctions(
                                     graph, also_required=is_large_junction
                                 )
@@ -571,6 +578,39 @@ class DeconvolveGraph(App):
                                     completeness_thresh=args.completeness_thresh,
                                 )
                                 deconvolutions.extend(deconvolutions_subset)
+                            if not args.skip_extra_large:
+                                with phase_info("Extra-large junctions (NxM >= 30)"):
+                                    is_extralarge_junction = (
+                                        ((in_degree.a >= 2) & (out_degree.a >= 2))
+                                        & ((in_degree.a + out_degree.a) > 4)
+                                        & ((in_degree.a * out_degree.a) >= 30)
+                                    )
+                                    junctions_subset = sz.topology.find_junctions(
+                                        graph, also_required=is_extralarge_junction
+                                    )
+                                    logging.info(
+                                        f"Found {len(junctions_subset)} extra-large junctions"
+                                    )
+                                    deconvolutions_subset = _run_calculate_junction_deconvolutions(
+                                        junctions_subset,
+                                        graph,
+                                        flow,
+                                        args.depth_model,
+                                        mapping_func=partial(
+                                            process_pool.imap_unordered, chunksize=1
+                                        ),
+                                        score_name=args.score,
+                                        score_margin_thresh=args.score_thresh,
+                                        relative_stderr_thresh=args.relative_error_thresh,
+                                        absolute_stderr_thresh=args.absolute_error_thresh,
+                                        excess_thresh=args.excess_thresh,
+                                        completeness_thresh=args.completeness_thresh,
+                                    )
+                                    deconvolutions.extend(deconvolutions_subset)
+                            else:
+                                logging.info(
+                                    "Skipping extra-large junctions (NxM >= 30)."
+                                )
                             # TODO (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
                             # TODO: (2024-05-16): Is this fixed now that I'm purging
                             # between each round (which I assume works because their was a
