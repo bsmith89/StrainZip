@@ -20,6 +20,10 @@ class DepthModelResult:
         return self.params["beta"]
 
     @property
+    def residual(self):
+        return self.y - self.X @ self.beta
+
+    @property
     def stderr_beta(self):
         return self.model.stderr_beta(**self.params, y=self.y, X=self.X)
 
