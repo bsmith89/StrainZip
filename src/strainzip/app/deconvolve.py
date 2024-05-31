@@ -140,17 +140,17 @@ def _calculate_junction_deconvolution(args):
 
     n, m = len(in_neighbors), len(out_neighbors)
     s = in_flows.shape[1]
-    try:
-        fit, paths, named_paths, score_margin = sz.deconvolution.deconvolve_junction(
-            in_neighbors,
-            in_flows,
-            out_neighbors,
-            out_flows,
-            model=depth_model,
-            exhaustive_thresh=50,
-            score_name=score_name,
-        )
-    except sz.errors.ConvergenceException:
+    fit, paths, named_paths, score_margin = sz.deconvolution.deconvolve_junction(
+        in_neighbors,
+        in_flows,
+        out_neighbors,
+        out_flows,
+        model=depth_model,
+        exhaustive_thresh=50,
+        score_name=score_name,
+    )
+
+    if not fit.converged:
         return (
             False,
             np.nan,

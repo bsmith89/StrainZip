@@ -13,6 +13,7 @@ class DepthModelResult:
     params: Mapping[str, Any]
     X: Any
     y: Any
+    converged: bool
     debug: Mapping[str, Any]
 
     @property
@@ -80,7 +81,7 @@ class DepthModelResult:
 class DepthModel:
     param_names = []
 
-    def _fit(self, y, X) -> Tuple[Mapping[str, Any], Any]:
+    def _fit(self, y, X) -> Tuple[Mapping[str, Any], bool, Any]:
         raise NotImplementedError(
             "Subclasses of DepthModel must implement the *_fit* method "
             "that returns a dictionary of estimated parameters. "
@@ -107,12 +108,13 @@ class DepthModel:
         )
 
     def fit(self, y, X) -> DepthModelResult:
-        params, debug = self._fit(y, X)
+        params, converged, debug = self._fit(y, X)
         return DepthModelResult(
             model=self,
             params=params,
             X=X,
             y=y,
+            converged=converged,
             debug=debug,
         )
 

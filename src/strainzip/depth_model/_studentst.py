@@ -5,8 +5,6 @@ from jax.nn import softplus
 from jax.scipy.stats.t import logpdf as StudentsTLogPDF
 from jax.tree_util import Partial
 
-from strainzip.errors import ConvergenceException
-
 from ._base import DepthModelResult, JaxDepthModel
 
 
@@ -59,12 +57,9 @@ class StudentsTDepthModel(JaxDepthModel):
             y=y, X=X, maxiter=self.maxiter, df=self.df
         )
 
-        if not (opt1.iter_num < self.maxiter):
-            raise ConvergenceException(opt1)
-        if not (opt2.iter_num < self.maxiter):
-            raise ConvergenceException(opt2)
+        converged = (opt1.iter_num < self.maxiter) & (opt2.iter_num < self.maxiter)
 
-        return params, dict(opt1=opt1, opt2=opt2)
+        return params, converged, dict(opt1=opt1, opt2=opt2)
 
     def count_params(self, num_samples, num_edges, num_paths):
         return num_paths * num_samples + num_samples

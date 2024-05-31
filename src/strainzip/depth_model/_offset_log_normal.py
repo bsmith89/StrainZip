@@ -4,8 +4,6 @@ from jax import hessian, jit
 from jax.scipy.stats.norm import logpdf as NormalLogPDF
 from jax.tree_util import Partial
 
-from strainzip.errors import ConvergenceException
-
 from ._base import DepthModelResult, JaxDepthModel
 
 
@@ -61,10 +59,9 @@ class OffsetLogNormalDepthModel(JaxDepthModel):
             y=y, X=X, alpha=self.alpha, maxiter=self.maxiter
         )
 
-        if not opt.iter_num < self.maxiter:
-            raise ConvergenceException(opt)
+        converged = opt.iter_num < self.maxiter
 
-        return params, dict(opt=opt)
+        return params, converged, dict(opt=opt)
 
     def count_params(self, num_samples, num_edges, num_paths):
         return num_paths * num_samples + num_samples

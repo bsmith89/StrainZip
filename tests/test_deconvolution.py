@@ -66,7 +66,7 @@ def test_well_specified_deconvolution():
     assert np.isfinite(fit.stderr_beta).all()
 
 
-def test_convergence_error():
+def test_convergence():
     seed = 0
     n, m = 2, 3  # In-edges / out-edges
     s_samples = 3
@@ -112,17 +112,17 @@ def test_convergence_error():
 
     for model_name in NAMED_DEPTH_MODELS:
         model_class, default_model_params = NAMED_DEPTH_MODELS[model_name]
-        depth_model = model_class(
-            maxiter=10000,
+        fit_many_iters = model_class(
+            maxiter=100000,
             **default_model_params,
-        )
-        with pytest.raises(sz.errors.ConvergenceException):
-            depth_model = model_class(
-                maxiter=2,
-                **default_model_params,
-            )
-            fit = depth_model.fit(y_obs, X_reduced)
-        fit = depth_model.fit(y_obs, X_reduced)
+        ).fit(y_obs, X_reduced)
+        assert fit_many_iters.converged
+
+        fit_few_iters = model_class(
+            maxiter=2,
+            **default_model_params,
+        ).fit(y_obs, X_reduced)
+        assert not fit_few_iters.converged
 
 
 def test_no_noise_deconvolution():
