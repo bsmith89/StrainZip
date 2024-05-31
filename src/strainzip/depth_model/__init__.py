@@ -1,5 +1,6 @@
 from typing import Any, Mapping
 
+from ._huber import HuberDepthModel
 from ._laplace import LaplaceDepthModel
 from ._normal import NormalDepthModel
 from ._normal_pooled import NormalPooledDepthModel
@@ -18,5 +19,6 @@ NAMED_DEPTH_MODELS: Mapping[str, Any] = {
         StudentsTDepthModel,
         dict(df=5),
     ),  # FIXME (2024-05-31): Lots of convergence errors (maybe due to optimizing loc and scale together?).
+    "Huber": (HuberDepthModel, dict(delta=1)),
     "Default": (OffsetLogNormalDepthModel, dict(alpha=1.0)),
 }
