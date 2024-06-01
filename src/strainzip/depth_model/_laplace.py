@@ -19,19 +19,28 @@ def _fit_laplace_model(y, X, maxiter=500):
     init_beta_raw = jnp.ones((p_paths, s_samples))
     init_scale_raw = jnp.ones((1, s_samples))
 
-    def objective(params_raw):
-        beta_raw, scale_raw = params_raw
+    def objective1(beta_raw):
         beta = softplus(beta_raw)
-        scale = softplus(scale_raw)
-        return -laplace_logpdf(_residual(beta, y, X), loc=0, scale=scale).sum()
+        return -laplace_logpdf(_residual(beta, y, X), loc=0, scale=1).sum()
 
     # Estimate beta by minimizing the sum of squared residuals.
-    (beta_est_raw, scale_est_raw), opt = jaxopt.LBFGS(objective, maxiter=maxiter).run(
-        init_params=(init_beta_raw, init_scale_raw)
+    beta_est_raw, opt1 = jaxopt.LBFGS(objective1, maxiter=maxiter).run(
+        init_params=init_beta_raw
     )
     beta_est = softplus(beta_est_raw)
+
+    def objective2(scale_raw):
+        scale = softplus(scale_raw)
+        return -laplace_logpdf(_residual(beta_est, y, X), loc=0, scale=scale).sum()
+
+    # Estimate beta by minimizing the sum of squared residuals.
+    scale_est_raw, opt2 = jaxopt.LBFGS(objective2, maxiter=maxiter).run(
+        init_params=init_scale_raw
+    )
+
+    beta_est = softplus(beta_est_raw)
     scale_est = softplus(scale_est_raw)
-    return dict(beta=beta_est, scale=scale_est), opt
+    return dict(beta=beta_est, scale=scale_est), opt1, opt2
 
 
 class LaplaceDepthModel(JaxDepthModel):
@@ -41,11 +50,11 @@ class LaplaceDepthModel(JaxDepthModel):
         self.maxiter = maxiter
 
     def _fit(self, y, X):
-        params, opt = _fit_laplace_model(y=y, X=X, maxiter=self.maxiter)
+        params, opt1, opt2 = _fit_laplace_model(y=y, X=X, maxiter=self.maxiter)
 
-        converged = opt.iter_num < self.maxiter
+        converged = (opt1.iter_num < self.maxiter) & (opt2.iter_num < self.maxiter)
 
-        return params, converged, dict(opt=opt)
+        return params, converged, dict(opt1=opt1, opt2=opt2)
 
     def count_params(self, num_samples, num_edges, num_paths):
         return num_paths * num_samples + num_samples
