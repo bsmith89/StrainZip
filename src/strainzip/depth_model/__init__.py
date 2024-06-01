@@ -2,6 +2,7 @@ from typing import Any, Mapping
 
 from ._huber import HuberDepthModel
 from ._laplace import LaplaceDepthModel
+from ._laplace_pooled import LaplacePooledDepthModel
 from ._normal import NormalDepthModel
 from ._normal_pooled import NormalPooledDepthModel
 from ._offset_log_normal import OffsetLogNormalDepthModel
@@ -14,7 +15,11 @@ NAMED_DEPTH_MODELS: Mapping[str, Any] = {
     "Laplace": (
         LaplaceDepthModel,
         dict(),
-    ),  # FIXME (2024-05-31): The hessian is completely flat at the "optimum".
+    ),
+    "LaplacePooled": (
+        LaplacePooledDepthModel,
+        dict(),
+    ),
     "StudentsT": (
         StudentsTDepthModel,
         dict(df=5),
