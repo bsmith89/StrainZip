@@ -3,7 +3,7 @@ import pickle
 from dataclasses import dataclass
 from functools import partial
 from multiprocessing import Pool as ProcessPool
-from typing import Any, List
+from typing import Any, List, Mapping, Optional, Tuple
 
 import graph_tool as gt
 import numpy as np
@@ -33,6 +33,18 @@ class DeconvolutionProblem:
     out_neighbors: List[int]
     in_flows: np.ndarray
     out_flows: np.ndarray
+
+
+@dataclass
+class DeconvolutionResult:
+    converged: bool
+    score_margin: float
+    completeness_ratio: float
+    excess_paths: int
+    relative_stderr: np.ndarray
+    absolute_stderr: np.ndarray
+    unzip: Optional[Tuple[int, List[Tuple[int, int]], Mapping[str, np.ndarray]]]
+    fit: Optional[sz.depth_model.DepthModelResult]
 
 
 def _run_drop_low_depth_edges(graph, gm, min_depth, mapping_func):
@@ -166,19 +178,19 @@ def _calculate_junction_deconvolution(args):
     )
 
     if not fit.converged:
-        return (
+        return DeconvolutionResult(
             False,
             np.nan,
             np.nan,
-            np.nan,
-            np.nan * np.empty(s),
-            np.nan * np.empty(s),
+            -1,
+            np.nan * np.ones(s),
+            np.nan * np.ones(s),
             None,
             None,
         )
 
     if len(paths) == 0:
-        return (
+        return DeconvolutionResult(
             True,
             0.0,
             0,
@@ -195,15 +207,19 @@ def _calculate_junction_deconvolution(args):
     relative_stderr = fit.stderr_beta / (np.abs(fit.beta) + 1)
     absolute_stderr = fit.stderr_beta
 
-    return (
-        True,
-        score_margin,
-        completeness_ratio,
-        excess_paths,
-        relative_stderr,
-        absolute_stderr,
-        (junction, named_paths, {"path_depths": np.array(fit.beta.clip(0))}),  # Result
-        fit,
+    return DeconvolutionResult(
+        converged=True,
+        score_margin=score_margin,
+        completeness_ratio=completeness_ratio,
+        excess_paths=excess_paths,
+        relative_stderr=relative_stderr,
+        absolute_stderr=absolute_stderr,
+        unzip=(
+            junction,
+            named_paths,
+            {"path_depths": np.array(fit.beta.clip(0))},
+        ),  # Result
+        fit=fit,
     )
 
 
@@ -220,7 +236,7 @@ def _run_calculate_junction_deconvolutions(
 ):
     num_problems = len(deconv_problems)
 
-    deconv_results = mapping_func(
+    results_iter = mapping_func(
         _calculate_junction_deconvolution,
         ((problem, depth_model, score_name) for problem in deconv_problems),
     )
@@ -235,33 +251,25 @@ def _run_calculate_junction_deconvolutions(
         split=0,
     )
     pbar = tqdm_info(
-        deconv_results,
+        results_iter,
         total=num_problems,
         bar_format="{l_bar}{r_bar}",
     )
     pbar.set_postfix(postfix)
-    for (
-        is_converged,
-        score_margin,
-        completeness_ratio,
-        excess_paths,
-        relative_stderr,
-        absolute_stderr,
-        result,
-        _fit,
-    ) in pbar:
-        if not is_converged:
+    for deconv in pbar:
+        if not deconv.converged:
             continue
 
+        passes_converged = deconv.converged
         passes_identifiability = (
-            (relative_stderr <= relative_stderr_thresh)
-            | (absolute_stderr <= absolute_stderr_thresh)
+            (deconv.relative_stderr <= relative_stderr_thresh)
+            | (deconv.absolute_stderr <= absolute_stderr_thresh)
         ).all()
-        passes_score_margin = score_margin >= score_margin_thresh
-        passes_excess = excess_paths <= excess_thresh
-        passes_completeness = completeness_ratio >= completeness_thresh
+        passes_score_margin = deconv.score_margin >= score_margin_thresh
+        passes_excess = deconv.excess_paths <= excess_thresh
+        passes_completeness = deconv.completeness_ratio >= completeness_thresh
 
-        if is_converged:
+        if passes_converged:
             postfix["converged"] += 1
             if passes_score_margin:
                 postfix["best"] += 1
@@ -272,24 +280,24 @@ def _run_calculate_junction_deconvolutions(
             if passes_excess:
                 postfix["minimal"] += 1
         if (
-            is_converged
+            passes_converged
             and passes_score_margin
             and passes_identifiability
             and passes_completeness
             and passes_excess
         ):
             postfix["split"] += 1
-
-            batch.append(result)
+            batch.append(deconv.unzip)
         pbar.set_postfix(postfix, refresh=False)
+
         logging.debug(
             "{}\t{:.1f}\t{:.1f}\t{:d}\t{:.2f}\t{:.1f}".format(
-                is_converged,
-                score_margin,
-                completeness_ratio,
-                excess_paths,
-                relative_stderr.max(),
-                absolute_stderr.max(),
+                deconv.converged,
+                deconv.score_margin,
+                deconv.completeness_ratio,
+                deconv.excess_paths,
+                deconv.relative_stderr.max(),
+                deconv.absolute_stderr.max(),
             )
         )
 

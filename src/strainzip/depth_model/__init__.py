@@ -1,5 +1,6 @@
 from typing import Any, Mapping
 
+from ._base import DepthModelResult
 from ._huber import HuberDepthModel
 from ._laplace import LaplaceDepthModel
 from ._laplace_pooled import LaplacePooledDepthModel
