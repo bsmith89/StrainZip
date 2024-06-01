@@ -1,13 +1,7 @@
 from dataclasses import dataclass
 from functools import cache
-from itertools import (
-    chain,
-    combinations,
-    combinations_with_replacement,
-    permutations,
-    product,
-)
-from math import factorial
+from itertools import chain, combinations, permutations, product
+from math import factorial, perm
 from typing import Any, FrozenSet
 
 import numpy as np
@@ -118,9 +112,19 @@ class PathSet:
 
 
 def num_minimal_complete_pathsets(n, m):
+    """Calculate number of pathsets that exist that are minimal and complete.
+
+    To derive, consider an NxM node where N > M:
+
+    We'll line up our larger set {1...N} (the order is arbitrary but fixed for all pathes)
+    and match up the elements of {1...M} elements to the top M of this list.
+    Then we'll choose  an ordering with replacement of N - M elements out of {1...M}
+    to be redundantly matched to the remainder {M...N}.
+    """
+
     if n < m:
         n, m = m, n
-    return factorial(m) * (m ** (n - m))
+    return perm(m) * m ** (n - m)
 
 
 def iter_all_minimal_complete_pathsets(n, m):
@@ -136,7 +140,7 @@ def iter_all_minimal_complete_pathsets(n, m):
         n, m = m, n
     fixed_order = range(n)
     for permutation_of_m in permutations(range(m), r=m):
-        for remaining_sample in combinations_with_replacement(range(m), r=(n - m)):
+        for remaining_sample in product(range(m), repeat=(n - m)):
             selected_order = list(permutation_of_m) + list(remaining_sample)
             if not flipped:
                 yield PathSet(

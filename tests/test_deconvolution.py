@@ -1,3 +1,6 @@
+from collections import Counter
+from itertools import chain, product
+
 import numpy as np
 import pytest
 
@@ -8,6 +11,17 @@ from strainzip.depth_model import NAMED_DEPTH_MODELS
 # Testing deconvolution means testing the model search procedure and everything in strainzip.deconvolution
 # Testing depth models is just a part of this (and should be isolated)
 # Be sure to test the shapes of the beta_stderr results, for instance.
+
+
+def test_minimal_complete_pathset_counts():
+    for n, m in product(range(1, 5), repeat=2):
+        expected_num = sz.deconvolution.num_minimal_complete_pathsets(n, m)
+        all_pathsets = list(sz.deconvolution.iter_all_minimal_complete_pathsets(n, m))
+        path_counts = Counter(chain(*all_pathsets))
+        assert (
+            len(set(path_counts.values())) == 1
+        ), "All paths should be seen the same number of times across all pathsets."
+        assert len(all_pathsets) == expected_num
 
 
 def test_well_specified_deconvolution():
