@@ -1,6 +1,7 @@
 from . import (
     build,
     deconvolution,
+    depth_model,
     draw,
     flow,
     graph_manager,
