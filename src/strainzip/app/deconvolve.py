@@ -581,11 +581,18 @@ class DeconvolveGraph(App):
                                             "wb",
                                         ) as f:
                                             pickle.dump(fits_subset, f)
-                            with phase_info("Large junctions (NxM < 30)"):
+                            with phase_info(
+                                "Large junctions (<=120 minimal complete pathsets)"
+                            ):
                                 is_large_junction = (
                                     ((in_degree.a >= 2) & (out_degree.a >= 2))
-                                    & ((in_degree.a + out_degree.a) > 4)
-                                    & ((in_degree.a * out_degree.a) < 30)
+                                    & (in_degree.a + out_degree.a > 4)
+                                    & (
+                                        sz.deconvolution.num_minimal_complete_pathsets(
+                                            in_degree.a, out_degree.a
+                                        )
+                                        <= 120
+                                    )
                                 )
                                 junctions_subset = sz.topology.find_junctions(
                                     graph, also_required=is_large_junction
@@ -619,19 +626,26 @@ class DeconvolveGraph(App):
                                             "wb",
                                         ) as f:
                                             pickle.dump(fits_subset, f)
-                            if not args.skip_extra_large:
-                                with phase_info("Extra-large junctions (NxM >= 30)"):
-                                    is_extralarge_junction = (
-                                        ((in_degree.a >= 2) & (out_degree.a >= 2))
-                                        & ((in_degree.a + out_degree.a) > 4)
-                                        & ((in_degree.a * out_degree.a) >= 30)
+                            with phase_info(
+                                "Extra-large junctions (>120 minimal, complete pathsets)"
+                            ):
+                                is_extralarge_junction = (
+                                    ((in_degree.a >= 2) & (out_degree.a >= 2))
+                                    & (in_degree.a + out_degree.a > 4)
+                                    & (
+                                        sz.deconvolution.num_minimal_complete_pathsets(
+                                            in_degree.a, out_degree.a
+                                        )
+                                        > 120
                                     )
-                                    junctions_subset = sz.topology.find_junctions(
-                                        graph, also_required=is_extralarge_junction
-                                    )
-                                    logging.info(
-                                        f"Found {len(junctions_subset)} extra-large junctions"
-                                    )
+                                )
+                                junctions_subset = sz.topology.find_junctions(
+                                    graph, also_required=is_extralarge_junction
+                                )
+                                logging.info(
+                                    f"Found {len(junctions_subset)} extra-large junctions"
+                                )
+                                if not args.skip_extra_large:
                                     (
                                         deconvolutions_subset,
                                         fits_subset,
@@ -658,10 +672,8 @@ class DeconvolveGraph(App):
                                                 "wb",
                                             ) as f:
                                                 pickle.dump(fits_subset, f)
-                            else:
-                                logging.info(
-                                    "Skipping extra-large junctions (NxM >= 30)."
-                                )
+                                else:
+                                    logging.info("Skipping extra-large junctions.")
                             # TODO (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
                             # TODO: (2024-05-16): Is this fixed now that I'm purging
                             # between each round (which I assume works because their was a

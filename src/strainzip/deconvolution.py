@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 from functools import cache
 from itertools import chain, combinations, permutations, product
-from math import factorial, perm
 from typing import Any, FrozenSet
 
 import numpy as np
+import scipy as sp
 
 
 @cache
@@ -122,9 +122,10 @@ def num_minimal_complete_pathsets(n, m):
     to be redundantly matched to the remainder {M...N}.
     """
 
-    if n < m:
-        n, m = m, n
-    return perm(m) * m ** (n - m)
+    # FIXME (2024-06-01): There's a risk of overflow since perm(m, m) is factorial(m)
+    # and may get super huge.
+    n, m = np.maximum(n, m), np.minimum(n, m)
+    return sp.special.perm(m, m) * m ** (n - m)
 
 
 def iter_all_minimal_complete_pathsets(n, m):
