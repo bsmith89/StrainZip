@@ -253,32 +253,65 @@ def exhaustive_fit_minimal_complete_pathsets(
     return scores
 
 
-def deconvolve_junction(
+def deconvolve_junction_exhaustive(
     in_vertices,
     in_flows,
     out_vertices,
     out_flows,
     model,
-    exhaustive_thresh=50,
     score_name="bic",
     verbose=False,
 ):
     n, m = len(in_vertices), len(out_vertices)
 
-    # Decide if we're doing an exhaustive or greedy search.
-    if num_minimal_complete_pathsets(n, m) < exhaustive_thresh:
-        scores = exhaustive_fit_minimal_complete_pathsets(
-            in_flows,
-            out_flows,
-            model,
-            include_empty_pathset=True,
-            score_name=score_name,
-            verbose=False,
-        )
+    scores = exhaustive_fit_minimal_complete_pathsets(
+        in_flows,
+        out_flows,
+        model,
+        include_empty_pathset=True,
+        score_name=score_name,
+        verbose=False,
+    )
+
+    top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
+
+    if verbose:
+        for _paths, _score in top_scores:
+            print(_score, _paths)
+
+    pathset, best_score = top_scores[0]
+    _, second_score = top_scores[1]
+    if not np.isfinite(best_score):
+        score_margin = -np.inf
     else:
-        scores = greedy_search_potential_pathsets(
-            in_flows, out_flows, model, score_name=score_name, verbose=False
-        )
+        score_margin = best_score - second_score
+
+    y = np.concatenate([in_flows, out_flows])
+    X = pathset_to_design(pathset)
+    fit = model.fit(y, X)
+    named_paths = [(in_vertices[p.left], out_vertices[p.right]) for p in pathset]
+    selected_paths = [raveled_coords(p.left, p.right, n, m) for p in pathset]
+    # NOTE (2024-05-21): Iterating through a PathSet is now in sorted order,
+    # however, it's not obvious that this will always solve the issue of
+    # named_paths and fit.beta being in the same order...
+
+    return fit, selected_paths, named_paths, score_margin
+
+
+def deconvolve_junction_with_search(
+    in_vertices,
+    in_flows,
+    out_vertices,
+    out_flows,
+    model,
+    score_name="bic",
+    verbose=False,
+):
+    n, m = len(in_vertices), len(out_vertices)
+
+    scores = greedy_search_potential_pathsets(
+        in_flows, out_flows, model, score_name=score_name, verbose=False
+    )
 
     top_scores = list(sorted(scores.items(), key=lambda x: x[1], reverse=True))
 

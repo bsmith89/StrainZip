@@ -140,13 +140,17 @@ def _calculate_junction_deconvolution(args):
 
     n, m = len(in_neighbors), len(out_neighbors)
     s = in_flows.shape[1]
-    fit, paths, named_paths, score_margin = sz.deconvolution.deconvolve_junction(
+    (
+        fit,
+        paths,
+        named_paths,
+        score_margin,
+    ) = sz.deconvolution.deconvolve_junction_exhaustive(
         in_neighbors,
         in_flows,
         out_neighbors,
         out_flows,
         model=depth_model,
-        exhaustive_thresh=50,
         score_name=score_name,
     )
 
