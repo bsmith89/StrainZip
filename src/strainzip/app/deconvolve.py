@@ -481,7 +481,7 @@ class DeconvolveGraph(App):
                     logging.info(
                         f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
                     )
-                    with phase_info(f"Round {i + 1}"):
+                    with phase_info(f"Round {i+1}"):
                         # TODO (2024-05-15): Why in the world do I need to purge filtered
                         # vertices/edges to get accurate flowing/deconvolution?
                         with phase_info("Dropping filtered vertices/edges"):
@@ -537,7 +537,7 @@ class DeconvolveGraph(App):
                                 if args.checkpoint_dir:
                                     with phase_info("Checkpointing deconvolutions"):
                                         with open(
-                                            f"{args.checkpoint_dir}/junctions_safe_{i}.pkl",
+                                            f"{args.checkpoint_dir}/junctions_safe_{i+1}.pkl",
                                             "wb",
                                         ) as f:
                                             pickle.dump(fits_subset, f)
@@ -573,7 +573,7 @@ class DeconvolveGraph(App):
                                 if args.checkpoint_dir:
                                     with phase_info("Checkpointing deconvolutions"):
                                         with open(
-                                            f"{args.checkpoint_dir}/junctions_canonical_{i}.pkl",
+                                            f"{args.checkpoint_dir}/junctions_canonical_{i+1}.pkl",
                                             "wb",
                                         ) as f:
                                             pickle.dump(fits_subset, f)
@@ -611,7 +611,7 @@ class DeconvolveGraph(App):
                                 if args.checkpoint_dir:
                                     with phase_info("Checkpointing deconvolutions"):
                                         with open(
-                                            f"{args.checkpoint_dir}/junctions_large_{i}.pkl",
+                                            f"{args.checkpoint_dir}/junctions_large_{i+1}.pkl",
                                             "wb",
                                         ) as f:
                                             pickle.dump(fits_subset, f)
@@ -650,7 +650,7 @@ class DeconvolveGraph(App):
                                     if args.checkpoint_dir:
                                         with phase_info("Checkpointing deconvolutions"):
                                             with open(
-                                                f"{args.checkpoint_dir}/junctions_extralarge_{i}.pkl",
+                                                f"{args.checkpoint_dir}/junctions_extralarge_{i+1}.pkl",
                                                 "wb",
                                             ) as f:
                                                 pickle.dump(fits_subset, f)
