@@ -582,7 +582,7 @@ class DeconvolveGraph(App):
                                         ) as f:
                                             pickle.dump(fits_subset, f)
                             with phase_info(
-                                "Large junctions (<=120 minimal complete pathsets)"
+                                "Large junctions (<=100 minimal, complete pathsets)"
                             ):
                                 is_large_junction = (
                                     ((in_degree.a >= 2) & (out_degree.a >= 2))
@@ -591,7 +591,7 @@ class DeconvolveGraph(App):
                                         sz.deconvolution.num_minimal_complete_pathsets(
                                             in_degree.a, out_degree.a
                                         )
-                                        <= 120
+                                        <= 100
                                     )
                                 )
                                 junctions_subset = sz.topology.find_junctions(
@@ -627,7 +627,7 @@ class DeconvolveGraph(App):
                                         ) as f:
                                             pickle.dump(fits_subset, f)
                             with phase_info(
-                                "Extra-large junctions (>120 minimal, complete pathsets)"
+                                "Extra-large junctions (>100 minimal, complete pathsets)"
                             ):
                                 is_extralarge_junction = (
                                     ((in_degree.a >= 2) & (out_degree.a >= 2))
@@ -636,7 +636,7 @@ class DeconvolveGraph(App):
                                         sz.deconvolution.num_minimal_complete_pathsets(
                                             in_degree.a, out_degree.a
                                         )
-                                        > 120
+                                        > 100
                                     )
                                 )
                                 junctions_subset = sz.topology.find_junctions(

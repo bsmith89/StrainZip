@@ -125,7 +125,7 @@ def num_minimal_complete_pathsets(n, m):
     # FIXME (2024-06-01): There's a risk of overflow since perm(m, m) is factorial(m)
     # and may get super huge.
     n, m = np.maximum(n, m), np.minimum(n, m)
-    return sp.special.perm(m, m) * m ** (n - m)
+    return sp.special.perm(m, m, exact=False) * m ** (n - m)
 
 
 def iter_all_minimal_complete_pathsets(n, m):
