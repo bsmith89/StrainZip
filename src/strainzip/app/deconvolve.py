@@ -1,7 +1,9 @@
 import logging
 import pickle
+from dataclasses import dataclass
 from functools import partial
 from multiprocessing import Pool as ProcessPool
+from typing import Any, List
 
 import graph_tool as gt
 import numpy as np
@@ -22,6 +24,15 @@ DEFAULT_ABSOLUTE_ERROR_THRESH = 1.0
 DEFAULT_MIN_DEPTH = 0
 
 DEFAULT_DEPTH_MODEL = "Default"
+
+
+@dataclass
+class DeconvolutionProblem:
+    junction: int
+    in_neighbors: List[int]
+    out_neighbors: List[int]
+    in_flows: np.ndarray
+    out_flows: np.ndarray
 
 
 def _run_drop_low_depth_edges(graph, gm, min_depth, mapping_func):
@@ -112,31 +123,31 @@ def _run_estimate_all_flows(graph, mapping_func):
         return flow
 
 
-def _iter_junction_deconvolution_data(junction_iter, graph, flow, max_paths):
+def _iter_junction_deconvolution_problems(junction_iter, graph, flow):
     for j in junction_iter:
         in_neighbors = graph.get_in_neighbors(j)
         out_neighbors = graph.get_out_neighbors(j)
         n, m = len(in_neighbors), len(out_neighbors)
-        if n * m > max_paths:
-            continue
 
         # Collect flows
         in_flows = np.stack([flow[(i, j)] for i in in_neighbors])
         out_flows = np.stack([flow[(j, i)] for i in out_neighbors])
 
-        yield j, in_neighbors, in_flows, out_neighbors, out_flows
+        yield DeconvolutionProblem(j, in_neighbors, out_neighbors, in_flows, out_flows)
 
 
 def _calculate_junction_deconvolution(args):
     (
-        junction,
-        in_neighbors,
-        in_flows,
-        out_neighbors,
-        out_flows,
+        deconv_problem,
         depth_model,
         score_name,
     ) = args
+
+    in_neighbors = deconv_problem.in_neighbors
+    out_neighbors = deconv_problem.out_neighbors
+    in_flows = deconv_problem.in_flows
+    out_flows = deconv_problem.out_flows
+    junction = deconv_problem.junction
 
     n, m = len(in_neighbors), len(out_neighbors)
     s = in_flows.shape[1]
@@ -208,28 +219,17 @@ def _run_calculate_junction_deconvolutions(
     absolute_stderr_thresh=1.0,
     excess_thresh=1,
     completeness_thresh=1.0,
-    max_paths=10000,  # Basically no limit
 ):
+
+    deconv_problems = list(
+        _iter_junction_deconvolution_problems(junctions, graph, flow)
+    )
     deconv_results = mapping_func(
         _calculate_junction_deconvolution,
-        (
-            (
-                junction,
-                in_neighbors,
-                in_flows,
-                out_neighbors,
-                out_flows,
-                depth_model,
-                score_name,
-            )
-            for junction, in_neighbors, in_flows, out_neighbors, out_flows in _iter_junction_deconvolution_data(
-                junctions, graph, flow, max_paths=max_paths
-            )
-        ),
+        ((problem, depth_model, score_name) for problem in deconv_problems),
     )
 
     batch = []
-    all_fits = []
     postfix = dict(
         converged=0,
         best=0,
@@ -256,7 +256,6 @@ def _run_calculate_junction_deconvolutions(
     ) in pbar:
         if not is_converged:
             continue
-        all_fits.append(_fit)
 
         passes_identifiability = (
             (relative_stderr <= relative_stderr_thresh)
@@ -298,7 +297,7 @@ def _run_calculate_junction_deconvolutions(
             )
         )
 
-    return batch, all_fits
+    return batch, deconv_problems
 
 
 class DeconvolveGraph(App):
