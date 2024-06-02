@@ -6,7 +6,7 @@ from strainzip.logging_util import phase_info, tqdm_debug
 from ._base import App
 
 
-class ExtractResults(App):
+class DumpResults(App):
     """Gather sequences and depths from a graph."""
 
     def add_custom_cli_args(self):

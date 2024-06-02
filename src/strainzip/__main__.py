@@ -6,7 +6,7 @@ from .app.deconvolve import DeconvolveGraph
 from .app.depth import EstimateUnitigDepth
 from .app.describe import DescribeGraph
 from .app.example import Example
-from .app.extract import ExtractResults
+from .app.dump import DumpResults
 from .app.focus import SelectLocalGraph
 from .app.load import LoadGraph
 from .app.smooth import SmoothDepths
@@ -20,7 +20,7 @@ APPLICATIONS = {
     "trim": TrimTips,
     "focus": SelectLocalGraph,
     "deconvolve": DeconvolveGraph,
-    "extract": ExtractResults,
+    "dump": DumpResults,
     "describe": DescribeGraph,
     "cluster": ClusterTigs,
 }
