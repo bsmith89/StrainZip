@@ -177,38 +177,38 @@ def _calculate_junction_deconvolution(args):
         score_name=score_name,
     )
 
-    if not fit.converged:
-        return DeconvolutionResult(
-            False,
-            np.nan,
-            np.nan,
-            -1,
-            np.nan * np.ones(s),
-            np.nan * np.ones(s),
-            None,
-            None,
-        )
-
-    if len(paths) == 0:
-        return DeconvolutionResult(
-            True,
-            0.0,
-            0,
-            0,
-            np.nan * np.empty(s),
-            np.nan * np.empty(s),
-            None,
-            fit,
-        )
-
     X = sz.deconvolution.design_all_paths(n, m)[0]
     excess_paths = len(paths) - max(n, m)
     completeness_ratio = (X[:, paths].sum(1) > 0).mean()
     relative_stderr = fit.stderr_beta / (np.abs(fit.beta) + 1)
     absolute_stderr = fit.stderr_beta
 
+    if not fit.converged:
+        return DeconvolutionResult(
+            converged=fit.converged,
+            score_margin=score_margin,
+            completeness_ratio=completeness_ratio,
+            excess_paths=excess_paths,
+            relative_stderr=relative_stderr,
+            absolute_stderr=absolute_stderr,
+            unzip=None,
+            fit=fit,
+        )
+
+    if len(paths) == 0:
+        return DeconvolutionResult(
+            converged=fit.converged,
+            score_margin=score_margin,
+            completeness_ratio=completeness_ratio,
+            excess_paths=excess_paths,
+            relative_stderr=relative_stderr,
+            absolute_stderr=absolute_stderr,
+            unzip=None,
+            fit=fit,
+        )
+
     return DeconvolutionResult(
-        converged=True,
+        converged=fit.converged,
         score_margin=score_margin,
         completeness_ratio=completeness_ratio,
         excess_paths=excess_paths,
