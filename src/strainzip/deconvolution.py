@@ -121,9 +121,8 @@ def num_minimal_complete_pathsets(n, m):
     Then we'll choose  an ordering with replacement of N - M elements out of {1...M}
     to be redundantly matched to the remainder {M...N}.
     """
-
-    # FIXME (2024-06-01): There's a risk of overflow since perm(m, m) is factorial(m)
-    # and may get super huge.
+    n = np.array(n, dtype=float)
+    m = np.array(m, dtype=float)
     n, m = np.maximum(n, m), np.minimum(n, m)
     return sp.special.perm(m, m, exact=False) * m ** (n - m)
 
