@@ -13,7 +13,7 @@ def _residual(beta, y, X):
 
 
 @jit
-def _fit_normal_model(y, X, maxiter=500):
+def _fit_normal_model(y, X, maxiter=500, tol=1e-3):
     e_edges, s_samples = y.shape
     e_edges, p_paths = X.shape
     init_beta_raw = jnp.ones((p_paths, s_samples))
@@ -23,7 +23,7 @@ def _fit_normal_model(y, X, maxiter=500):
         return (_residual(beta, y, X) ** 2).sum()
 
     # Estimate beta by minimizing the sum of squared residuals.
-    beta_est_raw, opt = jaxopt.LBFGS(objective, maxiter=maxiter).run(
+    beta_est_raw, opt = jaxopt.LBFGS(objective, maxiter=maxiter, tol=tol).run(
         init_params=init_beta_raw,
     )
     beta_est = softplus(beta_est_raw)
@@ -38,11 +38,15 @@ def _fit_normal_model(y, X, maxiter=500):
 class NormalDepthModel(JaxDepthModel):
     param_names = ["sigma"]
 
-    def __init__(self, maxiter=500):
+    def __init__(self, maxiter=500, tol=1e-3):
         self.maxiter = maxiter
+        self.tol = tol
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(maxiter={self.maxiter}, tol={self.tol})"
 
     def _fit(self, y, X):
-        params, opt = _fit_normal_model(y=y, X=X, maxiter=self.maxiter)
+        params, opt = _fit_normal_model(y=y, X=X, maxiter=self.maxiter, tol=self.tol)
 
         converged = opt.iter_num < self.maxiter
 

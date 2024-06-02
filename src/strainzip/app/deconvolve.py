@@ -484,6 +484,7 @@ class DeconvolveGraph(App):
                     mapping_func=partial(process_pool.imap_unordered, chunksize=4),
                 )
             with phase_info("Main loop"):
+                logging.info(f"Deconvolving junctions with {args.depth_model}.")
                 for i in range(args.max_rounds):
                     logging.info(
                         f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
