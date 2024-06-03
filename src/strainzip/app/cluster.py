@@ -159,6 +159,7 @@ class ClusterTigs(App):
             shared_segments = (
                 shared_segments_matrix.stack()
                 .to_frame(name="num_shared_segments")
+                .reset_index()
                 .assign(
                     num_clusterA_segments=lambda x: x.clusterA.map(
                         meta.num_unique_segments
