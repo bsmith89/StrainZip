@@ -161,6 +161,19 @@ def _calculate_junction_deconvolution(args):
     out_flows = deconv_problem.out_flows
     junction = deconv_problem.junction
 
+    # NOTE (2024-06-03): Here, with the intent of treating both forward and reverse
+    # version of each junction identically, I'm picking a "canonical ordering"
+    # of in-flows and out-flows.
+    # I'll then conditionally reverse all the paths coming out the other side.
+    assert (
+        deconv_problem.in_flows.sum() != deconv_problem.out_flows.sum()
+    ), "Oh no! This won't work if both are EQUAL."
+    do_swap = deconv_problem.in_flows.sum() > deconv_problem.out_flows.sum()
+    if do_swap:
+        # Swap everything
+        in_neighbors, out_neighbors = out_neighbors, in_neighbors
+        in_flows, out_flows = out_flows, in_flows
+
     n, m = len(in_neighbors), len(out_neighbors)
     s = in_flows.shape[1]
     (
@@ -177,6 +190,10 @@ def _calculate_junction_deconvolution(args):
         score_name=score_name,
     )
 
+    if do_swap:
+        # We swapped in and out above, so we'll swap them back here.
+        named_paths = [(j, i) for i, j in named_paths]
+
     X = sz.deconvolution.design_all_paths(n, m)[0]
     excess_paths = len(paths) - max(n, m)
     completeness_ratio = (X[:, paths].sum(1) > 0).mean()
@@ -184,7 +201,18 @@ def _calculate_junction_deconvolution(args):
     absolute_stderr = fit.stderr_beta
 
     if not fit.converged:
-        return DeconvolutionResult(
+        result = DeconvolutionResult(
+            converged=fit.converged,
+            score_margin=score_margin,
+            completeness_ratio=completeness_ratio,
+            excess_paths=excess_paths,
+            relative_stderr=relative_stderr,
+            absolute_stderr=absolute_stderr,
+            unzip=None,
+            fit=fit,
+        )
+    elif len(paths) == 0:
+        result = DeconvolutionResult(
             converged=fit.converged,
             score_margin=score_margin,
             completeness_ratio=completeness_ratio,
@@ -195,32 +223,25 @@ def _calculate_junction_deconvolution(args):
             fit=fit,
         )
 
-    if len(paths) == 0:
-        return DeconvolutionResult(
-            converged=fit.converged,
-            score_margin=score_margin,
-            completeness_ratio=completeness_ratio,
-            excess_paths=excess_paths,
-            relative_stderr=relative_stderr,
-            absolute_stderr=absolute_stderr,
-            unzip=None,
-            fit=fit,
-        )
-
-    return DeconvolutionResult(
-        converged=fit.converged,
-        score_margin=score_margin,
-        completeness_ratio=completeness_ratio,
-        excess_paths=excess_paths,
-        relative_stderr=relative_stderr,
-        absolute_stderr=absolute_stderr,
-        unzip=(
+    else:
+        # The unzip is not empty.
+        unzip = (
             junction,
             named_paths,
             {"path_depths": np.array(fit.beta.clip(0))},
-        ),  # Result
-        fit=fit,
-    )
+        )
+        result = DeconvolutionResult(
+            converged=fit.converged,
+            score_margin=score_margin,
+            completeness_ratio=completeness_ratio,
+            excess_paths=excess_paths,
+            relative_stderr=relative_stderr,
+            absolute_stderr=absolute_stderr,
+            unzip=unzip,
+            fit=fit,
+        )
+
+    return result
 
 
 def _run_calculate_junction_deconvolutions(
