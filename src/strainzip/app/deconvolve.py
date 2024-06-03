@@ -311,16 +311,17 @@ def _run_calculate_junction_deconvolutions(
             batch.append(deconv.unzip)
         pbar.set_postfix(postfix, refresh=False)
 
-        logging.debug(
-            "{}\t{:.1f}\t{:.1f}\t{:d}\t{:.2f}\t{:.1f}".format(
-                deconv.converged,
-                deconv.score_margin,
-                deconv.completeness_ratio,
-                deconv.excess_paths,
-                deconv.relative_stderr.max(),
-                deconv.absolute_stderr.max(),
-            )
-        )
+        # # FIXME (2024-06-02): relative/absolute_stderr may both be empty arrays (if the deconvolution resulted in 0 paths).
+        # logging.debug(
+        #     "{}\t{:.1f}\t{:.1f}\t{:d}\t{:.2f}\t{:.1f}".format(
+        #         deconv.converged,
+        #         deconv.score_margin,
+        #         deconv.completeness_ratio,
+        #         deconv.excess_paths,
+        #         deconv.relative_stderr.max(),
+        #         deconv.absolute_stderr.max(),
+        #     )
+        # )
 
     return batch
 
