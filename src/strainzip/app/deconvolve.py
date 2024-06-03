@@ -3,9 +3,10 @@ import pickle
 from dataclasses import dataclass
 from functools import partial
 from multiprocessing import Pool as ProcessPool
-from typing import Any, List, Mapping, Optional, Tuple
+from typing import List, Mapping, Optional, Tuple
 
 import graph_tool as gt
+import jax
 import numpy as np
 
 import strainzip as sz
@@ -149,6 +150,9 @@ def _iter_junction_deconvolution_problems(junction_iter, graph, flow):
 
 
 def _calculate_junction_deconvolution(args):
+    # TODO (2024-05-15): Limit each process to use just 1 core using threadpoolctl?
+    jax.config.update("jax_enable_x64", True)
+
     (
         deconv_problem,
         depth_model,
@@ -466,8 +470,6 @@ class DeconvolveGraph(App):
         return args
 
     def execute(self, args):
-        # TODO (2024-05-15): Limit each process to use just 1 core using threadpoolctl.
-
         if args.debug or args.verbose:
             logging.getLogger("jax").setLevel(logging.CRITICAL)
 
