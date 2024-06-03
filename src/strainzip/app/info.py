@@ -11,7 +11,7 @@ COLUMN_ORDER = [
     "total_length",
     "num_vertices",
     "num_edges",
-    "total_depth",
+    "total_kmers",
     "depth_weighted_mean_tig_length",
 ]
 
@@ -37,14 +37,14 @@ class ShowGraphStats(App):
                     total_length=graph.vp["length"].a.sum(),
                     num_vertices=graph.num_vertices(),
                     num_edges=graph.num_edges(),
-                    total_depth=graph.vp["depth"]
-                    .get_2d_array(pos=range(graph.gp["num_samples"]))
-                    .sum(),
+                    total_kmers=(
+                        sz.results.total_depth_property(graph).a * graph.vp["length"].a
+                    ).sum(),
                     depth_weighted_mean_tig_length=sz.stats.depth_weighted_mean_tig_length(
                         graph
                     ),
                 )
             )
-            print(*graph_stats[inpath].values, sep="\t")
+            print(*graph_stats[inpath][COLUMN_ORDER].values, sep="\t")
 
         # graph_stats = pd.DataFrame(graph_stats.values(), index=graph_stats.keys()).set_index('inpath')
