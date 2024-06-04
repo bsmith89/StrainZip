@@ -173,9 +173,9 @@ def _decide_if_flow_ordering_swap(flowsA, flowsB):
 
 def _calculate_junction_deconvolution(args):
     # # TODO (2024-05-15): Limit each process to use just 1 core using threadpoolctl?
-    # NOTE (2024-06-03): This will increase the convergence rate.
+    # NOTE (2024-06-03): Setting jaxopt to use 64-bit floats should increase the convergence rate.
     jax.config.update("jax_enable_x64", True)
-    # NOTE (2024-06-03): Also consider JAX persistent compilation cache,
+    # TODO (2024-06-03): Also consider JAX persistent compilation cache,
     # although there's a risk of deadlocking with multiprocessing code.
 
     (
