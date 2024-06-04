@@ -149,6 +149,26 @@ def _iter_junction_deconvolution_problems(junction_iter, graph, flow):
         yield DeconvolutionProblem(j, in_neighbors, out_neighbors, in_flows, out_flows)
 
 
+def _decide_if_flow_ordering_swap(flowsA, flowsB):
+    if flowsA.shape[0] > flowsB.shape[0]:
+        return True
+    elif flowsB.shape[0] > flowsA.shape[0]:
+        return False
+    elif flowsA.sum() > flowsB.sum():
+        return True
+    elif flowsB.sum() > flowsA.sum():
+        return False
+    elif np.sign(flowsA - flowsB).sum() > 0:
+        return True
+    elif np.sign(flowsB - flowsA).sum() > 0:
+        return False
+    elif (flowsA == flowsB).all():
+        # Flows are identical. Doesn't matter what order.
+        return False
+    else:
+        warnings.warn("Cannot decide on an ordering in/out flows for this junction.")
+
+
 def _calculate_junction_deconvolution(args):
     # # TODO (2024-05-15): Limit each process to use just 1 core using threadpoolctl?
     # NOTE (2024-06-03): This will increase the convergence rate.
@@ -172,11 +192,9 @@ def _calculate_junction_deconvolution(args):
     # version of each junction identically, I'm picking a "canonical ordering"
     # of in-flows and out-flows.
     # I'll then conditionally reverse all the paths coming out the other side.
-    if deconv_problem.in_flows.sum() == deconv_problem.out_flows.sum():
-        warnings.warn(
-            f"For junction {junction}, total in_flows and total out_flows are equal; Swap is not well-ordered."
-        )
-    do_swap = deconv_problem.in_flows.sum() > deconv_problem.out_flows.sum()
+    do_swap = _decide_if_flow_ordering_swap(
+        deconv_problem.in_flows, deconv_problem.out_flows
+    )
     if do_swap:
         # Swap everything
         in_neighbors, out_neighbors = out_neighbors, in_neighbors
