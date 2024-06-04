@@ -20,7 +20,6 @@ from ._base import App
 DEFAULT_MAX_ROUNDS = 100
 DEFAULT_SCORE = "bic"
 DEFAULT_SCORE_THRESH = 10.0
-DEFAULT_OPT_MAXITER = 10000
 DEFAULT_RELATIVE_ERROR_THRESH = 0.1
 DEFAULT_ABSOLUTE_ERROR_THRESH = 1.0
 DEFAULT_MIN_DEPTH = 0
@@ -431,12 +430,6 @@ class DeconvolveGraph(App):
             ),
         )
         self.parser.add_argument(
-            "--opt-maxiter",
-            type=int,
-            default=DEFAULT_OPT_MAXITER,
-            help="Run up to this number of optimization steps for regression convergence.",
-        )
-        self.parser.add_argument(
             "--processes",
             "-p",
             type=int,
@@ -461,14 +454,10 @@ class DeconvolveGraph(App):
         model_hyperparameters = {}
         for entry in args.model_hyperparameters:
             k, v = entry.split("=")
-            assert (
-                k in model_default_hyperparameters
-            ), f"{k} does not appear to be a hyperparameter of {depth_model_class}."
             model_hyperparameters[k] = float(v)
 
         # Instantiate the depth model and assign it to args.
         args.depth_model = depth_model_class(
-            maxiter=args.opt_maxiter,
             **(model_default_hyperparameters | model_hyperparameters),
         )
 

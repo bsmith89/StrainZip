@@ -13,7 +13,7 @@ def _residual(beta, y, X):
 
 
 @jit
-def _fit_normal_model(y, X, maxiter=500, tol=1e-3):
+def _fit_normal_model(y, X, maxiter, tol):
     e_edges, s_samples = y.shape
     e_edges, p_paths = X.shape
     init_beta_raw = jnp.ones((p_paths, s_samples))
@@ -38,7 +38,7 @@ def _fit_normal_model(y, X, maxiter=500, tol=1e-3):
 class NormalDepthModel(JaxDepthModel):
     param_names = ["sigma"]
 
-    def __init__(self, maxiter=500, tol=1e-3):
+    def __init__(self, maxiter, tol):
         self.maxiter = maxiter
         self.tol = tol
 
