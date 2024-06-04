@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from .app.cluster import ClusterTigs
-from .app.deconvolve import DeconvolveGraph
+from .app.deconvolve import BenchmarkDepthModel, DeconvolveGraph
 from .app.depth import EstimateUnitigDepth
 from .app.dump import DumpResults
 from .app.example import Example
@@ -20,6 +20,7 @@ APPLICATIONS = {
     "trim": TrimTips,
     "focus": SelectLocalGraph,
     "deconvolve": DeconvolveGraph,
+    "benchmark": BenchmarkDepthModel,
     "dump": DumpResults,
     "info": ShowGraphStats,
     "cluster": ClusterTigs,

@@ -9,6 +9,7 @@ from typing import List, Mapping, Optional, Tuple
 import graph_tool as gt
 import jax
 import numpy as np
+import pandas as pd
 
 import strainzip as sz
 from strainzip.logging_util import phase_info
@@ -270,6 +271,13 @@ def _calculate_junction_deconvolution(args):
     return result
 
 
+def _test_identifiability(deconv, relative_stderr_thresh, absolute_stderr_thresh):
+    return (
+        (deconv.relative_stderr <= relative_stderr_thresh)
+        | (deconv.absolute_stderr <= absolute_stderr_thresh)
+    ).all()
+
+
 def _run_calculate_junction_deconvolutions(
     deconv_problems,
     depth_model,
@@ -288,7 +296,6 @@ def _run_calculate_junction_deconvolutions(
         ((problem, depth_model, score_name) for problem in deconv_problems),
     )
 
-    batch = []
     postfix = dict(
         converged=0,
         best=0,
@@ -303,15 +310,17 @@ def _run_calculate_junction_deconvolutions(
         bar_format="{l_bar}{r_bar}",
     )
     pbar.set_postfix(postfix)
+    unzip_batch = []
+    all_results = []
     for deconv in pbar:
+        all_results.append(deconv)
         if not deconv.converged:
             continue
 
         passes_converged = deconv.converged
-        passes_identifiability = (
-            (deconv.relative_stderr <= relative_stderr_thresh)
-            | (deconv.absolute_stderr <= absolute_stderr_thresh)
-        ).all()
+        passes_identifiability = _test_identifiability(
+            deconv, relative_stderr_thresh, absolute_stderr_thresh
+        )
         passes_score_margin = deconv.score_margin >= score_margin_thresh
         passes_excess = deconv.excess_paths <= excess_thresh
         passes_completeness = deconv.completeness_ratio >= completeness_thresh
@@ -334,7 +343,7 @@ def _run_calculate_junction_deconvolutions(
             and passes_excess
         ):
             postfix["split"] += 1
-            batch.append(deconv.unzip)
+            unzip_batch.append(deconv.unzip)
         pbar.set_postfix(postfix, refresh=False)
 
         # # FIXME (2024-06-02): relative/absolute_stderr may both be empty arrays (if the deconvolution resulted in 0 paths).
@@ -349,7 +358,7 @@ def _run_calculate_junction_deconvolutions(
         #     )
         # )
 
-    return batch
+    return unzip_batch, all_results
 
 
 class DeconvolveGraph(App):
@@ -564,7 +573,10 @@ class DeconvolveGraph(App):
                                             "wb",
                                         ) as f:
                                             pickle.dump(deconv_problems_subset, f)
-                                deconv_results_subset = _run_calculate_junction_deconvolutions(
+                                (
+                                    deconv_results_subset,
+                                    _,
+                                ) = _run_calculate_junction_deconvolutions(
                                     deconv_problems_subset,
                                     args.depth_model,
                                     mapping_func=partial(
@@ -600,7 +612,10 @@ class DeconvolveGraph(App):
                                             "wb",
                                         ) as f:
                                             pickle.dump(deconv_problems_subset, f)
-                                deconv_results_subset = _run_calculate_junction_deconvolutions(
+                                (
+                                    deconv_results_subset,
+                                    _,
+                                ) = _run_calculate_junction_deconvolutions(
                                     deconv_problems_subset,
                                     args.depth_model,
                                     mapping_func=partial(
@@ -645,7 +660,10 @@ class DeconvolveGraph(App):
                                             "wb",
                                         ) as f:
                                             pickle.dump(deconv_problems_subset, f)
-                                deconv_results_subset = _run_calculate_junction_deconvolutions(
+                                (
+                                    deconv_results_subset,
+                                    _,
+                                ) = _run_calculate_junction_deconvolutions(
                                     deconv_problems_subset,
                                     args.depth_model,
                                     mapping_func=partial(
@@ -678,20 +696,23 @@ class DeconvolveGraph(App):
                                 logging.info(
                                     f"Found {len(junctions_subset)} extra-large junctions"
                                 )
-                                if not args.skip_extra_large:
-                                    deconv_problems_subset = list(
-                                        _iter_junction_deconvolution_problems(
-                                            junctions_subset, graph, flow
-                                        )
+                                deconv_problems_subset = list(
+                                    _iter_junction_deconvolution_problems(
+                                        junctions_subset, graph, flow
                                     )
-                                    if args.checkpoint_dir:
-                                        with phase_info("Checkpointing deconvolutions"):
-                                            with open(
-                                                f"{args.checkpoint_dir}/junctions_extralarge_{i+1}.pkl",
-                                                "wb",
-                                            ) as f:
-                                                pickle.dump(deconv_problems_subset, f)
-                                    deconv_results_subset = _run_calculate_junction_deconvolutions(
+                                )
+                                if args.checkpoint_dir:
+                                    with phase_info("Checkpointing deconvolutions"):
+                                        with open(
+                                            f"{args.checkpoint_dir}/junctions_extralarge_{i+1}.pkl",
+                                            "wb",
+                                        ) as f:
+                                            pickle.dump(deconv_problems_subset, f)
+                                if not args.skip_extra_large:
+                                    (
+                                        deconv_results_subset,
+                                        _,
+                                    ) = _run_calculate_junction_deconvolutions(
                                         deconv_problems_subset,
                                         args.depth_model,
                                         mapping_func=partial(
@@ -731,3 +752,151 @@ class DeconvolveGraph(App):
                 f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
             )
             sz.io.dump_graph(graph, args.outpath, purge=True)
+
+
+class BenchmarkDepthModel(App):
+    def add_custom_cli_args(self):
+        self.parser.add_argument("inpath", help="Checkpointed junctions in pkl format.")
+        self.parser.add_argument("outpath")
+        self.parser.add_argument(
+            "--score-thresh",
+            type=float,
+            default=DEFAULT_SCORE_THRESH,
+            help=(
+                "BIC threshold to deconvolve a junction. "
+                "Selected model must have a delta-BIC of greater than this amount"
+            ),
+        )
+        self.parser.add_argument(
+            "--score",
+            dest="score_name",
+            default=DEFAULT_SCORE,
+            choices=["bic", "aic", "aicc"],
+        )
+        self.parser.add_argument(
+            "--relative-error-thresh",
+            type=float,
+            default=DEFAULT_RELATIVE_ERROR_THRESH,
+            help=(
+                "Maximum standard error to estimate ratio to still deconvolve a junction. "
+                "This is used as a proxy for how identifiable the depth estimates are."
+            ),
+        )
+        self.parser.add_argument(
+            "--absolute-error-thresh",
+            type=float,
+            default=DEFAULT_ABSOLUTE_ERROR_THRESH,
+            help=(
+                "Relative error is not checked if the absolute error is less than this number. (To prevent very low-depth estimates from stopping deconvolution.)"
+            ),
+        )
+        self.parser.add_argument(
+            "--excess-thresh",
+            type=int,
+            default=0,
+            help=("Acceptable over-abundance of paths in best deconvolution model."),
+        )
+        self.parser.add_argument(
+            "--completeness-thresh",
+            type=float,
+            default=1.0,
+            help=("TODO"),
+        )
+        self.parser.add_argument(
+            "--model",
+            dest="model_name",
+            type=str,
+            help="Which depth model to use.",
+            choices=NAMED_DEPTH_MODELS.keys(),
+            default=DEFAULT_DEPTH_MODEL,
+        )
+        self.parser.add_argument(
+            "--model-hyperparameters",
+            type=str,
+            nargs="+",
+            metavar="KEY=VALUE",
+            default=[],
+            help=(
+                "Value of the depth model hyperparameters in KEY=VALUE format. "
+                "All VALUEs are assumed to be floats. "
+                "Unassigned hyperparameters are given their default values."
+            ),
+        )
+        self.parser.add_argument(
+            "--processes",
+            "-p",
+            type=int,
+            default=1,
+            help="Number of parallel processes.",
+        )
+
+    def validate_and_transform_args(self, args):
+        # Fetch model and default hyperparameters by name.
+        depth_model_class, model_default_hyperparameters = NAMED_DEPTH_MODELS[
+            args.model_name
+        ]
+
+        model_hyperparameters = {}
+        for entry in args.model_hyperparameters:
+            k, v = entry.split("=")
+            model_hyperparameters[k] = float(v)
+
+        # Instantiate the depth model with hyperparameter and assign it to args.
+        args.depth_model = depth_model_class(
+            **(model_default_hyperparameters | model_hyperparameters),
+        )
+
+        return args
+
+    def execute(self, args):
+        if args.debug or args.verbose:
+            logging.getLogger("jax").setLevel(logging.CRITICAL)
+
+        with phase_info("Loading test cases"):
+            with open(args.inpath, "rb") as f:
+                deconv_problems = pickle.load(f)
+            logging.info(f"Loaded {len(deconv_problems)} problems.")
+
+        with ProcessPool(processes=args.processes) as process_pool:
+            logging.info(
+                f"Initialized multiprocessing pool with {args.processes} workers."
+            )
+            logging.info(f"Deconvolving junctions with {args.depth_model}.")
+
+            batch_unzip, all_results = _run_calculate_junction_deconvolutions(
+                deconv_problems,
+                args.depth_model,
+                mapping_func=partial(process_pool.imap_unordered, chunksize=40),
+                score_name=args.score,
+                score_margin_thresh=args.score_thresh,
+                relative_stderr_thresh=args.relative_error_thresh,
+                absolute_stderr_thresh=args.absolute_error_thresh,
+                excess_thresh=args.excess_thresh,
+                completeness_thresh=args.completeness_thresh,
+            )
+
+        results = []
+        for res in all_results:
+            passes_identifiability = _test_identifiability(
+                res, args.relative_error_thresh, args.absolute_error_thresh
+            )
+            results.append(
+                dict(
+                    junction=res.unzip[0],
+                    converged=res.converged,
+                    loglik=res.fit.loglik,
+                    num_params=res.fit.num_params,
+                    sse=np.sum(res.fit.residual**2),
+                    sae=np.sum(np.abs(res.fit.residual)),
+                    completeness_ratio=res.completeness_ratio,
+                    excess_paths=res.excess_paths,
+                    score_margin=res.score_margin,
+                    identifiable=passes_identifiability,
+                    score_name=args.score_name,
+                    model=str(args.depth_model),
+                    paths=str(res.unzip[1]),
+                )
+            )
+
+        results = pd.DataFrame(results).set_index("junction")
+        results.to_csv(args.outpath, sep="\t")
