@@ -1,5 +1,6 @@
 import logging
 import pickle
+import warnings
 from dataclasses import dataclass
 from functools import partial
 from multiprocessing import Pool as ProcessPool
@@ -169,9 +170,10 @@ def _calculate_junction_deconvolution(args):
     # version of each junction identically, I'm picking a "canonical ordering"
     # of in-flows and out-flows.
     # I'll then conditionally reverse all the paths coming out the other side.
-    assert (
-        deconv_problem.in_flows.sum() != deconv_problem.out_flows.sum()
-    ), "Oh no! This won't work if both are EQUAL."
+    if deconv_problem.in_flows.sum() == deconv_problem.out_flows.sum():
+        warnings.warn(
+            f"For junction {junction}, total in_flows and total out_flows are equal; Swap is not well-ordered."
+        )
     do_swap = deconv_problem.in_flows.sum() > deconv_problem.out_flows.sum()
     if do_swap:
         # Swap everything
