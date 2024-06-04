@@ -436,13 +436,6 @@ class DeconvolveGraph(App):
             default=1,
             help="Number of parallel processes.",
         )
-        # # TODO (2024-05-15): After figuring out why purging is necessary,
-        # # add this back to make it possible to keep filtered vertices/edges.
-        # self.parser.add_argument(
-        #     "--keep-filtered",
-        #     action="store_true",
-        #     help="Keep filtered vertices instead of removing them when saving the graph.",
-        # )
 
     def validate_and_transform_args(self, args):
         # Fetch model and default hyperparameters by name.
