@@ -24,6 +24,7 @@ DEFAULT_SCORE_THRESH = 10.0
 DEFAULT_RELATIVE_ERROR_THRESH = 0.1
 DEFAULT_ABSOLUTE_ERROR_THRESH = 1.0
 DEFAULT_MIN_DEPTH = 0
+EXTRA_LARGE_THRESH = 100
 
 DEFAULT_DEPTH_MODEL = "Default"
 
@@ -630,7 +631,7 @@ class DeconvolveGraph(App):
                                 )
                                 deconvolutions.extend(deconv_results_subset)
                             with phase_info(
-                                "Large junctions (<=100 minimal, complete pathsets)"
+                                f"Large junctions (<={EXTRA_LARGE_THRESH} minimal, complete pathsets)"
                             ):
                                 is_large_junction = (
                                     ((in_degree.a >= 2) & (out_degree.a >= 2))
@@ -639,7 +640,7 @@ class DeconvolveGraph(App):
                                         sz.deconvolution.num_minimal_complete_pathsets(
                                             in_degree.a, out_degree.a
                                         )
-                                        <= 100
+                                        <= EXTRA_LARGE_THRESH
                                     )
                                 )
                                 junctions_subset = sz.topology.find_junctions(
@@ -678,7 +679,7 @@ class DeconvolveGraph(App):
                                 )
                                 deconvolutions.extend(deconv_results_subset)
                             with phase_info(
-                                "Extra-large junctions (>100 minimal, complete pathsets)"
+                                f"Extra-large junctions (>{EXTRA_LARGE_THRESH} minimal, complete pathsets)"
                             ):
                                 is_extralarge_junction = (
                                     ((in_degree.a >= 2) & (out_degree.a >= 2))
@@ -687,7 +688,7 @@ class DeconvolveGraph(App):
                                         sz.deconvolution.num_minimal_complete_pathsets(
                                             in_degree.a, out_degree.a
                                         )
-                                        > 100
+                                        > EXTRA_LARGE_THRESH
                                     )
                                 )
                                 junctions_subset = sz.topology.find_junctions(
