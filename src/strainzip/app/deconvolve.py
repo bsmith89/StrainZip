@@ -152,7 +152,7 @@ def _iter_junction_deconvolution_problems(junction_iter, graph, flow):
 def _calculate_junction_deconvolution(args):
     # # TODO (2024-05-15): Limit each process to use just 1 core using threadpoolctl?
     # NOTE (2024-06-03): This will increase the convergence rate.
-    # jax.config.update("jax_enable_x64", True)
+    jax.config.update("jax_enable_x64", True)
     # NOTE (2024-06-03): Also consider JAX persistent compilation cache,
     # although there's a risk of deadlocking with multiprocessing code.
 
