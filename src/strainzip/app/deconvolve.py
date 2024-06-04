@@ -228,46 +228,22 @@ def _calculate_junction_deconvolution(args):
     relative_stderr = fit.stderr_beta / (np.abs(fit.beta) + 1)
     absolute_stderr = fit.stderr_beta
 
-    if not fit.converged:
-        result = DeconvolutionResult(
-            converged=fit.converged,
-            score_margin=score_margin,
-            completeness_ratio=completeness_ratio,
-            excess_paths=excess_paths,
-            relative_stderr=relative_stderr,
-            absolute_stderr=absolute_stderr,
-            unzip=None,
-            fit=fit,
-        )
-    elif len(paths) == 0:
-        result = DeconvolutionResult(
-            converged=fit.converged,
-            score_margin=score_margin,
-            completeness_ratio=completeness_ratio,
-            excess_paths=excess_paths,
-            relative_stderr=relative_stderr,
-            absolute_stderr=absolute_stderr,
-            unzip=None,
-            fit=fit,
-        )
+    unzip = (
+        junction,
+        named_paths,
+        {"path_depths": np.array(fit.beta.clip(0))},
+    )
 
-    else:
-        # The unzip is not empty.
-        unzip = (
-            junction,
-            named_paths,
-            {"path_depths": np.array(fit.beta.clip(0))},
-        )
-        result = DeconvolutionResult(
-            converged=fit.converged,
-            score_margin=score_margin,
-            completeness_ratio=completeness_ratio,
-            excess_paths=excess_paths,
-            relative_stderr=relative_stderr,
-            absolute_stderr=absolute_stderr,
-            unzip=unzip,
-            fit=fit,
-        )
+    result = DeconvolutionResult(
+        converged=fit.converged,
+        score_margin=score_margin,
+        completeness_ratio=completeness_ratio,
+        excess_paths=excess_paths,
+        relative_stderr=relative_stderr,
+        absolute_stderr=absolute_stderr,
+        unzip=unzip,
+        fit=fit,
+    )
 
     return result
 
