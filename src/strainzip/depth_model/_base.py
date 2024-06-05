@@ -16,6 +16,13 @@ class DepthModelResult:
     converged: bool
     debug: Mapping[str, Any]
 
+    def __str__(self):
+        return (
+            f"{self.__class__.__name__}(model={self.model}, converged={self.converged}) "
+            f"fit to data where num_edges={self.num_edges}, num_samples={self.num_samples}, "
+            f"and num_paths={self.num_paths}."
+        )
+
     @property
     def beta(self):
         return self.params["beta"]
