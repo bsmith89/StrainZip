@@ -138,7 +138,7 @@ def _run_estimate_all_flows(graph, mapping_func):
         return flow
 
 
-def _iter_junction_deconvolution_problems(junction_iter, graph, flow):
+def _iter_junction_deconvolution_problems(junction_iter, graph, depth, flow):
     for j in junction_iter:
         in_neighbors = graph.get_in_neighbors(j)
         out_neighbors = graph.get_out_neighbors(j)
@@ -148,7 +148,13 @@ def _iter_junction_deconvolution_problems(junction_iter, graph, flow):
         in_flows = np.stack([flow[(i, j)] for i in in_neighbors])
         out_flows = np.stack([flow[(j, i)] for i in out_neighbors])
 
-        yield DeconvolutionProblem(j, in_neighbors, out_neighbors, in_flows, out_flows)
+        junction_depth = depth[j]
+        in_flows_adjusted = in_flows * junction_depth / in_flows.sum(axis=0)
+        out_flows_adjusted = out_flows * junction_depth / out_flows.sum(axis=0)
+
+        yield DeconvolutionProblem(
+            j, in_neighbors, out_neighbors, in_flows_adjusted, out_flows_adjusted
+        )
 
 
 def _decide_if_flow_ordering_swap(flowsA, flowsB):
@@ -543,7 +549,7 @@ class DeconvolveGraph(App):
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
-                                        junctions_subset, graph, flow
+                                        junctions_subset, graph, graph.vp["depth"], flow
                                     )
                                 )
                                 if args.checkpoint_dir:
@@ -582,7 +588,7 @@ class DeconvolveGraph(App):
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
-                                        junctions_subset, graph, flow
+                                        junctions_subset, graph, graph.vp["depth"], flow
                                     )
                                 )
                                 if args.checkpoint_dir:
@@ -630,7 +636,7 @@ class DeconvolveGraph(App):
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
-                                        junctions_subset, graph, flow
+                                        junctions_subset, graph, graph.vp["depth"], flow
                                     )
                                 )
                                 if args.checkpoint_dir:
@@ -678,7 +684,7 @@ class DeconvolveGraph(App):
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
-                                        junctions_subset, graph, flow
+                                        junctions_subset, graph, graph.vp["depth"], flow
                                     )
                                 )
                                 if args.checkpoint_dir:
