@@ -16,7 +16,7 @@ NAMED_DEPTH_MODELS: Mapping[str, Any] = {
     "Normal": (NormalDepthModel, dict(maxiter=10000, tol=1e-4)),
     "NormalScaled": (
         NormalScaledDepthModel,
-        dict(alpha=1.0, maxiter=1000, tol=1e-3),
+        dict(alpha=0.5, maxiter=100, tol=1e-3),
     ),
     "NormalScaled2": (
         NormalScaled2DepthModel,
