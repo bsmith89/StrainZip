@@ -236,7 +236,6 @@ def _calculate_junction_deconvolution(args):
         # those samples, since their depth is 0.
 
     n, m = len(in_neighbors), len(out_neighbors)
-    s = in_flows.shape[1]
     (
         fit,
         paths,
