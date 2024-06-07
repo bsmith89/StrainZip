@@ -293,6 +293,7 @@ def deconvolve_junction_exhaustive(
 
     # Calculate how much better the best score is.
     if not np.isfinite(best_score):
+        # TODO (2024-06-06): Figure out why this would ever happen...
         score_margin = -np.inf
     else:
         score_margin = best_score - second_score
