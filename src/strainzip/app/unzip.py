@@ -370,7 +370,7 @@ def _run_calculate_junction_deconvolutions(
     return unzip_batch, all_results
 
 
-class DeconvolveGraph(App):
+class UnzipGraph(App):
     """Run StrainZip graph deconvolution."""
 
     def add_custom_cli_args(self):

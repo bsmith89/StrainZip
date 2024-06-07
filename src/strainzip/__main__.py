@@ -2,7 +2,6 @@ import argparse
 import sys
 
 from .app.cluster import ClusterTigs
-from .app.deconvolve import BenchmarkDepthModel, DeconvolveGraph
 from .app.depth import EstimateUnitigDepth
 from .app.dump import DumpResults
 from .app.example import Example
@@ -11,6 +10,7 @@ from .app.info import ShowGraphStats
 from .app.load import LoadGraph
 from .app.smooth import SmoothDepths
 from .app.trim import TrimTips
+from .app.unzip import BenchmarkDepthModel, UnzipGraph
 
 APPLICATIONS = {
     "foo": Example,
@@ -19,7 +19,7 @@ APPLICATIONS = {
     "smooth": SmoothDepths,
     "trim": TrimTips,
     "focus": SelectLocalGraph,
-    "deconvolve": DeconvolveGraph,
+    "unzip": UnzipGraph,
     "benchmark": BenchmarkDepthModel,
     "dump": DumpResults,
     "info": ShowGraphStats,
