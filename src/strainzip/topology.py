@@ -170,7 +170,7 @@ def get_shortest_distance(
         dist_to_v = gt.topology.shortest_distance(
             graph, v, weights=edge_length, directed=True, max_dist=_max_length
         )
-        min_dist = np.minimum(min_dist, dist_to_v.a)
+        min_dist = np.minimum(min_dist, dist_to_v.a - source_length)
 
     return original_graph.new_vertex_property("float", vals=min_dist)
 
