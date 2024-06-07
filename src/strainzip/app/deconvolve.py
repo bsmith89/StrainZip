@@ -149,8 +149,21 @@ def _iter_junction_deconvolution_problems(junction_iter, graph, depth, flow):
         out_flows = np.stack([flow[(j, i)] for i in out_neighbors])
 
         junction_depth = depth[j]
-        in_flows_adjusted = in_flows * junction_depth / in_flows.sum(axis=0)
-        out_flows_adjusted = out_flows * junction_depth / out_flows.sum(axis=0)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                category=RuntimeWarning,
+                message="invalid value encountered in divide",
+            )
+            in_flows_adjusted = in_flows * np.nan_to_num(
+                junction_depth / in_flows.sum(axis=0), nan=1
+            )
+            out_flows_adjusted = out_flows * np.nan_to_num(
+                junction_depth / out_flows.sum(axis=0), nan=1
+            )
+        # NOTE: nan_to_num call should simply correct samples with no depth and
+        # no in/out flow with a factor of 1.0; this will have no effect on
+        # those samples, since their depth is 0.
 
         yield DeconvolutionProblem(
             j, in_neighbors, out_neighbors, in_flows_adjusted, out_flows_adjusted
