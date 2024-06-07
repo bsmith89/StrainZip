@@ -223,7 +223,7 @@ def _calculate_junction_deconvolution(args):
         warnings.filterwarnings(
             "ignore",
             category=RuntimeWarning,
-            message="invalid value encountered in divide",
+            message="divide by zero encountered in divide",
         )
         in_flows_adjusted = in_flows * np.nan_to_num(
             junction_depth / in_flows.sum(axis=0), nan=1
