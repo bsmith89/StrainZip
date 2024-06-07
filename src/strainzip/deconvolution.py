@@ -272,7 +272,7 @@ def deconvolve_junction_exhaustive(
         in_flows,
         out_flows,
         model,
-        include_empty_pathset=True,
+        include_empty_pathset=False,
         score_name=score_name,
         verbose=False,
     )
@@ -284,7 +284,14 @@ def deconvolve_junction_exhaustive(
             print(_score, _paths)
 
     pathset, best_score = top_scores[0]
-    _, second_score = top_scores[1]
+
+    # Check the second best score.
+    if len(top_scores) > 1:
+        _, second_score = top_scores[1]
+    else:
+        second_score = -np.inf
+
+    # Calculate how much better the best score is.
     if not np.isfinite(best_score):
         score_margin = -np.inf
     else:
