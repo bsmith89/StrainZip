@@ -151,10 +151,14 @@ def get_shortest_distance(
     else:
         graph = backlinked_graph(graph)
 
-    length = graph.own_property(length)
+    # NOTE (2024-06-07): If the length property isn't cast to a float, then
+    # (and therefore "edge lengths" are integers), the distances will also be integers
+    # and vertices outside of max_dist (or in an unconnected component will have finite
+    # distance (approximately the largest integer).
+    length = graph.new_vp("float", vals=graph.own_property(length).a)
     edge_length = gt.edge_endpoint_property(graph, length, "source")
 
-    min_dist = np.inf * np.ones(graph.num_vertices(ignore_filter=True))
+    min_dist = np.inf * np.ones_like(graph.num_vertices(ignore_filter=True))
     for v in tqdm(roots, disable=(not verbose)):
         source_length = length[v]
         # Max length needs to be adjusted by the source vertex length.
@@ -163,10 +167,10 @@ def get_shortest_distance(
         else:
             _max_length = None
 
-        dist = gt.topology.shortest_distance(
+        dist_to_v = gt.topology.shortest_distance(
             graph, v, weights=edge_length, directed=True, max_dist=_max_length
         )
-        min_dist[dist.a < min_dist] = dist.a[dist.a < min_dist] - source_length
+        min_dist = np.minimum(min_dist, dist_to_v.a)
 
     return original_graph.new_vertex_property("float", vals=min_dist)
 
