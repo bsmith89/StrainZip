@@ -32,6 +32,7 @@ DEFAULT_DEPTH_MODEL = "Default"
 @dataclass
 class DeconvolutionProblem:
     junction: int
+    junction_depth: float
     in_neighbors: List[int]
     out_neighbors: List[int]
     in_flows: np.ndarray
@@ -149,24 +150,9 @@ def _iter_junction_deconvolution_problems(junction_iter, graph, depth, flow):
         out_flows = np.stack([flow[(j, i)] for i in out_neighbors])
 
         junction_depth = depth[j]
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "ignore",
-                category=RuntimeWarning,
-                message="invalid value encountered in divide",
-            )
-            in_flows_adjusted = in_flows * np.nan_to_num(
-                junction_depth / in_flows.sum(axis=0), nan=1
-            )
-            out_flows_adjusted = out_flows * np.nan_to_num(
-                junction_depth / out_flows.sum(axis=0), nan=1
-            )
-        # NOTE: nan_to_num call should simply correct samples with no depth and
-        # no in/out flow with a factor of 1.0; this will have no effect on
-        # those samples, since their depth is 0.
 
         yield DeconvolutionProblem(
-            j, in_neighbors, out_neighbors, in_flows_adjusted, out_flows_adjusted
+            j, junction_depth, in_neighbors, out_neighbors, in_flows, out_flows
         )
 
 
@@ -183,6 +169,9 @@ def _decide_if_flow_ordering_swap(flowsA, flowsB):
         return True
     elif np.sign(flowsB - flowsA).sum() > 0:
         return False
+    # elif flowsB > flowsA earlier in the list than flowsB > flowsA. In other
+    # In other words: the first entry (reading in an arbitrary order) where
+    # flowA > flowB or flowB > flowA, which one is greater?
     elif (flowsA == flowsB).all():
         # Flows are identical. Doesn't matter what order.
         return False
@@ -208,6 +197,7 @@ def _calculate_junction_deconvolution(args):
     in_flows = deconv_problem.in_flows
     out_flows = deconv_problem.out_flows
     junction = deconv_problem.junction
+    junction_depth = deconv_problem.junction_depth
 
     # NOTE (2024-06-03): Here, with the intent of treating both forward and reverse
     # version of each junction identically, I'm picking a "canonical ordering"
@@ -221,6 +211,30 @@ def _calculate_junction_deconvolution(args):
         in_neighbors, out_neighbors = out_neighbors, in_neighbors
         in_flows, out_flows = out_flows, in_flows
 
+    # NOTE (2024-06-06): Balance in and out flows.
+    # This (greatly) decreases the error, and therefore
+    # the estimated stderrs of the path depth estimates.
+    # As a result, far more junctions are deconvolved. However,
+    # it's possible that this error was a signal that
+    # the depths are difficult to estimate.
+    # So the overall quality of the junctions that are now deconvolved
+    # (and weren't before) is not obvious.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=RuntimeWarning,
+            message="invalid value encountered in divide",
+        )
+        in_flows_adjusted = in_flows * np.nan_to_num(
+            junction_depth / in_flows.sum(axis=0), nan=1
+        )
+        out_flows_adjusted = out_flows * np.nan_to_num(
+            junction_depth / out_flows.sum(axis=0), nan=1
+        )
+        # NOTE: nan_to_num call simply corrects samples with no depth and
+        # no in/out flow with a factor of 1.0; this will have no effect on
+        # those samples, since their depth is 0.
+
     n, m = len(in_neighbors), len(out_neighbors)
     s = in_flows.shape[1]
     (
@@ -230,9 +244,9 @@ def _calculate_junction_deconvolution(args):
         score_margin,
     ) = sz.deconvolution.deconvolve_junction_exhaustive(
         in_neighbors,
-        in_flows,
+        in_flows_adjusted,
         out_neighbors,
-        out_flows,
+        out_flows_adjusted,
         model=depth_model,
         score_name=score_name,
     )
