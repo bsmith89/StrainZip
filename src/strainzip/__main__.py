@@ -13,7 +13,7 @@ from .app.trim import TrimTips
 from .app.unzip import BenchmarkDepthModel, UnzipGraph
 
 APPLICATIONS = {
-    "foo": Example,
+    # "foo": Example,
     "load": LoadGraph,
     "depth": EstimateUnitigDepth,
     "smooth": SmoothDepths,
