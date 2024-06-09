@@ -4,22 +4,29 @@ from jax import grad, jit
 from jax.nn import softplus
 from jax.scipy.stats.norm import logpdf as normal_logpdf
 from jax.tree_util import Partial
+from scipy.optimize import nnls
 
 from ._base import JaxDepthModel
 
 
-def weighted_least_squares(y, X, W):
-    beta = jnp.linalg.inv(X.T @ W @ X) @ X.T @ W @ y
+def weighted_non_negative_least_squares(y, X, W, maxiter=None, atol=None):
+    # Based on https://stackoverflow.com/a/36112536
+    sqrtW = jnp.sqrt(W)
+    beta, _ = nnls(sqrtW @ X, y @ sqrtW, maxiter=maxiter, atol=atol)
     return beta
 
 
 # @jit
-def multi_sample_weighted_least_squares(Y, X, W):
+def multi_sample_weighted_least_squares(Y, X, W, maxiter=None, atol=None):
     beta = []
     for i in range(Y.shape[1]):
         sample_W = jnp.diag(W[:, i])
         sample_y = Y[:, i]
-        beta.append(weighted_least_squares(sample_y, X, sample_W))
+        beta.append(
+            weighted_non_negative_least_squares(
+                sample_y, X, sample_W, maxiter=maxiter, atol=atol
+            )
+        )
     return jnp.stack(beta, axis=1)
 
 
@@ -38,10 +45,10 @@ def calculate_expected_var(beta, X, sigma, alpha):
     return expect_var
 
 
-def step_alternating_reweighted_least_squares(beta, sigma, Y, X, alpha):
-    W = calculate_expected_var(beta, X, sigma, alpha)
-    beta = multi_sample_weighted_least_squares(Y, X, W)
+def step_alternating_reweighted_least_squares(beta, Y, X, alpha):
     sigma = estimate_sigma(beta, Y, X, alpha)
+    W = 1 / calculate_expected_var(beta, X, sigma, alpha)
+    beta = multi_sample_weighted_least_squares(Y, X, W)
     return beta, sigma
 
 
@@ -59,11 +66,9 @@ def step_alternating_reweighted_least_squares(beta, sigma, Y, X, alpha):
 def loglik(beta, sigma, Y, X, alpha):
     expect = X @ beta
     return normal_logpdf(Y, loc=expect, scale=sigma * expect**alpha).sum()
-    # # FIXME: Debugging
-    # return normal_logpdf(Y, loc=expect, scale=sigma).sum()
 
 
-loglik_grad_func = jit(grad(loglik, argnums=[0, 1]))
+loglik_grad_func = grad(loglik, argnums=[0, 1])
 
 
 def _fit_normal_scaled_model(y, X, alpha, maxiter, tol):
@@ -79,7 +84,7 @@ def _fit_normal_scaled_model(y, X, alpha, maxiter, tol):
     i = -1
     for i in range(maxiter):
         beta_est, sigma_est = step_alternating_reweighted_least_squares(
-            beta_est, sigma_est, y, X, alpha
+            beta_est, y, X, alpha
         )
         beta_grad, sigma_grad = loglik_grad_func(beta_est, sigma_est, y, X, alpha)
         beta_grad_ss = (beta_grad**2).sum()
