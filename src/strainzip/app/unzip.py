@@ -225,6 +225,12 @@ def _calculate_junction_deconvolution(args):
             category=RuntimeWarning,
             message="divide by zero encountered in divide",
         )
+        warnings.filterwarnings(
+            "ignore",
+            category=RuntimeWarning,
+            message="invalid value encountered in divide",
+        )
+        # TODO (2024-06-10): Figure out why I get two different warnings here.
         in_flows_adjusted = in_flows * np.nan_to_num(
             junction_depth / in_flows.sum(axis=0), nan=1
         )
