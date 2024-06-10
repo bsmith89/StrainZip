@@ -74,7 +74,11 @@ class SelectLocalGraph(App):
         if args.radius > 0:
             with sz.logging_util.phase_info("Selecting radius"):
                 min_dist = sz.topology.get_shortest_distance(
-                    graph, roots=focal_vertices, length=graph.vp["length"]
+                    graph,
+                    roots=focal_vertices,
+                    length=graph.vp["length"],
+                    verbose=args.verbose,
+                    max_length=args.radius,
                 )
                 vfilt = graph.new_vertex_property(
                     "bool", vals=(min_dist.a < args.radius)
