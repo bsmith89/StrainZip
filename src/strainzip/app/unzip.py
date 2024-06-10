@@ -159,37 +159,24 @@ def _iter_junction_deconvolution_problems(junction_iter, graph, depth, flow):
 def _decide_if_flow_ordering_swap(flowsA, flowsB):
     if flowsA.shape[0] > flowsB.shape[0]:
         return True
-    elif flowsA.shape[0] < flowsB.shape[0]:
+    elif flowsB.shape[0] > flowsA.shape[0]:
         return False
-
-    if flowsA.sum() > flowsB.sum():
+    elif flowsA.sum() > flowsB.sum():
         return True
-    elif flowsA.sum() < flowsB.sum():
+    elif flowsB.sum() > flowsA.sum():
         return False
-
-    # # Which flow has more, greater elements?
-    # if np.sign(flowsA - flowsB).sum() > 0:
-    #     return True
-    # elf np.sign(flowsB - flowsA).sum() > 0:
-    #     return False
-
-    per_element_difference = np.sign(flowsA - flowsB).ravel()
-    if np.argmin(per_element_difference) < np.argmax(per_element_difference):
-        # flowsB > flowsA earlier in the list than flowsB > flowsA.
-        # In other words: the first entry (reading in an arbitrary/raveled order)
-        # where one or the other was greater had flowsA greater than flowsB.
+    elif np.sign(flowsA - flowsB).sum() > 0:
         return True
-    elif np.argmin(per_element_difference) > np.argmax(per_element_difference):
-        # Oposite of above
+    elif np.sign(flowsB - flowsA).sum() > 0:
         return False
-
-    # Nothing else could pick which flows were "larger".
-    # Maybe they're just equal??
-    if (flowsA == flowsB).all():
-        # Flows are identical. Shouldn't matter what order...
+    # elif flowsB > flowsA earlier in the list than flowsB > flowsA. In other
+    # In other words: the first entry (reading in an arbitrary order) where
+    # flowA > flowB or flowB > flowA, which one is greater?
+    elif (flowsA == flowsB).all():
+        # Flows are identical. Doesn't matter what order.
         return False
-
-    raise ValueError("Cannot decide on an ordering in/out flows for this junction.")
+    else:
+        warnings.warn("Cannot decide on an ordering in/out flows for this junction.")
 
 
 def _calculate_junction_deconvolution(args):
