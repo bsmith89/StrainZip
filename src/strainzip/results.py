@@ -21,10 +21,11 @@ def assemble_overlapping_unitigs(segment_list, unitig_to_sequence, k):
 
 
 def depth_table(graph, vertices):
-    depths = {}
-    for v in vertices:
-        depths[v] = graph.vp["depth"][v]
-    return pd.DataFrame(depths)
+    depths = pd.DataFrame(
+        graph.vp["depth"].get_2d_array(pos=range(graph.gp["num_samples"])).T,
+        index=graph.get_vertices(),
+    )
+    return depths.loc[vertices].T
 
 
 def full_depth_table(graph):
