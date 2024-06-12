@@ -16,7 +16,8 @@ class ClusterTigs(App):
     """Cluster graph vertices based on multi-sample depth profiles."""
 
     def add_custom_cli_args(self):
-        self.parser.add_argument("inpath", help="StrainZip formatted graph.")
+        self.parser.add_argument("graph_inpath", help="StrainZip formatted graph.")
+        self.parser.add_argument("preclust_inpath", help="Fine clusteirng of vertices")
         self.parser.add_argument(
             "thresh", type=float, help="Distance threshold for clustering."
         )
@@ -54,8 +55,11 @@ class ClusterTigs(App):
         )
 
     def execute(self, args):
-        with sz.logging_util.phase_info("Loading graph"):
-            graph = sz.io.load_graph(args.inpath)
+        with sz.logging_util.phase_info("Loading inputs"):
+            graph = sz.io.load_graph(args.graph_inpath)
+            vertex_preclust = pd.read_table(
+                args.preclust_inpath, index_col="vertex"
+            ).cluster
 
         with sz.logging_util.phase_info("Tabulating vertex data"):
             vertex_depth = sz.results.depth_table(graph, graph.get_vertices()).T
@@ -66,28 +70,16 @@ class ClusterTigs(App):
             vertex_depth, vertex_length = vertex_depth[lambda x: x.sum(1) > 0].align(
                 vertex_length, axis=0, join="left"
             )
-
-        with sz.logging_util.phase_info("Preclustering"):
             num_vertices, num_samples = vertex_depth.shape
-            logging.info(
-                f"Preclustering {num_vertices} tigs using depths across {num_samples} samples."
+
+        with sz.logging_util.phase_info("Aggregating precluster stats"):
+            preclust_length = vertex_length.groupby(vertex_preclust).sum()
+            preclust_depth = (
+                (vertex_depth.multiply(vertex_length, axis=0))
+                .groupby(vertex_preclust)
+                .sum()
+                .divide(preclust_length, axis=0)
             )
-            trsfm_vertex_depth = vertex_depth**args.exponent
-            trsfm_vertex_depth_normalized = trsfm_vertex_depth.divide(
-                (trsfm_vertex_depth ** (2)).sum(1) ** (1 / 2), axis=0
-            )
-            kmeans = MiniBatchKMeans(
-                n_clusters=args.num_preclust, random_state=args.random_seed
-            ).fit(trsfm_vertex_depth_normalized)
-            with sz.logging_util.phase_info("Aggregating precluster stats"):
-                vertex_preclust = pd.Series(kmeans.labels_, index=vertex_depth.index)
-                preclust_length = vertex_length.groupby(vertex_preclust).sum()
-                preclust_depth = (
-                    (vertex_depth.multiply(vertex_length, axis=0))
-                    .groupby(vertex_preclust)
-                    .sum()
-                    .divide(preclust_length, axis=0)
-                )
 
         with sz.logging_util.phase_info("Clustering"):
             agglom = AgglomerativeClustering(

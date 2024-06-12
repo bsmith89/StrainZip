@@ -8,6 +8,7 @@ from .app.example import Example
 from .app.focus import SelectLocalGraph
 from .app.info import ShowGraphStats
 from .app.load import LoadGraph
+from .app.precluster import PreClusterTigs
 from .app.smooth import SmoothDepths
 from .app.trim import TrimTips
 from .app.unzip import BenchmarkDepthModel, UnzipGraph
@@ -24,6 +25,7 @@ APPLICATIONS = {
     "dump": DumpResults,
     "info": ShowGraphStats,
     "cluster": ClusterTigs,
+    "precluster": PreClusterTigs,
 }
 
 
