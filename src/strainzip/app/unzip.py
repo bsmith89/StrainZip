@@ -24,7 +24,7 @@ DEFAULT_SCORE_THRESH = 10.0
 DEFAULT_RELATIVE_ERROR_THRESH = 0.1
 DEFAULT_ABSOLUTE_ERROR_THRESH = 1.0
 DEFAULT_MIN_DEPTH = 0
-EXTRA_LARGE_THRESH = 100
+DEFAULT_EXTRA_LARGE_THRESH = 100
 
 DEFAULT_DEPTH_MODEL = "Default"
 
@@ -421,9 +421,30 @@ class UnzipGraph(App):
             help="Maximum rounds of graph deconvolution.",
         )
         self.parser.add_argument(
+            "--skip-safe",
+            action="store_true",
+            help="Don't try to deconvolve safe junctions.",
+        )
+        self.parser.add_argument(
+            "--skip-canonical",
+            action="store_true",
+            help="Don't try to deconvolve canonical junctions.",
+        )
+        self.parser.add_argument(
+            "--skip-large",
+            action="store_true",
+            help="Don't try to deconvolve large junctions.",
+        )
+        self.parser.add_argument(
             "--skip-extra-large",
             action="store_true",
-            help="Don't try to deconvolve extra large junctions (NxM >= 30).",
+            help="Don't try to deconvolve extra large junctions.",
+        )
+        self.parser.add_argument(
+            "--extra-large",
+            type=int,
+            default=DEFAULT_EXTRA_LARGE_THRESH,
+            help="Junction size to consider 'extra large'.",
         )
         self.parser.add_argument(
             "--relative-error-thresh",
@@ -591,23 +612,26 @@ class UnzipGraph(App):
                                             "wb",
                                         ) as f:
                                             pickle.dump(deconv_problems_subset, f)
-                                (
-                                    deconv_results_subset,
-                                    _,
-                                ) = _run_calculate_junction_deconvolutions(
-                                    deconv_problems_subset,
-                                    args.depth_model,
-                                    mapping_func=partial(
-                                        process_pool.imap_unordered, chunksize=40
-                                    ),
-                                    score_name=args.score_name,
-                                    score_margin_thresh=args.score_thresh,
-                                    relative_stderr_thresh=args.relative_error_thresh,
-                                    absolute_stderr_thresh=args.absolute_error_thresh,
-                                    excess_thresh=args.excess_thresh,
-                                    completeness_thresh=args.completeness_thresh,
-                                )
-                                deconvolutions.extend(deconv_results_subset)
+                                if not args.skip_safe:
+                                    (
+                                        deconv_results_subset,
+                                        _,
+                                    ) = _run_calculate_junction_deconvolutions(
+                                        deconv_problems_subset,
+                                        args.depth_model,
+                                        mapping_func=partial(
+                                            process_pool.imap_unordered, chunksize=1
+                                        ),
+                                        score_name=args.score_name,
+                                        score_margin_thresh=args.score_thresh,
+                                        relative_stderr_thresh=args.relative_error_thresh,
+                                        absolute_stderr_thresh=args.absolute_error_thresh,
+                                        excess_thresh=args.excess_thresh,
+                                        completeness_thresh=args.completeness_thresh,
+                                    )
+                                    deconvolutions.extend(deconv_results_subset)
+                                else:
+                                    logging.info("Skipping safe junctions.")
                             with phase_info("Canonical junctions (2x2)"):
                                 is_canonincal_junction = (in_degree.a == 2) & (
                                     out_degree.a == 2
@@ -630,25 +654,28 @@ class UnzipGraph(App):
                                             "wb",
                                         ) as f:
                                             pickle.dump(deconv_problems_subset, f)
-                                (
-                                    deconv_results_subset,
-                                    _,
-                                ) = _run_calculate_junction_deconvolutions(
-                                    deconv_problems_subset,
-                                    args.depth_model,
-                                    mapping_func=partial(
-                                        process_pool.imap_unordered, chunksize=40
-                                    ),
-                                    score_name=args.score_name,
-                                    score_margin_thresh=args.score_thresh,
-                                    relative_stderr_thresh=args.relative_error_thresh,
-                                    absolute_stderr_thresh=args.absolute_error_thresh,
-                                    excess_thresh=args.excess_thresh,
-                                    completeness_thresh=args.completeness_thresh,
-                                )
-                                deconvolutions.extend(deconv_results_subset)
+                                if not args.skip_canonical:
+                                    (
+                                        deconv_results_subset,
+                                        _,
+                                    ) = _run_calculate_junction_deconvolutions(
+                                        deconv_problems_subset,
+                                        args.depth_model,
+                                        mapping_func=partial(
+                                            process_pool.imap_unordered, chunksize=1
+                                        ),
+                                        score_name=args.score_name,
+                                        score_margin_thresh=args.score_thresh,
+                                        relative_stderr_thresh=args.relative_error_thresh,
+                                        absolute_stderr_thresh=args.absolute_error_thresh,
+                                        excess_thresh=args.excess_thresh,
+                                        completeness_thresh=args.completeness_thresh,
+                                    )
+                                    deconvolutions.extend(deconv_results_subset)
+                                else:
+                                    logging.info("Skipping canonical junctions.")
                             with phase_info(
-                                f"Large junctions (<={EXTRA_LARGE_THRESH} minimal, complete pathsets)"
+                                f"Large junctions (<={args.extra_large} minimal, complete pathsets)"
                             ):
                                 is_large_junction = (
                                     ((in_degree.a >= 2) & (out_degree.a >= 2))
@@ -657,7 +684,7 @@ class UnzipGraph(App):
                                         sz.deconvolution.num_minimal_complete_pathsets(
                                             in_degree.a, out_degree.a
                                         )
-                                        <= EXTRA_LARGE_THRESH
+                                        <= args.extra_large
                                     )
                                 )
                                 junctions_subset = sz.topology.find_junctions(
@@ -678,25 +705,28 @@ class UnzipGraph(App):
                                             "wb",
                                         ) as f:
                                             pickle.dump(deconv_problems_subset, f)
-                                (
-                                    deconv_results_subset,
-                                    _,
-                                ) = _run_calculate_junction_deconvolutions(
-                                    deconv_problems_subset,
-                                    args.depth_model,
-                                    mapping_func=partial(
-                                        process_pool.imap_unordered, chunksize=8
-                                    ),
-                                    score_name=args.score_name,
-                                    score_margin_thresh=args.score_thresh,
-                                    relative_stderr_thresh=args.relative_error_thresh,
-                                    absolute_stderr_thresh=args.absolute_error_thresh,
-                                    excess_thresh=args.excess_thresh,
-                                    completeness_thresh=args.completeness_thresh,
-                                )
-                                deconvolutions.extend(deconv_results_subset)
+                                if not args.skip_large:
+                                    (
+                                        deconv_results_subset,
+                                        _,
+                                    ) = _run_calculate_junction_deconvolutions(
+                                        deconv_problems_subset,
+                                        args.depth_model,
+                                        mapping_func=partial(
+                                            process_pool.imap_unordered, chunksize=1
+                                        ),
+                                        score_name=args.score_name,
+                                        score_margin_thresh=args.score_thresh,
+                                        relative_stderr_thresh=args.relative_error_thresh,
+                                        absolute_stderr_thresh=args.absolute_error_thresh,
+                                        excess_thresh=args.excess_thresh,
+                                        completeness_thresh=args.completeness_thresh,
+                                    )
+                                    deconvolutions.extend(deconv_results_subset)
+                                else:
+                                    logging.info("Skipping large junctions.")
                             with phase_info(
-                                f"Extra-large junctions (>{EXTRA_LARGE_THRESH} minimal, complete pathsets)"
+                                f"Extra-large junctions (>{args.extra_large} minimal, complete pathsets)"
                             ):
                                 is_extralarge_junction = (
                                     ((in_degree.a >= 2) & (out_degree.a >= 2))
@@ -705,7 +735,7 @@ class UnzipGraph(App):
                                         sz.deconvolution.num_minimal_complete_pathsets(
                                             in_degree.a, out_degree.a
                                         )
-                                        > EXTRA_LARGE_THRESH
+                                        > args.extra_large
                                     )
                                 )
                                 junctions_subset = sz.topology.find_junctions(
