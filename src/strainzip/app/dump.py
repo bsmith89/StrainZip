@@ -20,8 +20,12 @@ class DumpResults(App):
         )
 
     def execute(self, args):
-        with phase_info("Loading data"):
+        with phase_info("Loading graph"):
             graph = sz.io.load_graph(args.graph_inpath)
+        with phase_info("Loading depth"):
+            unitig_depth_table = xr.load_dataarray(args.depth_inpath)
+            unitig_depth_table["unitig"] = unitig_depth_table["unitig"].astype(str)
+        with phase_info("Loading FASTA"):
             with open(args.fasta_inpath) as f:
                 (
                     _,
@@ -29,8 +33,6 @@ class DumpResults(App):
                 ) = sz.io.load_graph_and_sequences_from_linked_fasta(
                     f, graph.gp["kmer_length"], sz.io.ggcat_header_tokenizer
                 )
-            unitig_depth_table = xr.load_dataarray(args.depth_inpath)
-            unitig_depth_table["unitig"] = unitig_depth_table["unitig"].astype(str)
 
         with phase_info("Compiling results"):
             results = sz.results.extract_vertex_data(graph).sort_values(
