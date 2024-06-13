@@ -1,7 +1,9 @@
 import logging
+from itertools import chain, product
 from typing import List
 
 import graph_tool as gt
+import graph_tool.clustering
 import graph_tool.topology
 import numpy as np
 from tqdm import tqdm
@@ -185,3 +187,16 @@ def vertex_or_neighbors(graph, vprop):
         "bool", vals=(vprop.a | left_neighbor_true.a | right_neighbor_true.a)
     )
     return any_true
+
+
+def build_bipartite_motif_graph(n, m):
+    g = gt.Graph(product(range(n), range(n, n + m)))
+    return g
+
+
+def find_all_vertices_in_motifs(g, motif_graph):
+    _, _, vertex_ids_prop = gt.clustering.motifs(
+        g, len(motif_graph), motif_list=[motif_graph], return_maps=True
+    )
+    vertex_ids_prop = list(chain(*vertex_ids_prop))  # Flatten a nested list.
+    return set(chain(*[list(motif_graph.own_property(vp).a) for vp in vertex_ids_prop]))

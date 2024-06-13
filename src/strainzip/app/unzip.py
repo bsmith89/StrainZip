@@ -586,6 +586,28 @@ class UnzipGraph(App):
                             graph,
                             partial(process_pool.imap, chunksize=4),
                         )
+                        with phase_info("Finding unidentifiable flows"):
+                            # TODO: Be more confident about this.
+                            # NOTE (2024-06-12): I've just added this because I
+                            # realized that bipartite subgraphs create
+                            # inevitable uncertainty about the flows along their
+                            # edges. Since the flow is unidentifiable, the
+                            # deconvolution is also unidentifiable.
+                            # Here I'm searching for a "2x2" motif, where
+                            # two vertices both point at two other vertices.
+                            # I believe this motif should show up in ALL
+                            # such unidentifiable flow situations, (including
+                            # analogous 3x3 situatations).
+                            vertices_in_blackboxes = (
+                                sz.topology.find_all_vertices_in_motifs(
+                                    graph,
+                                    sz.topology.build_bipartite_motif_graph(2, 2),
+                                )
+                            )
+                            logging.info(
+                                f"Found {len(vertices_in_blackboxes)} vertices with unidentifiable flows."
+                            )
+
                         with phase_info("Deconvolving junctions"):
                             deconvolutions = []
                             in_degree = graph.degree_property_map("in")
@@ -594,11 +616,22 @@ class UnzipGraph(App):
                                 is_safe_junction = (in_degree.a == 1) | (
                                     out_degree.a == 1
                                 )
-                                junctions_subset = sz.topology.find_junctions(
-                                    graph, also_required=is_safe_junction
+                                junctions_subset = set(
+                                    sz.topology.find_junctions(
+                                        graph, also_required=is_safe_junction
+                                    )
                                 )
                                 logging.info(
-                                    f"Found {len(junctions_subset)} safe junctions"
+                                    f"Found {len(junctions_subset)} safe junctions."
+                                )
+                                num_blackbox_junctions = len(
+                                    set(junctions_subset) & vertices_in_blackboxes
+                                )
+                                logging.info(
+                                    f"Of these, {num_blackbox_junctions} have unidentifiable flows."
+                                )
+                                junctions_subset = junctions_subset - set(
+                                    vertices_in_blackboxes
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
@@ -636,11 +669,22 @@ class UnzipGraph(App):
                                 is_canonincal_junction = (in_degree.a == 2) & (
                                     out_degree.a == 2
                                 )
-                                junctions_subset = sz.topology.find_junctions(
-                                    graph, also_required=is_canonincal_junction
+                                junctions_subset = set(
+                                    sz.topology.find_junctions(
+                                        graph, also_required=is_canonincal_junction
+                                    )
                                 )
                                 logging.info(
                                     f"Found {len(junctions_subset)} canonical junctions"
+                                )
+                                num_blackbox_junctions = len(
+                                    set(junctions_subset) & vertices_in_blackboxes
+                                )
+                                logging.info(
+                                    f"Of these, {num_blackbox_junctions} have unidentifiable flows."
+                                )
+                                junctions_subset = junctions_subset - set(
+                                    vertices_in_blackboxes
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
@@ -687,11 +731,22 @@ class UnzipGraph(App):
                                         <= args.extra_large
                                     )
                                 )
-                                junctions_subset = sz.topology.find_junctions(
-                                    graph, also_required=is_large_junction
+                                junctions_subset = set(
+                                    sz.topology.find_junctions(
+                                        graph, also_required=is_large_junction
+                                    )
                                 )
                                 logging.info(
                                     f"Found {len(junctions_subset)} large junctions"
+                                )
+                                num_blackbox_junctions = len(
+                                    set(junctions_subset) & vertices_in_blackboxes
+                                )
+                                logging.info(
+                                    f"Of these, {num_blackbox_junctions} have unidentifiable flows."
+                                )
+                                junctions_subset = junctions_subset - set(
+                                    vertices_in_blackboxes
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
@@ -738,11 +793,22 @@ class UnzipGraph(App):
                                         > args.extra_large
                                     )
                                 )
-                                junctions_subset = sz.topology.find_junctions(
-                                    graph, also_required=is_extralarge_junction
+                                junctions_subset = set(
+                                    sz.topology.find_junctions(
+                                        graph, also_required=is_extralarge_junction
+                                    )
                                 )
                                 logging.info(
                                     f"Found {len(junctions_subset)} extra-large junctions"
+                                )
+                                num_blackbox_junctions = len(
+                                    set(junctions_subset) & vertices_in_blackboxes
+                                )
+                                logging.info(
+                                    f"Of these, {num_blackbox_junctions} have unidentifiable flows."
+                                )
+                                junctions_subset = junctions_subset - set(
+                                    vertices_in_blackboxes
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(

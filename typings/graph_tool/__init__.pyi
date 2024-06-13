@@ -12,7 +12,7 @@ from typing import (
 
 from numpy.typing import NDArray
 
-from . import draw, topology
+from . import clustering, draw, topology
 
 ScalarT = TypeVar("ScalarT", bound=Any)
 
