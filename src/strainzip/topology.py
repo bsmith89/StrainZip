@@ -177,6 +177,24 @@ def get_shortest_distance(
     return original_graph.new_vertex_property("float", vals=min_dist)
 
 
+def get_shortest_distance_to_any_vertex(
+    graph, roots, length, verbose=False, inplace=False
+):
+    if inplace:
+        g = graph
+    else:
+        g = graph.copy()
+
+    core_vertex = g.add_vertex()
+    new_edges = [(core_vertex, v) for v in roots]
+    g.add_edge_list(new_edges)
+    shortest_dist = get_shortest_distance(
+        g, roots=[core_vertex], length=length, verbose=verbose
+    )
+    g.remove_vertex(core_vertex)
+    return graph.own_property(shortest_dist)
+
+
 def vertex_or_neighbors(graph, vprop):
     "Boolean vertex property: True if vertex or any neighbors are True."
     left_true = gt.edge_endpoint_property(graph, prop=vprop, endpoint="source")
