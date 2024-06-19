@@ -1,0 +1,3 @@
+from . import EdgePropertyMap
+
+def label_self_loops(g, mark_only=False) -> EdgePropertyMap: ...

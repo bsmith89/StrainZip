@@ -586,6 +586,7 @@ class UnzipGraph(App):
                             graph,
                             partial(process_pool.imap, chunksize=4),
                         )
+
                         with phase_info("Finding unidentifiable flows"):
                             # TODO: Be more confident about this.
                             # NOTE (2024-06-12): I've just added this because I
@@ -605,7 +606,47 @@ class UnzipGraph(App):
                                 )
                             )
                             logging.info(
-                                f"Found {len(vertices_in_blackboxes)} vertices with unidentifiable flows."
+                                f"Found {len(vertices_in_blackboxes)} vertices in 'black-boxes'."
+                            )
+                            # NOTE (2024-06-19): I've now also realized that
+                            # self-looping situations are similarly tricky to
+                            # estimate flow. I guess you might call them
+                            # partially unidentifiable, since the flow on the
+                            # looping edge is only as well specified as the
+                            # out-flows from the vertex are well specified.
+                            # As a result, a set of connect-and-self-looping
+                            # vertices (i.e. a dumbell: O-O),
+                            # would also be unidentifiable flows, since we
+                            # don't know how much flow is on the self-looping
+                            # edges and how much is on the connecting edge.
+                            # Unlike black-boxes, not ALL self-looping vertices
+                            # are necessarily unidentifiable, and the "dumbell"
+                            # motif doesn't capture all such issues. However,
+                            # I'm excluding junctions with self-looping entirely
+                            # from deconvolution. These motifs also have other
+                            # issues with deconvolution (since they can pop out
+                            # incorrectly and there's no way to prevent this).
+                            vertices_with_self_loops = set(
+                                np.where(
+                                    gt.incident_edges_op(
+                                        graph,
+                                        "in",
+                                        "max",
+                                        gt.generation.label_self_loops(
+                                            graph, mark_only=True
+                                        ),
+                                    ).a
+                                    != 0
+                                )[0]
+                            )
+                            logging.info(
+                                f"Found {len(vertices_with_self_loops)} vertices with self-loops."
+                            )
+                            vertices_with_unidentifiable_flows = (
+                                vertices_in_blackboxes | vertices_with_self_loops
+                            )
+                            logging.info(
+                                f"Excluding all {len(vertices_with_unidentifiable_flows)} vertices with unidentifiable flows."
                             )
 
                         with phase_info("Deconvolving junctions"):
@@ -625,14 +666,16 @@ class UnzipGraph(App):
                                     f"Found {len(junctions_subset)} safe junctions."
                                 )
                                 num_blackbox_junctions = len(
-                                    set(junctions_subset) & vertices_in_blackboxes
+                                    set(junctions_subset)
+                                    & vertices_with_unidentifiable_flows
                                 )
                                 logging.info(
                                     f"Of these, {num_blackbox_junctions} have unidentifiable flows."
                                 )
                                 junctions_subset = junctions_subset - set(
-                                    vertices_in_blackboxes
+                                    vertices_with_unidentifiable_flows
                                 )
+
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
                                         junctions_subset, graph, graph.vp["depth"], flow
@@ -678,13 +721,14 @@ class UnzipGraph(App):
                                     f"Found {len(junctions_subset)} canonical junctions"
                                 )
                                 num_blackbox_junctions = len(
-                                    set(junctions_subset) & vertices_in_blackboxes
+                                    set(junctions_subset)
+                                    & vertices_with_unidentifiable_flows
                                 )
                                 logging.info(
                                     f"Of these, {num_blackbox_junctions} have unidentifiable flows."
                                 )
                                 junctions_subset = junctions_subset - set(
-                                    vertices_in_blackboxes
+                                    vertices_with_unidentifiable_flows
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
@@ -740,13 +784,14 @@ class UnzipGraph(App):
                                     f"Found {len(junctions_subset)} large junctions"
                                 )
                                 num_blackbox_junctions = len(
-                                    set(junctions_subset) & vertices_in_blackboxes
+                                    set(junctions_subset)
+                                    & vertices_with_unidentifiable_flows
                                 )
                                 logging.info(
                                     f"Of these, {num_blackbox_junctions} have unidentifiable flows."
                                 )
                                 junctions_subset = junctions_subset - set(
-                                    vertices_in_blackboxes
+                                    vertices_with_unidentifiable_flows
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
@@ -802,13 +847,14 @@ class UnzipGraph(App):
                                     f"Found {len(junctions_subset)} extra-large junctions"
                                 )
                                 num_blackbox_junctions = len(
-                                    set(junctions_subset) & vertices_in_blackboxes
+                                    set(junctions_subset)
+                                    & vertices_with_unidentifiable_flows
                                 )
                                 logging.info(
                                     f"Of these, {num_blackbox_junctions} have unidentifiable flows."
                                 )
                                 junctions_subset = junctions_subset - set(
-                                    vertices_in_blackboxes
+                                    vertices_with_unidentifiable_flows
                                 )
                                 deconv_problems_subset = list(
                                     _iter_junction_deconvolution_problems(
