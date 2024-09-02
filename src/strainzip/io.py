@@ -1,5 +1,6 @@
 import graph_tool as gt
 import numpy as np
+from tqdm import tqdm
 
 from .sequence import iter_kmers, reverse_complement
 
@@ -14,6 +15,11 @@ def bcalm_header_tokenizer(header):
 def ggcat_header_tokenizer(header):
     unitig_id_string, length_string, *edge_strings_list = header.split()
     return unitig_id_string, length_string, edge_strings_list
+
+
+def generic_header_tokenizer(header):
+    unitig_id_string, *other_fields = header.split()
+    return unitig_id_string, *other_fields
 
 
 def parse_linked_fasta_entry_header(
@@ -77,12 +83,14 @@ def iter_linked_fasta_entries(lines_iter):
     yield (header, sequence)
 
 
-def parse_linked_fasta(lines_iter, k, header_tokenizer):
+def parse_linked_fasta(lines_iter, k, header_tokenizer, verbose=False):
     sequences = {}
     lengths = {}
     all_edge_list = []
     orphan_unitigs = []
-    for header, sequence in iter_linked_fasta_entries(lines_iter):
+    for header, sequence in tqdm(
+        iter_linked_fasta_entries(lines_iter), disable=(not verbose)
+    ):
         unitig_id_string, length_string, edge_strings_list = header_tokenizer(header)
         unitig_id, length, edge_list = parse_linked_fasta_entry_header(
             unitig_id_string, length_string, edge_strings_list, k, header_tokenizer
@@ -95,20 +103,27 @@ def parse_linked_fasta(lines_iter, k, header_tokenizer):
     return list(set(all_edge_list)), orphan_unitigs, lengths, sequences
 
 
-def load_graph_and_sequences_from_linked_fasta(file_handle, k, header_tokenizer):
+def load_graph_and_sequences_from_linked_fasta(
+    file_handle, k, header_tokenizer, verbose=False
+):
     edge_list, orphan_unitigs, lengths, sequences = parse_linked_fasta(
-        file_handle, k, header_tokenizer
+        file_handle,
+        k,
+        header_tokenizer,
+        verbose=verbose,
     )
 
     graph = gt.Graph(set(edge_list), hashed=True, directed=True)
     num_non_orphan_unitigs = len(graph)
     graph.add_vertex(n=len(orphan_unitigs))
-    for (i, unitig_id) in enumerate(orphan_unitigs, start=num_non_orphan_unitigs):
+    for (i, unitig_id) in tqdm(
+        enumerate(orphan_unitigs, start=num_non_orphan_unitigs), disable=(not verbose)
+    ):
         graph.vp["ids"][i] = unitig_id
 
     graph.vp["filter"] = graph.new_vertex_property("bool", val=1)
     graph.vp["length"] = graph.new_vertex_property("int")
-    for i, _hash in enumerate(graph.vp["ids"]):
+    for i, _hash in tqdm(enumerate(graph.vp["ids"]), disable=(not verbose)):
         graph.vp["length"].a[i] = lengths[_hash[:-1]]
     graph.vp["sequence"] = graph.vp["ids"]
     del graph.vp["ids"]

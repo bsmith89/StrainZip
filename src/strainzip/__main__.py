@@ -3,11 +3,11 @@ import sys
 
 from .app.cluster import ClusterTigs
 from .app.depth import EstimateUnitigDepth
-from .app.dump import DumpResults
-from .app.example import Example
+from .app.draw import DrawGraph
+from .app.dump import DumpContigs, DumpResults, DumpSegments
 from .app.focus import SelectLocalGraph
 from .app.info import ShowGraphStats
-from .app.load import LoadGraph
+from .app.load import AugmentWithDepth, LoadGraph
 from .app.precluster import PreClusterTigs
 from .app.smooth import SmoothDepths
 from .app.trim import TrimTips
@@ -16,13 +16,17 @@ from .app.unzip import BenchmarkDepthModel, UnzipGraph
 APPLICATIONS = {
     # "foo": Example,
     "load": LoadGraph,
+    "add_depth": AugmentWithDepth,
     "depth": EstimateUnitigDepth,
     "smooth": SmoothDepths,
     "trim": TrimTips,
     "focus": SelectLocalGraph,
+    "draw": DrawGraph,
     "unzip": UnzipGraph,
     "benchmark": BenchmarkDepthModel,
     "dump": DumpResults,
+    "dump_contigs": DumpContigs,
+    "dump_segments": DumpSegments,
     "info": ShowGraphStats,
     "cluster": ClusterTigs,
     "precluster": PreClusterTigs,
