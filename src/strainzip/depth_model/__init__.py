@@ -6,21 +6,21 @@ from ._laplace import LaplaceDepthModel
 from ._laplace_pooled import LaplacePooledDepthModel
 from ._normal import NormalDepthModel
 from ._normal_pooled import NormalPooledDepthModel
-from ._normal_scaled import NormalScaledDepthModel
 from ._normal_scaled2 import NormalScaled2DepthModel
+from ._normal_scaled3 import NormalScaled3DepthModel
 from ._offset_log_normal import OffsetLogNormalDepthModel
 from ._studentst import StudentsTDepthModel
 
 NAMED_DEPTH_MODELS: Mapping[str, Any] = {
     "OffsetLogNormal": (OffsetLogNormalDepthModel, dict(alpha=1.0, maxiter=10000)),
     "Normal": (NormalDepthModel, dict(maxiter=10000, tol=1e-4)),
-    "NormalScaled": (
-        NormalScaledDepthModel,
-        dict(alpha=0.5, maxiter=100, tol=1e-3),
-    ),
     "NormalScaled2": (
         NormalScaled2DepthModel,
         dict(alpha=1.0, maxiter=1000, tol=1e-3),
+    ),
+    "NormalScaled3": (
+        NormalScaled3DepthModel,
+        dict(alpha=1 / 2, maxiter=1000, tol=1e-3),
     ),
     "NormalPooled": (NormalPooledDepthModel, dict(maxiter=10000)),
     "Laplace": (
