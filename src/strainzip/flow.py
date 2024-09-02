@@ -40,7 +40,7 @@ def _calculate_delta(flow, graph, depth, static_terms, preallocated_terms):
     (
         depth_source,
         depth_target,
-        length_source,
+        length_source,  # FIXME (2024-08-21) Lengths are not used, only length fractions.
         length_target,
         length_frac_source,
         length_frac_target,
@@ -53,6 +53,9 @@ def _calculate_delta(flow, graph, depth, static_terms, preallocated_terms):
     ) = preallocated_terms
 
     gt.incident_edges_op(graph, "out", "sum", flow, total_outflow)
+    # FIXME (2024-08-21): Try using just one vertex property to produce the
+    # total_outflow_{source,target} edge properties. total_{outflow,inflow} are
+    # only used briefly and don't need to be separate memory allocations.
     gt.incident_edges_op(graph, "in", "sum", flow, total_inflow)
     gt.edge_endpoint_property(graph, total_outflow, "source", total_outflow_source)
     gt.edge_endpoint_property(graph, total_inflow, "target", total_inflow_target)
@@ -69,6 +72,8 @@ def _calculate_delta(flow, graph, depth, static_terms, preallocated_terms):
             "ignore",
             category=RuntimeWarning,
         )
+        # FIXME (2024-08-21): Overwrite total_outflow_source and total_inflow_source with out_fraction_source and in_fraction_source.
+        # These don't need to be separate allocations.
         out_fraction_source = np.nan_to_num(flow.a / total_outflow_source.a, nan=1)
         in_fraction_target = np.nan_to_num(flow.a / total_inflow_target.a, nan=1)
     error_source = depth_source.a - total_outflow_source.a
@@ -146,11 +151,15 @@ def estimate_flow(
             break  # This should only happen if d is all 0's.
 
         # Update flow
+        # FIXME (2024-08-21): Consider using the out= parameter to np.add to
+        # avoid allocating new memory.
         flow.a += correction.a
         # NOTE (2024-05-28):
         # Very small negative values can show up (numerical precision issues?)
         # which then baloon into large negative values.
         # Clipping seems to solve this.
+        # FIXME (2024-08-21): Consider using the out= parameter to np.clip to
+        # avoid allocating new memory.
         flow.a = np.clip(flow.a, 0, None)
 
         pbar1.set_postfix({"relative_loss": loss_hist[-1]})
@@ -180,6 +189,8 @@ def estimate_flow(
         )
         # FIXME: Overflow on square of the correction when using multiprocessing.
         # FIXME (2024-05-28): I may have solved this with clipping.
+        # FIXME (2024-08-21): Figure out how to avoid calculating a whole new
+        # matrix correction.a**2, but instead stream in from correction.a.
         loss_hist.append(np.sqrt((correction.a**2).sum()) / depth.a.sum())
         if np.isnan(loss_hist[-1]):
             raise RuntimeError("NaN during flow estimation.")
@@ -192,6 +203,8 @@ def estimate_flow(
         # Very small negative values can show up (numerical precision issues?)
         # which then baloon into large negative values.
         # Clipping seems to solve this.
+        # FIXME (2024-08-21): Consider using the out= parameter to np.add to
+        # avoid allocating new memory.
         flow.a = np.clip(flow.a, 0, None)
 
         pbar2.set_postfix({"relative_loss": loss_hist[-1]})
@@ -214,6 +227,8 @@ def calculate_mean_residual_vertex_flow(graph, flow, depth):
     total_out_flow = gt.incident_edges_op(graph, "out", "sum", flow)
     out_flow_error = depth.a - total_out_flow.a
     mean_residual_vertex_flow = (in_flow_error + out_flow_error) / 2
+    # FIXME (2024-08-21): Should be able to use a single temporary allocation
+    # to prevent using more memory than necessary.
     return mean_residual_vertex_flow
 
 
