@@ -100,8 +100,13 @@ class ClusterTigs(App):
                 vertex_clust = (
                     vertex_preclust.map(clust).rename_axis("vertex").rename("cluster")
                 )
+                # NOTE (2024-06-19): Had to .loc[vertex_clust.index] so that
+                # vertex_segment only includes vertices
+                # that were clustered. Otherwise joining to vertex_segment
+                # casts the cluster IDs (ints) to floats due to missing values.
                 vertex_segment = (
                     pd.Series(graph.vp["sequence"], index=graph.get_vertices())
+                    .loc[vertex_clust.index]
                     .str.split(",")
                     .explode()
                     .rename("segment")
@@ -135,6 +140,8 @@ class ClusterTigs(App):
                 .join(segment_idx, on="segment")
                 .assign(tally=1)
             )
+            # TODO (2024-06-19): Compare shared length by using .assign(length=... instead
+            # of tally=1.
             sparse_segment_clust_matrix = sp.sparse.csc_array(
                 (
                     sparse_segment_clust_matrix.tally,

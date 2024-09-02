@@ -193,20 +193,46 @@ def reverse_complement_segments(segments):
     return tuple(reversed([s[:-1] + {"+": "-", "-": "+"}[s[-1]] for s in segments]))
 
 
+def vertex_by_canonical_segments(vertex_data):
+    canonical_segments = vertex_data.assign(
+        reverse_complement_segments=lambda d: d.segments.apply(
+            reverse_complement_segments
+        ),
+        canonical_segments=lambda d: d.segments.where(
+            d.segments <= d.reverse_complement_segments,
+            d.reverse_complement_segments,
+        ),
+    )
+    return canonical_segments
+
+
 def dereplicate_vertices_by_segments(vertex_data):
     dereplicated_segments = (
-        vertex_data.assign(
-            reverse_complement_segments=lambda d: d.segments.apply(
-                reverse_complement_segments
-            ),
-            canonical_segments=lambda d: d.segments.where(
-                d.segments <= d.reverse_complement_segments,
-                d.reverse_complement_segments,
-            ),
-        )
+        vertex_by_canonical_segments(vertex_data)
         .reset_index()
         .groupby("canonical_segments")
         .vertex.apply(list)
     )
-
     return dereplicated_segments
+
+
+def vertex_segment_positions(vertex_data, segment_length, k):
+    segment_positions = (
+        vertex_data[["segments"]]
+        .explode(column="segments")
+        .reset_index()
+        .rename(columns={"segments": "segment"})
+        .assign(
+            segment_order=lambda d: d.groupby("vertex")
+            .segment.apply(lambda x: pd.Series(range(len(x))))
+            .values
+        )
+        .join(segment_length, on="segment")
+        .assign(
+            _left=lambda d: d.groupby("vertex").length.cumsum(),
+            left=lambda d: d._left - d.length,
+            right=lambda d: d.left + d.length + k - 1,
+        )
+        .drop(columns=["_left"])
+    )
+    return segment_positions

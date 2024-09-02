@@ -55,8 +55,13 @@ class PreClusterTigs(App):
             trsfm_vertex_depth_normalized = trsfm_vertex_depth.divide(
                 (trsfm_vertex_depth ** (2)).sum(1) ** (1 / 2), axis=0
             )
+            n_clusters = min(args.num_preclust, num_vertices)
+            if args.num_preclust > num_vertices:
+                logging.warn(
+                    f"Reducing the target number of clusters to num_vertices: {n_clusters}"
+                )
             kmeans = MiniBatchKMeans(
-                n_clusters=args.num_preclust, random_state=args.random_seed
+                n_clusters=n_clusters, random_state=args.random_seed
             ).fit(trsfm_vertex_depth_normalized)
             vertex_preclust = pd.Series(
                 kmeans.labels_, index=vertex_depth.index, name="cluster"

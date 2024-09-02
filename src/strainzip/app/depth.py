@@ -20,7 +20,7 @@ def _unitig_depth(arg):
 
 def _iter_unitigs(fasta_iter):
     for header, sequence in fasta_iter:
-        unitig_id_string, *_ = sz.io.ggcat_header_tokenizer(header)
+        unitig_id_string, *_ = sz.io.generic_header_tokenizer(header)
         unitig_id = unitig_id_string[1:]
         yield int(unitig_id), sequence
 

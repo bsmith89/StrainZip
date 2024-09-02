@@ -46,17 +46,20 @@ class TrimTips(App):
         kmer_length = graph.gp["kmer_length"]
         logging.debug(graph)
 
-        unzippers = [
-            sz.graph_manager.LengthUnzipper(),
-            sz.graph_manager.SequenceUnzipper(),
-            sz.graph_manager.VectorDepthUnzipper(),
-        ]
-        pressers = [
-            sz.graph_manager.LengthPresser(),
-            sz.graph_manager.SequencePresser(sep=","),
-            sz.graph_manager.VectorDepthPresser(),
-        ]
-
+        # NOTE: (2024-08-06) Conditional unzippers and pressers so that
+        # a graph without "depth" vp can have its tips trimmed.
+        # TODO: (2024-08-06) Refactor this portion for all CLI tools.
+        unzippers = []
+        pressers = []
+        if "length" in graph.vp:
+            unzippers.append(sz.graph_manager.LengthUnzipper())
+            pressers.append(sz.graph_manager.LengthPresser())
+        if "sequence" in graph.vp:
+            unzippers.append(sz.graph_manager.SequenceUnzipper())
+            pressers.append(sz.graph_manager.SequencePresser(sep=","))
+        if "depth" in graph.vp:
+            unzippers.append(sz.graph_manager.VectorDepthUnzipper())
+            pressers.append(sz.graph_manager.VectorDepthPresser())
         if "xyposition" in graph.vp:
             unzippers = unzippers.append(
                 sz.graph_manager.PositionUnzipper(offset=(0.1, 0.1))

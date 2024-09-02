@@ -675,14 +675,16 @@ class UnzipGraph(App):
                                 junctions_subset = junctions_subset - set(
                                     vertices_with_unidentifiable_flows
                                 )
-
-                                deconv_problems_subset = list(
+                                deconv_problems_subset = (
                                     _iter_junction_deconvolution_problems(
                                         junctions_subset, graph, graph.vp["depth"], flow
                                     )
                                 )
                                 if args.checkpoint_dir:
                                     with phase_info("Checkpointing deconvolutions"):
+                                        deconv_problems_subset = list(
+                                            deconv_problems_subset
+                                        )
                                         with open(
                                             f"{args.checkpoint_dir}/junctions_safe_{i+1}.pkl",
                                             "wb",
@@ -730,13 +732,16 @@ class UnzipGraph(App):
                                 junctions_subset = junctions_subset - set(
                                     vertices_with_unidentifiable_flows
                                 )
-                                deconv_problems_subset = list(
+                                deconv_problems_subset = (
                                     _iter_junction_deconvolution_problems(
                                         junctions_subset, graph, graph.vp["depth"], flow
                                     )
                                 )
                                 if args.checkpoint_dir:
                                     with phase_info("Checkpointing deconvolutions"):
+                                        deconv_problems_subset = list(
+                                            deconv_problems_subset
+                                        )
                                         with open(
                                             f"{args.checkpoint_dir}/junctions_canonical_{i+1}.pkl",
                                             "wb",
@@ -793,13 +798,16 @@ class UnzipGraph(App):
                                 junctions_subset = junctions_subset - set(
                                     vertices_with_unidentifiable_flows
                                 )
-                                deconv_problems_subset = list(
+                                deconv_problems_subset = (
                                     _iter_junction_deconvolution_problems(
                                         junctions_subset, graph, graph.vp["depth"], flow
                                     )
                                 )
                                 if args.checkpoint_dir:
                                     with phase_info("Checkpointing deconvolutions"):
+                                        deconv_problems_subset = list(
+                                            deconv_problems_subset
+                                        )
                                         with open(
                                             f"{args.checkpoint_dir}/junctions_large_{i+1}.pkl",
                                             "wb",
@@ -856,13 +864,16 @@ class UnzipGraph(App):
                                 junctions_subset = junctions_subset - set(
                                     vertices_with_unidentifiable_flows
                                 )
-                                deconv_problems_subset = list(
+                                deconv_problems_subset = (
                                     _iter_junction_deconvolution_problems(
                                         junctions_subset, graph, graph.vp["depth"], flow
                                     )
                                 )
                                 if args.checkpoint_dir:
                                     with phase_info("Checkpointing deconvolutions"):
+                                        deconv_problems_subset = list(
+                                            deconv_problems_subset
+                                        )
                                         with open(
                                             f"{args.checkpoint_dir}/junctions_extralarge_{i+1}.pkl",
                                             "wb",
