@@ -3,6 +3,7 @@ from typing import Any, Mapping, Tuple
 
 import jax.numpy as jnp
 import numpy as np
+from jax import grad as jax_grad
 from jax import hessian as jax_hessian
 from jax.tree_util import Partial
 
@@ -157,6 +158,12 @@ class JaxDepthModel(HessianDepthModel):
 
     def _negloglik(self, *args, **kwargs):
         return -self._jax_loglik(*args, **kwargs)
+
+    def grad_beta(self, beta, y, X, **params):
+        grad, *_ = jax_grad(Partial(self._negloglik, y=y, X=X, **params), argnums=[0])(
+            beta
+        )
+        return grad
 
     def hessian_beta(self, beta, y, X, **params):
         num_betas = beta.shape[0] * beta.shape[1]
