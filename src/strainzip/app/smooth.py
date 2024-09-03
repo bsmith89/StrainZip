@@ -64,13 +64,19 @@ class SmoothDepths(App):
             depth = gt.ungroup_vector_property(
                 graph.vp["depth"], pos=range(graph.gp["num_samples"])
             )
+            # NOTE (2024-09-03): By dropping the depth vertex property, we
+            # avoid passing all this data around between processes. We'll add
+            # this data back as an internal property at the end, before
+            # writing the graph to disk.
             del graph.vp["depth"]
+            # NOTE (2024-09-03): This method call seems necessary to get
+            # graph_tool to release the memory.
             graph.shrink_to_fit()
 
         if not args.sample_list:
             args.sample_list = list(range(graph.gp["num_samples"]))
 
-        with phase_info("Starting parallel smoothing."), processPool(
+        with phase_info("Smoothing samples."), processPool(
             processes=args.processes
         ) as process_pool:
             depth_procs = process_pool.imap(
