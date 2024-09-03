@@ -5,7 +5,7 @@ import graph_tool as gt
 import numpy as np
 
 import strainzip as sz
-from strainzip.logging_util import tqdm_debug
+from strainzip.logging_util import phase_info, tqdm_debug
 
 from ._base import App
 
@@ -14,10 +14,9 @@ DEFAULT_EPS = 1e-4
 
 def _smooth_one_sample(arg):
     gt.openmp_set_num_threads(1)
-    graph, sample_id, eps = arg
+    graph, sample_depth, sample_id, eps = arg
 
     logging.info(f"Starting smoothing sample {sample_id}.")
-    sample_depth = gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0]
     smoothed_sample_depth, _ = sz.flow.smooth_depth(
         graph,
         sample_depth,
@@ -59,14 +58,27 @@ class SmoothDepths(App):
         return args
 
     def execute(self, args):
-        graph = sz.io.load_graph(args.inpath)
+        with phase_info("Loading graph."):
+            graph = sz.io.load_graph(args.inpath)
+        with phase_info("Preparing depth property."):
+            depth = gt.ungroup_vector_property(
+                graph.vp["depth"].copy(), pos=range(graph.gp["num_samples"])
+            )
+            del graph.vp["depth"]
+            graph.shrink_to_fit()
+
         if not args.sample_list:
             args.sample_list = list(range(graph.gp["num_samples"]))
 
-        with processPool(processes=args.processes) as process_pool:
+        with phase_info("Starting parallel smoothing."), processPool(
+            processes=args.processes
+        ) as process_pool:
             depth_procs = process_pool.imap(
                 _smooth_one_sample,
-                ((graph, sample_id, args.eps) for sample_id in args.sample_list),
+                (
+                    (graph, depth[sample_id], sample_id, args.eps)
+                    for sample_id in args.sample_list
+                ),
             )
 
             depth_values = np.stack(
@@ -74,12 +86,13 @@ class SmoothDepths(App):
                     d
                     for d in tqdm_debug(
                         depth_procs,
-                        total=graph.gp["num_samples"],
+                        total=len(args.sample_list),
                         bar_format="{l_bar}{r_bar}",
                     )
                 ]
             )
 
+        graph.vp["depth"] = graph.new_vertex_property("vector<float>")
         graph.vp["depth"].set_2d_array(depth_values, pos=args.sample_list)
 
         sz.io.dump_graph(graph, args.outpath)
