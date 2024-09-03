@@ -62,7 +62,7 @@ class SmoothDepths(App):
             graph = sz.io.load_graph(args.inpath)
         with phase_info("Preparing depth property."):
             depth = gt.ungroup_vector_property(
-                graph.vp["depth"].copy(), pos=range(graph.gp["num_samples"])
+                graph.vp["depth"], pos=range(graph.gp["num_samples"])
             )
             del graph.vp["depth"]
             graph.shrink_to_fit()
