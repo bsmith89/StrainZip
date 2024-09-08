@@ -86,8 +86,7 @@ def _estimate_flow(args):
     # Limit each flow process to use just 1 core.
     gt.openmp_set_num_threads(1)
 
-    graph, sample_id = args
-    depth = gt.ungroup_vector_property(graph.vp["depth"], pos=[sample_id])[0]
+    graph, depth = args
     length = graph.vp["length"]
 
     # TODO (2024-05-14): This parallelization falls down because moving the graph
@@ -112,12 +111,20 @@ def _estimate_flow(args):
 
 def _run_estimate_all_flows(graph, mapping_func):
     with phase_info("Optimize flow"):
+        # NOTE (2024-09-07): Making a copy of graph missing the depth matrix to
+        # save space when passing it among processes.
+        # This is kinda silly, but works for memory management. It's dumb though.
+        _graph = graph.copy()
+        depth = _graph.vp["depth"]
+        del _graph.vp["depth"]
+        _graph.shrink_to_fit()
+
         flow_procs = mapping_func(
             _estimate_flow,
             (
                 (
-                    graph,
-                    sample_id,
+                    _graph,
+                    gt.ungroup_vector_property(depth, pos=[sample_id])[0],
                 )
                 for sample_id in range(graph.gp["num_samples"])
             ),
