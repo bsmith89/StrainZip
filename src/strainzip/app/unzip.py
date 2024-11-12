@@ -276,7 +276,7 @@ def _calculate_junction_deconvolution(args):
     unzip = (
         junction,
         named_paths,
-        {"path_depths": np.array(fit.beta.clip(0))},
+        {"path_depths": np.array(fit.beta.clip(min=0))},
     )
 
     result = DeconvolutionResult(
