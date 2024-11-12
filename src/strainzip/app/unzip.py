@@ -555,7 +555,10 @@ class UnzipGraph(App):
                 f"Graph has {graph.num_vertices()} vertices and {graph.num_edges()} edges."
             )
 
-        with ProcessPool(processes=args.processes) as process_pool:
+        with ProcessPool(
+            processes=args.processes,
+            # maxtasksperchild=10_000,  # TODO: (2024-09-13) Figure out if this helps with the processes dying for the super big graph.
+        ) as process_pool:
             logging.info(
                 f"Initialized multiprocessing pool with {args.processes} workers."
             )
