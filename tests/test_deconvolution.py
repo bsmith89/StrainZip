@@ -128,20 +128,20 @@ def test_convergence():
             model_name
         ]
         fit_many_iters = model_class(
-            maxiter=100000,
-            **default_model_params,
+            **(default_model_params | dict(maxiter=100000)),
         ).fit(y_obs, X_reduced)
-        assert fit_many_iters.converged
+        assert bool(fit_many_iters.converged)
 
         fit_few_iters = model_class(
-            maxiter=2,
-            **default_model_params,
+            **(default_model_params | dict(maxiter=2)),
         ).fit(y_obs, X_reduced)
-        assert not fit_few_iters.converged
+        assert not bool(fit_few_iters.converged)
 
 
-def test_no_noise_deconvolution():
-    model_class, default_model_params = sz.depth_model.NAMED_DEPTH_MODELS["Default"]
+def test_no_noise_offsetlognormal_model_deconvolution():
+    model_class, default_model_params = sz.depth_model.NAMED_DEPTH_MODELS[
+        "OffsetLogNormal"
+    ]
     depth_model = model_class(**default_model_params)
     n, m = 2, 3  # In-edges / out-edges
     s_samples = 3
@@ -179,12 +179,15 @@ def test_no_noise_deconvolution():
     assert np.allclose(
         fit.beta,
         beta[_active_paths, :],
+        atol=1e-3,
         rtol=1e-4,
     )
-    assert np.allclose(fit.sigma, np.zeros_like(fit.sigma), atol=1e-4)
+    assert np.allclose(
+        fit.params["sigma"], np.zeros_like(fit.params["sigma"]), atol=1e-4
+    )
 
     # Check BIC
-    assert np.allclose(fit.get_score("bic"), 203.59065)
+    assert np.allclose(fit.get_score("bic"), 229.4335)
 
     # Estimate standard errors.
     # Check estimates.
@@ -195,8 +198,10 @@ def test_no_noise_deconvolution():
     )
 
 
-def test_predefined_deconvolution():
-    model_class, default_model_params = sz.depth_model.NAMED_DEPTH_MODELS["Default"]
+def test_predefined_offsetlognormal_model_deconvolution():
+    model_class, default_model_params = sz.depth_model.NAMED_DEPTH_MODELS[
+        "OffsetLogNormal"
+    ]
     depth_model = model_class(**default_model_params)
     n, m = 2, 3  # In-edges / out-edges
     s_samples = 3
@@ -245,19 +250,19 @@ def test_predefined_deconvolution():
         fit.beta,
         np.array(
             [
-                [4.53333282e00, 9.92237427e02, 3.63797881e-12],
-                [1.90782272e02, 1.27329258e-11, 1.92700859e04],
-                [1.03953804e02, -6.36646291e-12, 2.13722203e05],
+                [4.5765247e00, 9.9223480e02, -2.7179718e-05],
+                [1.9112575e02, -1.0251999e-04, 1.9269342e04],
+                [1.0397991e02, -6.5565109e-07, 2.1372384e05],
             ]
         ),
     )
     assert np.allclose(
-        fit.sigma,
-        np.array([[0.5422827, 0.06206119, 0.3793803]]),
+        fit.params["sigma"],
+        np.array([[0.53901196, 0.06199879, 0.37936726]]),
     )
 
     # Check BIC
-    assert np.allclose(fit.get_score("bic"), -63.953182)
+    assert np.allclose(fit.get_score("bic"), -63.882275)
 
     # Estimate standard errors.
     # Check estimates.
@@ -265,9 +270,9 @@ def test_predefined_deconvolution():
         fit.stderr_beta,
         np.array(
             [
-                [2.4824376e00, 4.3543179e01, 3.7938039e-06],
-                [7.4405067e01, 6.2061298e-07, 5.1694292e03],
-                [3.9861290e01, 4.3883844e-07, 5.7333625e04],
+                [3.0417686e00, 4.3542957e01, 3.7935179e-01],
+                [7.4494919e01, 6.1989240e-02, 5.1692056e03],
+                [4.0011986e01, 4.3839715e-02, 5.7332566e04],
             ]
         ),
     )
