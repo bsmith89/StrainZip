@@ -11,8 +11,12 @@ from ._normal_scaled3 import NormalScaled3DepthModel
 from ._offset_log_normal import OffsetLogNormalDepthModel
 from ._studentst import StudentsTDepthModel
 
-NAMED_DEPTH_MODELS: Mapping[str, Any] = {
+VALIDATED_DEPTH_MODELS: Mapping[str, Any] = {
     "OffsetLogNormal": (OffsetLogNormalDepthModel, dict(alpha=1.0, maxiter=10000)),
+    "Default": (OffsetLogNormalDepthModel, dict(alpha=1.0, maxiter=10000)),
+}
+
+EXPERIMENTAL_DEPTH_MODELS: Mapping[str, Any] = {
     "Normal": (NormalDepthModel, dict(maxiter=10000, tol=1e-4)),
     "NormalScaled2": (
         NormalScaled2DepthModel,
@@ -36,5 +40,6 @@ NAMED_DEPTH_MODELS: Mapping[str, Any] = {
         dict(df=5, maxiter=10000),
     ),  # FIXME (2024-05-31): Lots of convergence errors (maybe due to optimizing loc and scale together?).
     "Huber": (HuberDepthModel, dict(delta=1, maxiter=10000)),
-    "Default": (OffsetLogNormalDepthModel, dict(alpha=1.0, maxiter=10000)),
 }
+
+NAMED_DEPTH_MODELS = EXPERIMENTAL_DEPTH_MODELS | VALIDATED_DEPTH_MODELS
