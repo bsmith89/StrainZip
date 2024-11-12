@@ -1010,6 +1010,13 @@ class BenchmarkDepthModel(App):
             default=1,
             help="Number of parallel processes.",
         )
+        self.parser.add_argument(
+            "--slice",
+            help=(
+                "Only run on a subset of problems. "
+                "Specified as a `LEFT-INCLUSIVE:RIGHT-EXCLUSIVE` argument."
+            ),
+        )
 
     def validate_and_transform_args(self, args):
         # Fetch model and default hyperparameters by name.
@@ -1027,6 +1034,11 @@ class BenchmarkDepthModel(App):
             **(model_default_hyperparameters | model_hyperparameters),
         )
 
+        if args.slice is None:
+            args.slice = slice(None)
+        else:
+            args.slice = slice(*[int(a) for a in args.slice.split(":")])
+
         return args
 
     def execute(self, args):
@@ -1036,6 +1048,9 @@ class BenchmarkDepthModel(App):
         with phase_info("Loading test cases"):
             with open(args.inpath, "rb") as f:
                 deconv_problems = pickle.load(f)
+                # Subset up here so that we don't need to keep the whole set in
+                # memory.
+                deconv_problems = deconv_problems[args.slice]
             logging.info(f"Loaded {len(deconv_problems)} problems.")
 
         with ProcessPool(processes=args.processes) as process_pool:
