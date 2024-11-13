@@ -57,7 +57,6 @@ def mediate_batch_unzipping_conflicts(unmodified_path_splits):
         for right in right_list:
             edge_list.append((child, right))
 
-    # FIXME: WORKHERE (2024-05-21)
     all_vertices_in_edges = [left for left, _ in edge_list] + [
         right for _, right in edge_list
     ]
