@@ -415,7 +415,7 @@ class UnzipGraph(App):
             default=DEFAULT_SCORE,
             choices=["bic", "aic", "aicc"],
         )
-        self.parser.add_arguent(
+        self.parser.add_argument(
             "--no-balance",
             action="store_true",
             default=(not DEFAULT_BALANCE_JUNCTIONS),
@@ -971,7 +971,7 @@ class BenchmarkDepthModel(App):
             default=DEFAULT_SCORE,
             choices=["bic", "aic", "aicc"],
         )
-        self.parser.add_arguent(
+        self.parser.add_argument(
             "--no-balance",
             action="store_true",
             default=(not DEFAULT_BALANCE_JUNCTIONS),
