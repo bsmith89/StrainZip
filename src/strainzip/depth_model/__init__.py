@@ -12,12 +12,12 @@ from ._offset_log_normal import OffsetLogNormalDepthModel
 from ._studentst import StudentsTDepthModel
 
 VALIDATED_DEPTH_MODELS: Mapping[str, Any] = {
+    "Normal": (NormalDepthModel, dict(maxiter=10000, tol=1e-4)),
     "OffsetLogNormal": (OffsetLogNormalDepthModel, dict(alpha=1.0, maxiter=10000)),
     "Default": (OffsetLogNormalDepthModel, dict(alpha=1.0, maxiter=10000)),
 }
 
 EXPERIMENTAL_DEPTH_MODELS: Mapping[str, Any] = {
-    "Normal": (NormalDepthModel, dict(maxiter=10000, tol=1e-4)),
     "NormalScaled2": (
         NormalScaled2DepthModel,
         dict(alpha=1.0, maxiter=1000, tol=1e-3),
