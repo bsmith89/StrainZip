@@ -20,6 +20,7 @@ from ._base import App
 
 DEFAULT_MAX_ROUNDS = 100
 DEFAULT_SCORE = "bic"
+DEFAULT_BALANCE_JUNCTIONS = True
 DEFAULT_SCORE_THRESH = 10.0
 DEFAULT_RELATIVE_ERROR_THRESH = 0.1
 DEFAULT_ABSOLUTE_ERROR_THRESH = 1.0
@@ -197,6 +198,7 @@ def _calculate_junction_deconvolution(args):
         deconv_problem,
         depth_model,
         score_name,
+        balance,
     ) = args
 
     in_neighbors = deconv_problem.in_neighbors
@@ -218,35 +220,39 @@ def _calculate_junction_deconvolution(args):
         in_neighbors, out_neighbors = out_neighbors, in_neighbors
         in_flows, out_flows = out_flows, in_flows
 
-    # NOTE (2024-06-06): Balance in and out flows.
-    # This (greatly) decreases the error, and therefore
-    # the estimated stderrs of the path depth estimates.
-    # As a result, far more junctions are deconvolved. However,
-    # it's possible that this error was a signal that
-    # the depths are difficult to estimate.
-    # So the overall quality of the junctions that are now deconvolved
-    # (and weren't before) is not obvious.
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            category=RuntimeWarning,
-            message="divide by zero encountered in divide",
-        )
-        warnings.filterwarnings(
-            "ignore",
-            category=RuntimeWarning,
-            message="invalid value encountered in divide",
-        )
-        # TODO (2024-06-10): Figure out why I get two different warnings here.
-        in_flows_adjusted = in_flows * np.nan_to_num(
-            junction_depth / in_flows.sum(axis=0), nan=1
-        )
-        out_flows_adjusted = out_flows * np.nan_to_num(
-            junction_depth / out_flows.sum(axis=0), nan=1
-        )
-        # NOTE: nan_to_num call simply corrects samples with no depth and
-        # no in/out flow with a factor of 1.0; this will have no effect on
-        # those samples, since their depth is 0.
+    if balance:
+        # NOTE (2024-06-06): Balance in and out flows.
+        # This (greatly) decreases the error, and therefore
+        # the estimated stderrs of the path depth estimates.
+        # As a result, far more junctions are deconvolved. However,
+        # it's possible that this error was a signal that
+        # the depths are difficult to estimate.
+        # So the overall quality of the junctions that are now deconvolved
+        # (and weren't before) is not obvious.
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                category=RuntimeWarning,
+                message="divide by zero encountered in divide",
+            )
+            warnings.filterwarnings(
+                "ignore",
+                category=RuntimeWarning,
+                message="invalid value encountered in divide",
+            )
+            # TODO (2024-06-10): Figure out why I get two different warnings here.
+            in_flows_adjusted = in_flows * np.nan_to_num(
+                junction_depth / in_flows.sum(axis=0), nan=1
+            )
+            out_flows_adjusted = out_flows * np.nan_to_num(
+                junction_depth / out_flows.sum(axis=0), nan=1
+            )
+            # NOTE: nan_to_num call simply corrects samples with no depth and
+            # no in/out flow with a factor of 1.0; this will have no effect on
+            # those samples, since their depth is 0.
+    else:
+        in_flows_adjusted = in_flows
+        out_flows_adjusted = out_flows
 
     n, m = len(in_neighbors), len(out_neighbors)
     (
@@ -304,6 +310,7 @@ def _run_calculate_junction_deconvolutions(
     deconv_problems,
     depth_model,
     mapping_func,
+    balance=True,
     score_name="bic",
     score_margin_thresh=20.0,
     relative_stderr_thresh=0.1,
@@ -315,7 +322,7 @@ def _run_calculate_junction_deconvolutions(
 
     results_iter = mapping_func(
         _calculate_junction_deconvolution,
-        ((problem, depth_model, score_name) for problem in deconv_problems),
+        ((problem, depth_model, score_name, balance) for problem in deconv_problems),
     )
 
     postfix = dict(
@@ -407,6 +414,12 @@ class UnzipGraph(App):
             dest="score_name",
             default=DEFAULT_SCORE,
             choices=["bic", "aic", "aicc"],
+        )
+        self.parser.add_arguent(
+            "--no-balance",
+            action="store_true",
+            default=(not DEFAULT_BALANCE_JUNCTIONS),
+            help="Whether or not to balance total in and out depths at junctions during deconvolution.",
         )
         self.parser.add_argument(
             "--skip-drop-low-depth",
@@ -707,6 +720,7 @@ class UnzipGraph(App):
                                     ) = _run_calculate_junction_deconvolutions(
                                         deconv_problems_subset,
                                         args.depth_model,
+                                        balance=(not args.no_balance),
                                         mapping_func=partial(
                                             process_pool.imap_unordered, chunksize=1
                                         ),
@@ -764,6 +778,7 @@ class UnzipGraph(App):
                                     ) = _run_calculate_junction_deconvolutions(
                                         deconv_problems_subset,
                                         args.depth_model,
+                                        balance=(not args.no_balance),
                                         mapping_func=partial(
                                             process_pool.imap_unordered, chunksize=1
                                         ),
@@ -830,6 +845,7 @@ class UnzipGraph(App):
                                     ) = _run_calculate_junction_deconvolutions(
                                         deconv_problems_subset,
                                         args.depth_model,
+                                        balance=(not args.no_balance),
                                         mapping_func=partial(
                                             process_pool.imap_unordered, chunksize=1
                                         ),
@@ -896,6 +912,7 @@ class UnzipGraph(App):
                                     ) = _run_calculate_junction_deconvolutions(
                                         deconv_problems_subset,
                                         args.depth_model,
+                                        balance=(not args.no_balance),
                                         mapping_func=partial(
                                             process_pool.imap_unordered, chunksize=1
                                         ),
@@ -953,6 +970,12 @@ class BenchmarkDepthModel(App):
             dest="score_name",
             default=DEFAULT_SCORE,
             choices=["bic", "aic", "aicc"],
+        )
+        self.parser.add_arguent(
+            "--no-balance",
+            action="store_true",
+            default=(not DEFAULT_BALANCE_JUNCTIONS),
+            help="Whether or not to balance total in and out depths at junctions during deconvolution.",
         )
         self.parser.add_argument(
             "--relative-error-thresh",
@@ -1062,6 +1085,7 @@ class BenchmarkDepthModel(App):
             batch_unzip, all_results = _run_calculate_junction_deconvolutions(
                 deconv_problems,
                 args.depth_model,
+                balance=(not args.no_balance),
                 mapping_func=partial(process_pool.imap_unordered, chunksize=40),
                 score_name=args.score_name,
                 score_margin_thresh=args.score_thresh,
