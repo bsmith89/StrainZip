@@ -472,6 +472,7 @@ class UnzipGraph(App):
         )
         self.parser.add_argument(
             "--skip-extra-large",
+            dest="skip_extralarge",
             action="store_true",
             help="Don't try to deconvolve extra large junctions.",
         )
@@ -691,260 +692,122 @@ class UnzipGraph(App):
                             deconvolutions = []
                             in_degree = graph.degree_property_map("in")
                             out_degree = graph.degree_property_map("out")
-                            with phase_info("Safe junctions (Nx1 or 1xM)"):
-                                is_safe_junction = (in_degree.a == 1) | (
-                                    out_degree.a == 1
-                                )
-                                junctions_subset = set(
-                                    sz.topology.find_junctions(
-                                        graph, also_required=is_safe_junction
-                                    )
-                                )
-                                logging.info(
-                                    f"Found {len(junctions_subset)} safe junctions."
-                                )
-                                num_blackbox_junctions = len(
-                                    set(junctions_subset)
-                                    & vertices_with_unidentifiable_flows
-                                )
-                                logging.info(
-                                    f"Of these, {num_blackbox_junctions} have unidentifiable flows."
-                                )
-                                junctions_subset = junctions_subset - set(
-                                    vertices_with_unidentifiable_flows
-                                )
-                                deconv_problems_subset = (
-                                    _iter_junction_deconvolution_problems(
-                                        junctions_subset, graph, graph.vp["depth"], flow
-                                    )
-                                )
-                                if args.checkpoint_dir:
-                                    with phase_info("Checkpointing deconvolutions"):
-                                        deconv_problems_subset = list(
-                                            deconv_problems_subset
-                                        )
-                                        with open(
-                                            f"{args.checkpoint_dir}/junctions_safe_{i+1}.pkl",
-                                            "wb",
-                                        ) as f:
-                                            pickle.dump(deconv_problems_subset, f)
-                                if not args.skip_safe:
+
+                            junction_sets = [
+                                (
+                                    "safe"  # name
+                                    "Safe junctions (Nx1 or 1xM)",  # Phase label
+                                    (in_degree.a == 1)
+                                    | (out_degree.a == 1),  # indicator
+                                    args.skip_safe,  # skip_flag
+                                ),
+                                (
+                                    "canonical"  # name
+                                    "Canonical junctions (2x2)",  # Phase label
+                                    (in_degree.a == 2)
+                                    & (out_degree.a == 2),  # indicator
+                                    args.skip_canonical,  # skip_flag
+                                ),
+                                (
+                                    "large"  # name
+                                    "Large junctions (<={args.extra_large} minimal, complete pathsets)",  # Phase label
                                     (
-                                        deconv_results_subset,
-                                        _,
-                                    ) = _run_calculate_junction_deconvolutions(
-                                        deconv_problems_subset,
-                                        args.depth_model,
-                                        balance=(not args.no_balance),
-                                        swap=(not args.no_swapping),
-                                        mapping_func=partial(
-                                            process_pool.imap_unordered, chunksize=1
-                                        ),
-                                        score_name=args.score_name,
-                                        score_margin_thresh=args.score_thresh,
-                                        relative_stderr_thresh=args.relative_error_thresh,
-                                        absolute_stderr_thresh=args.absolute_error_thresh,
-                                        excess_thresh=args.excess_thresh,
-                                        completeness_thresh=args.completeness_thresh,
-                                    )
-                                    deconvolutions.extend(deconv_results_subset)
-                                else:
-                                    logging.info("Skipping safe junctions.")
-                            with phase_info("Canonical junctions (2x2)"):
-                                is_canonincal_junction = (in_degree.a == 2) & (
-                                    out_degree.a == 2
-                                )
-                                junctions_subset = set(
-                                    sz.topology.find_junctions(
-                                        graph, also_required=is_canonincal_junction
-                                    )
-                                )
-                                logging.info(
-                                    f"Found {len(junctions_subset)} canonical junctions"
-                                )
-                                num_blackbox_junctions = len(
-                                    set(junctions_subset)
-                                    & vertices_with_unidentifiable_flows
-                                )
-                                logging.info(
-                                    f"Of these, {num_blackbox_junctions} have unidentifiable flows."
-                                )
-                                junctions_subset = junctions_subset - set(
-                                    vertices_with_unidentifiable_flows
-                                )
-                                deconv_problems_subset = (
-                                    _iter_junction_deconvolution_problems(
-                                        junctions_subset, graph, graph.vp["depth"], flow
-                                    )
-                                )
-                                if args.checkpoint_dir:
-                                    with phase_info("Checkpointing deconvolutions"):
-                                        deconv_problems_subset = list(
-                                            deconv_problems_subset
+                                        ((in_degree.a >= 2) & (out_degree.a >= 2))
+                                        & (in_degree.a + out_degree.a > 4)
+                                        & (
+                                            sz.deconvolution.num_minimal_complete_pathsets(
+                                                in_degree.a, out_degree.a
+                                            )
+                                            <= args.extra_large
                                         )
-                                        with open(
-                                            f"{args.checkpoint_dir}/junctions_canonical_{i+1}.pkl",
-                                            "wb",
-                                        ) as f:
-                                            pickle.dump(deconv_problems_subset, f)
-                                if not args.skip_canonical:
+                                    ),  # indicator
+                                    args.skip_large,  # skip_flag
+                                ),
+                                (
+                                    "extralarge"  # name
+                                    "Extra-large junctions (>{args.extra_large} minimal, complete pathsets)",  # Phase label
                                     (
-                                        deconv_results_subset,
-                                        _,
-                                    ) = _run_calculate_junction_deconvolutions(
-                                        deconv_problems_subset,
-                                        args.depth_model,
-                                        balance=(not args.no_balance),
-                                        swap=(not args.no_swapping),
-                                        mapping_func=partial(
-                                            process_pool.imap_unordered, chunksize=1
-                                        ),
-                                        score_name=args.score_name,
-                                        score_margin_thresh=args.score_thresh,
-                                        relative_stderr_thresh=args.relative_error_thresh,
-                                        absolute_stderr_thresh=args.absolute_error_thresh,
-                                        excess_thresh=args.excess_thresh,
-                                        completeness_thresh=args.completeness_thresh,
-                                    )
-                                    deconvolutions.extend(deconv_results_subset)
-                                else:
-                                    logging.info("Skipping canonical junctions.")
-                            with phase_info(
-                                f"Large junctions (<={args.extra_large} minimal, complete pathsets)"
-                            ):
-                                is_large_junction = (
-                                    ((in_degree.a >= 2) & (out_degree.a >= 2))
-                                    & (in_degree.a + out_degree.a > 4)
-                                    & (
-                                        sz.deconvolution.num_minimal_complete_pathsets(
-                                            in_degree.a, out_degree.a
+                                        ((in_degree.a >= 2) & (out_degree.a >= 2))
+                                        & (in_degree.a + out_degree.a > 4)
+                                        & (
+                                            sz.deconvolution.num_minimal_complete_pathsets(
+                                                in_degree.a, out_degree.a
+                                            )
+                                            > args.extra_large
                                         )
-                                        <= args.extra_large
-                                    )
-                                )
-                                junctions_subset = set(
-                                    sz.topology.find_junctions(
-                                        graph, also_required=is_large_junction
-                                    )
-                                )
-                                logging.info(
-                                    f"Found {len(junctions_subset)} large junctions"
-                                )
-                                num_blackbox_junctions = len(
-                                    set(junctions_subset)
-                                    & vertices_with_unidentifiable_flows
-                                )
-                                logging.info(
-                                    f"Of these, {num_blackbox_junctions} have unidentifiable flows."
-                                )
-                                junctions_subset = junctions_subset - set(
-                                    vertices_with_unidentifiable_flows
-                                )
-                                deconv_problems_subset = (
-                                    _iter_junction_deconvolution_problems(
-                                        junctions_subset, graph, graph.vp["depth"], flow
-                                    )
-                                )
-                                if args.checkpoint_dir:
-                                    with phase_info("Checkpointing deconvolutions"):
-                                        deconv_problems_subset = list(
-                                            deconv_problems_subset
+                                    ),  # indicator
+                                    args.skip_extralarge,  # skip_flag
+                                ),
+                            ]
+
+                            for (
+                                junction_set_name,
+                                phase_label,
+                                indicator,
+                                skip_flag,
+                            ) in junction_sets:
+                                with phase_info(phase_label):
+                                    junctions_subset = set(
+                                        sz.topology.find_junctions(
+                                            graph, also_required=indicator
                                         )
-                                        with open(
-                                            f"{args.checkpoint_dir}/junctions_large_{i+1}.pkl",
-                                            "wb",
-                                        ) as f:
-                                            pickle.dump(deconv_problems_subset, f)
-                                if not args.skip_large:
-                                    (
-                                        deconv_results_subset,
-                                        _,
-                                    ) = _run_calculate_junction_deconvolutions(
-                                        deconv_problems_subset,
-                                        args.depth_model,
-                                        balance=(not args.no_balance),
-                                        swap=(not args.no_swapping),
-                                        mapping_func=partial(
-                                            process_pool.imap_unordered, chunksize=1
-                                        ),
-                                        score_name=args.score_name,
-                                        score_margin_thresh=args.score_thresh,
-                                        relative_stderr_thresh=args.relative_error_thresh,
-                                        absolute_stderr_thresh=args.absolute_error_thresh,
-                                        excess_thresh=args.excess_thresh,
-                                        completeness_thresh=args.completeness_thresh,
                                     )
-                                    deconvolutions.extend(deconv_results_subset)
-                                else:
-                                    logging.info("Skipping large junctions.")
-                            with phase_info(
-                                f"Extra-large junctions (>{args.extra_large} minimal, complete pathsets)"
-                            ):
-                                is_extralarge_junction = (
-                                    ((in_degree.a >= 2) & (out_degree.a >= 2))
-                                    & (in_degree.a + out_degree.a > 4)
-                                    & (
-                                        sz.deconvolution.num_minimal_complete_pathsets(
-                                            in_degree.a, out_degree.a
+                                    logging.info(
+                                        f"Found {len(junctions_subset)} {junction_set_name} junctions."
+                                    )
+                                    num_blackbox_junctions = len(
+                                        set(junctions_subset)
+                                        & vertices_with_unidentifiable_flows
+                                    )
+                                    logging.info(
+                                        f"Of these, {num_blackbox_junctions} have unidentifiable flows."
+                                    )
+                                    junctions_subset = junctions_subset - set(
+                                        vertices_with_unidentifiable_flows
+                                    )
+                                    deconv_problems_subset = (
+                                        _iter_junction_deconvolution_problems(
+                                            junctions_subset,
+                                            graph,
+                                            graph.vp["depth"],
+                                            flow,
                                         )
-                                        > args.extra_large
                                     )
-                                )
-                                junctions_subset = set(
-                                    sz.topology.find_junctions(
-                                        graph, also_required=is_extralarge_junction
-                                    )
-                                )
-                                logging.info(
-                                    f"Found {len(junctions_subset)} extra-large junctions"
-                                )
-                                num_blackbox_junctions = len(
-                                    set(junctions_subset)
-                                    & vertices_with_unidentifiable_flows
-                                )
-                                logging.info(
-                                    f"Of these, {num_blackbox_junctions} have unidentifiable flows."
-                                )
-                                junctions_subset = junctions_subset - set(
-                                    vertices_with_unidentifiable_flows
-                                )
-                                deconv_problems_subset = (
-                                    _iter_junction_deconvolution_problems(
-                                        junctions_subset, graph, graph.vp["depth"], flow
-                                    )
-                                )
-                                if args.checkpoint_dir:
-                                    with phase_info("Checkpointing deconvolutions"):
-                                        deconv_problems_subset = list(
-                                            deconv_problems_subset
+                                    if args.checkpoint_dir:
+                                        with phase_info("Checkpointing deconvolutions"):
+                                            deconv_problems_subset = list(
+                                                deconv_problems_subset
+                                            )
+                                            with open(
+                                                f"{args.checkpoint_dir}/junctions_{junction_set_name}_{i+1}.pkl",
+                                                "wb",
+                                            ) as f:
+                                                pickle.dump(deconv_problems_subset, f)
+                                    if not skip_flag:
+                                        (
+                                            deconv_results_subset,
+                                            _,
+                                        ) = _run_calculate_junction_deconvolutions(
+                                            deconv_problems_subset,
+                                            args.depth_model,
+                                            balance=(not args.no_balance),
+                                            swap=(not args.no_swapping),
+                                            mapping_func=partial(
+                                                process_pool.imap_unordered, chunksize=1
+                                            ),
+                                            score_name=args.score_name,
+                                            score_margin_thresh=args.score_thresh,
+                                            relative_stderr_thresh=args.relative_error_thresh,
+                                            absolute_stderr_thresh=args.absolute_error_thresh,
+                                            excess_thresh=args.excess_thresh,
+                                            completeness_thresh=args.completeness_thresh,
                                         )
-                                        with open(
-                                            f"{args.checkpoint_dir}/junctions_extralarge_{i+1}.pkl",
-                                            "wb",
-                                        ) as f:
-                                            pickle.dump(deconv_problems_subset, f)
-                                if not args.skip_extra_large:
-                                    (
-                                        deconv_results_subset,
-                                        _,
-                                    ) = _run_calculate_junction_deconvolutions(
-                                        deconv_problems_subset,
-                                        args.depth_model,
-                                        balance=(not args.no_balance),
-                                        swap=(not args.no_swapping),
-                                        mapping_func=partial(
-                                            process_pool.imap_unordered, chunksize=1
-                                        ),
-                                        score_name=args.score_name,
-                                        score_margin_thresh=args.score_thresh,
-                                        relative_stderr_thresh=args.relative_error_thresh,
-                                        absolute_stderr_thresh=args.absolute_error_thresh,
-                                        excess_thresh=args.excess_thresh,
-                                        completeness_thresh=args.completeness_thresh,
-                                    )
-                                    deconvolutions.extend(deconv_results_subset)
-                                else:
-                                    logging.info("Skipping extra-large junctions.")
+                                        deconvolutions.extend(deconv_results_subset)
+                                    else:
+                                        logging.info(
+                                            "Skipping {junction_set_name} junctions."
+                                        )
+
                             # TODO (2024-05-08): Sorting SHOULDN'T be (but is) necessary for deterministic unzipping.
                             # TODO: (2024-05-16): Is this fixed now that I'm purging
                             # between each round (which I assume works because their was a
