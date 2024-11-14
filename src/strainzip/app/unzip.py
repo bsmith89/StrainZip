@@ -21,6 +21,7 @@ from ._base import App
 DEFAULT_MAX_ROUNDS = 100
 DEFAULT_SCORE = "bic"
 DEFAULT_BALANCE_JUNCTIONS = True
+DEFAULT_FLOW_SWAPPING = True
 DEFAULT_SCORE_THRESH = 10.0
 DEFAULT_RELATIVE_ERROR_THRESH = 0.1
 DEFAULT_ABSOLUTE_ERROR_THRESH = 1.0
@@ -199,6 +200,7 @@ def _calculate_junction_deconvolution(args):
         depth_model,
         score_name,
         balance,
+        swap,
     ) = args
 
     in_neighbors = deconv_problem.in_neighbors
@@ -212,8 +214,11 @@ def _calculate_junction_deconvolution(args):
     # version of each junction identically, I'm picking a "canonical ordering"
     # of in-flows and out-flows.
     # I'll then conditionally reverse all the paths coming out the other side.
-    do_swap = _decide_if_flow_ordering_swap(
-        deconv_problem.in_flows, deconv_problem.out_flows
+    # NOTE (2024-11-14): I've decided this is futile as junction symmetry is
+    # broken for entirely different reasons.
+    do_swap = (
+        _decide_if_flow_ordering_swap(deconv_problem.in_flows, deconv_problem.out_flows)
+        and swap
     )
     if do_swap:
         # Swap everything
@@ -311,6 +316,7 @@ def _run_calculate_junction_deconvolutions(
     depth_model,
     mapping_func,
     balance=True,
+    swap=True,
     score_name="bic",
     score_margin_thresh=20.0,
     relative_stderr_thresh=0.1,
@@ -322,7 +328,10 @@ def _run_calculate_junction_deconvolutions(
 
     results_iter = mapping_func(
         _calculate_junction_deconvolution,
-        ((problem, depth_model, score_name, balance) for problem in deconv_problems),
+        (
+            (problem, depth_model, score_name, balance, swap)
+            for problem in deconv_problems
+        ),
     )
 
     postfix = dict(
@@ -420,6 +429,12 @@ class UnzipGraph(App):
             action="store_true",
             default=(not DEFAULT_BALANCE_JUNCTIONS),
             help="Whether or not to balance total in and out depths at junctions during deconvolution.",
+        )
+        self.parser.add_argument(
+            "--no-swapping",
+            action="store_true",
+            default=(not DEFAULT_FLOW_SWAPPING),
+            help="Whether or not to swap in and out flows at junctions during deconvolution in order to synchronize reverse-complements.",
         )
         self.parser.add_argument(
             "--skip-drop-low-depth",
@@ -721,6 +736,7 @@ class UnzipGraph(App):
                                         deconv_problems_subset,
                                         args.depth_model,
                                         balance=(not args.no_balance),
+                                        swap=(not args.no_swapping),
                                         mapping_func=partial(
                                             process_pool.imap_unordered, chunksize=1
                                         ),
@@ -779,6 +795,7 @@ class UnzipGraph(App):
                                         deconv_problems_subset,
                                         args.depth_model,
                                         balance=(not args.no_balance),
+                                        swap=(not args.no_swapping),
                                         mapping_func=partial(
                                             process_pool.imap_unordered, chunksize=1
                                         ),
@@ -846,6 +863,7 @@ class UnzipGraph(App):
                                         deconv_problems_subset,
                                         args.depth_model,
                                         balance=(not args.no_balance),
+                                        swap=(not args.no_swapping),
                                         mapping_func=partial(
                                             process_pool.imap_unordered, chunksize=1
                                         ),
@@ -913,6 +931,7 @@ class UnzipGraph(App):
                                         deconv_problems_subset,
                                         args.depth_model,
                                         balance=(not args.no_balance),
+                                        swap=(not args.no_swapping),
                                         mapping_func=partial(
                                             process_pool.imap_unordered, chunksize=1
                                         ),
@@ -976,6 +995,12 @@ class BenchmarkDepthModel(App):
             action="store_true",
             default=(not DEFAULT_BALANCE_JUNCTIONS),
             help="Whether or not to balance total in and out depths at junctions during deconvolution.",
+        )
+        self.parser.add_argument(
+            "--no-swapping",
+            action="store_true",
+            default=(not DEFAULT_FLOW_SWAPPING),
+            help="Whether or not to swap in and out flows at junctions during deconvolution in order to synchronize reverse-complements.",
         )
         self.parser.add_argument(
             "--relative-error-thresh",
@@ -1086,6 +1111,7 @@ class BenchmarkDepthModel(App):
                 deconv_problems,
                 args.depth_model,
                 balance=(not args.no_balance),
+                swap=(not args.no_swapping),
                 mapping_func=partial(process_pool.imap_unordered, chunksize=40),
                 score_name=args.score_name,
                 score_margin_thresh=args.score_thresh,
