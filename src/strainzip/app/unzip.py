@@ -105,7 +105,7 @@ def _estimate_flow(args):
     )
     # NOTE (2024-05-07): Because we're passing PropertyMaps between processes,
     # we need to be careful about the serialization and de-serialization.
-    # For insance, flow.a contains a lot of 0s. If I tried to load
+    # For instance, flow.a contains a lot of 0s. If I tried to load
     # the vector<float> PropertyMap with these, it would silently truncate them.
     # to fit only the _unfiltered_ edges.
     return flow.fa
