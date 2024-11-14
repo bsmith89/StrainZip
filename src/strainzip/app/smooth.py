@@ -104,25 +104,26 @@ class SmoothDepths(App):
             )
 
         if args.enforce_symmetry:
+            with phase_info("Enforcing depth symmetry."):
 
-            def _rc_name(segment):
-                return segment[:-1] + {"+": "-", "-": "+"}[segment[-1]]
+                def _rc_name(segment):
+                    return segment[:-1] + {"+": "-", "-": "+"}[segment[-1]]
 
-            # NOTE: Assumes that graph.vp['sequence'] is simple unitig+strand strings. No chaining.
-            argsort_segments = np.argsort([s for s in graph.vp["sequence"]])
-            argsort_rc_segments = np.argsort(
-                [_rc_name(s) for s in graph.vp["sequence"]]
-            )
-            # Using the argsort indices, sort the depth values by the names of the segments
-            # as well as the names of the RC of the segments. Then take the mean of the two
-            # arrays and invert the sorting.
-            depth_values = (
-                (
-                    depth_values[:, argsort_segments]
-                    + depth_values[:, argsort_rc_segments]
+                # NOTE: Assumes that graph.vp['sequence'] is simple unitig+strand strings. No chaining.
+                argsort_segments = np.argsort([s for s in graph.vp["sequence"]])
+                argsort_rc_segments = np.argsort(
+                    [_rc_name(s) for s in graph.vp["sequence"]]
                 )
-                / 2
-            )[:, np.argsort(argsort_segments)]
+                # Using the argsort indices, sort the depth values by the names of the segments
+                # as well as the names of the RC of the segments. Then take the mean of the two
+                # arrays and invert the sorting.
+                depth_values = (
+                    (
+                        depth_values[:, argsort_segments]
+                        + depth_values[:, argsort_rc_segments]
+                    )
+                    / 2
+                )[:, np.argsort(argsort_segments)]
 
         graph.vp["depth"] = graph.new_vertex_property("vector<float>")
         graph.vp["depth"].set_2d_array(depth_values, pos=args.sample_list)
