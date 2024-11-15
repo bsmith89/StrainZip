@@ -216,10 +216,13 @@ def _calculate_junction_deconvolution(args):
     # I'll then conditionally reverse all the paths coming out the other side.
     # NOTE (2024-11-14): I've decided this is futile as junction symmetry is
     # broken for entirely different reasons.
-    do_swap = (
-        _decide_if_flow_ordering_swap(deconv_problem.in_flows, deconv_problem.out_flows)
-        and swap
-    )
+    if swap:
+        do_swap = _decide_if_flow_ordering_swap(
+            deconv_problem.in_flows, deconv_problem.out_flows
+        )
+    else:
+        do_swap = False
+
     if do_swap:
         # Swap everything
         in_neighbors, out_neighbors = out_neighbors, in_neighbors
