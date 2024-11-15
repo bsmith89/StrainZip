@@ -641,11 +641,8 @@ class UnzipGraph(App):
                             # I believe this motif should show up in ALL
                             # such unidentifiable flow situations, (including
                             # analogous 3x3 situatations).
-                            vertices_in_blackboxes = (
-                                sz.topology.find_all_vertices_in_motifs(
-                                    graph,
-                                    sz.topology.build_bipartite_motif_graph(2, 2),
-                                )
+                            vertices_in_blackboxes = sz.topology.find_blackbox_vertices(
+                                graph
                             )
                             logging.info(
                                 f"Found {len(vertices_in_blackboxes)} vertices in 'black-boxes'."
@@ -668,18 +665,8 @@ class UnzipGraph(App):
                             # from deconvolution. These motifs also have other
                             # issues with deconvolution (since they can pop out
                             # incorrectly and there's no way to prevent this).
-                            vertices_with_self_loops = set(
-                                np.where(
-                                    gt.incident_edges_op(
-                                        graph,
-                                        "in",
-                                        "max",
-                                        gt.generation.label_self_loops(
-                                            graph, mark_only=True
-                                        ),
-                                    ).a
-                                    != 0
-                                )[0]
+                            vertices_with_self_loops = (
+                                sz.topology.find_self_looping_vertices(graph)
                             )
                             logging.info(
                                 f"Found {len(vertices_with_self_loops)} vertices with self-loops."

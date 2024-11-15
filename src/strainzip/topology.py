@@ -218,3 +218,26 @@ def find_all_vertices_in_motifs(g, motif_graph):
     )
     vertex_ids_prop = list(chain(*vertex_ids_prop))  # Flatten a nested list.
     return set(chain(*[list(motif_graph.own_property(vp).a) for vp in vertex_ids_prop]))
+
+
+def find_blackbox_vertices(graph):
+    vertices_in_blackboxes = find_all_vertices_in_motifs(
+        graph,
+        build_bipartite_motif_graph(2, 2),
+    )
+    return vertices_in_blackboxes
+
+
+def find_self_looping_vertices(graph):
+    vertices_with_self_loops = set(
+        np.where(
+            gt.incident_edges_op(
+                graph,
+                "in",
+                "max",
+                gt.generation.label_self_loops(graph, mark_only=True),
+            ).a
+            != 0
+        )[0]
+    )
+    return vertices_with_self_loops
