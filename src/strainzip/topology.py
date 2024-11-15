@@ -140,7 +140,12 @@ def backlinked_graph(graph):
 
 
 def get_shortest_distance(
-    graph, roots: List[int], length, max_length=None, backlinked=None, verbose=False
+    graph,
+    roots: List[int],
+    length=None,
+    max_length=None,
+    backlinked=None,
+    verbose=False,
 ):
     # TODO: Write a test for this function:
     #   - Make sure that a single root is at distance 0 from itself.
@@ -157,7 +162,11 @@ def get_shortest_distance(
     # (and therefore "edge lengths" are integers), the distances will also be integers
     # and vertices outside of max_dist (or in an unconnected component will have finite
     # distance (approximately the largest integer).
-    length = graph.new_vp("float", vals=graph.own_property(length).a)
+    if length is None:
+        length = graph.new_vp("float", val=1.0)
+    else:
+        length = graph.new_vp("float", vals=graph.own_property(length).a)
+
     edge_length = gt.edge_endpoint_property(graph, length, "source")
 
     min_dist = np.inf * np.ones_like(graph.num_vertices(ignore_filter=True))
@@ -178,7 +187,7 @@ def get_shortest_distance(
 
 
 def get_shortest_distance_to_any_vertex(
-    graph, roots, length, verbose=False, inplace=False
+    graph, roots, length=None, verbose=False, inplace=False
 ):
     if inplace:
         g = graph
