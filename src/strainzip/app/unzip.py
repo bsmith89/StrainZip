@@ -698,21 +698,21 @@ class UnzipGraph(App):
 
                             junction_sets = [
                                 (
-                                    "safe"  # name
+                                    "safe",  # name
                                     "Safe junctions (Nx1 or 1xM)",  # Phase label
                                     (in_degree.a == 1)
                                     | (out_degree.a == 1),  # indicator
                                     args.skip_safe,  # skip_flag
                                 ),
                                 (
-                                    "canonical"  # name
+                                    "canonical",  # name
                                     "Canonical junctions (2x2)",  # Phase label
                                     (in_degree.a == 2)
                                     & (out_degree.a == 2),  # indicator
                                     args.skip_canonical,  # skip_flag
                                 ),
                                 (
-                                    "large"  # name
+                                    "large",  # name
                                     "Large junctions (<={args.extra_large} minimal, complete pathsets)",  # Phase label
                                     (
                                         ((in_degree.a >= 2) & (out_degree.a >= 2))
@@ -727,7 +727,7 @@ class UnzipGraph(App):
                                     args.skip_large,  # skip_flag
                                 ),
                                 (
-                                    "extralarge"  # name
+                                    "extralarge",  # name
                                     "Extra-large junctions (>{args.extra_large} minimal, complete pathsets)",  # Phase label
                                     (
                                         ((in_degree.a >= 2) & (out_degree.a >= 2))
