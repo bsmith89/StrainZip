@@ -768,7 +768,10 @@ class UnzipGraph(App):
                                     junctions_subset = junctions_subset - set(
                                         vertices_with_unidentifiable_flows
                                     )
-                                    deconv_problems_subset = (
+                                    # NOTE (2024-11-14): To make checkpointing and logging easier (so not good reasons)
+                                    # I fully load this sequence ahead of time.
+                                    # This has performance implications.
+                                    deconv_problems_subset = list(
                                         _iter_junction_deconvolution_problems(
                                             junctions_subset,
                                             graph,
@@ -778,9 +781,6 @@ class UnzipGraph(App):
                                     )
                                     if args.checkpoint_dir:
                                         with phase_info("Checkpointing deconvolutions"):
-                                            deconv_problems_subset = list(
-                                                deconv_problems_subset
-                                            )
                                             with open(
                                                 f"{args.checkpoint_dir}/junctions_{junction_set_name}_{i+1}.pkl",
                                                 "wb",
