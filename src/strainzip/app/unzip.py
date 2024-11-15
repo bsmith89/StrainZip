@@ -440,7 +440,7 @@ class UnzipGraph(App):
             help="Whether or not to swap in and out flows at junctions during deconvolution in order to synchronize reverse-complements.",
         )
         self.parser.add_argument(
-            "--skip-drop-low-depth",
+            "--no-drop-low-depth",
             action="store_true",
             help="Skip dropping of low-depth edges before deconvolution.",
         )
@@ -595,7 +595,7 @@ class UnzipGraph(App):
                 f"Initialized multiprocessing pool with {args.processes} workers."
             )
 
-            if not args.skip_drop_low_depth:
+            if not args.no_drop_low_depth:
                 _run_drop_low_depth_edges(
                     graph,
                     gm,
