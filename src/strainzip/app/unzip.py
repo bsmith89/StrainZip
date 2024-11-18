@@ -700,7 +700,7 @@ class UnzipGraph(App):
                                 ),
                                 (
                                     "large",  # name
-                                    "Large junctions (<={args.extra_large} minimal, complete pathsets)",  # Phase label
+                                    f"Large junctions (<={args.extra_large} minimal, complete pathsets)",  # Phase label
                                     (
                                         ((in_degree.a >= 2) & (out_degree.a >= 2))
                                         & (in_degree.a + out_degree.a > 4)
@@ -715,7 +715,7 @@ class UnzipGraph(App):
                                 ),
                                 (
                                     "extralarge",  # name
-                                    "Extra-large junctions (>{args.extra_large} minimal, complete pathsets)",  # Phase label
+                                    f"Extra-large junctions (>{args.extra_large} minimal, complete pathsets)",  # Phase label
                                     (
                                         ((in_degree.a >= 2) & (out_degree.a >= 2))
                                         & (in_degree.a + out_degree.a > 4)
