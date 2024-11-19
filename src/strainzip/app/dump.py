@@ -34,6 +34,7 @@ class DumpResults(App):
             results = sz.results.extract_vertex_data(graph).sort_values(
                 ["length"], ascending=False
             )
+            # TODO (2024-11-19): Without dereplication as below?
             dereplicated_vertices = sz.results.dereplicate_vertices_by_segments(results)
             depth_table = (
                 sz.results.full_depth_table(graph)
