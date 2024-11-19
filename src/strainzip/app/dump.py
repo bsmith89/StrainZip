@@ -79,6 +79,11 @@ class DumpContigs(App):
             help="Minimum (summed) depth to output a contig.",
         )
         self.parser.add_argument(
+            "--no-derep",
+            action="store_true",
+            help="Write out all tigs, including exact matches.",
+        )
+        self.parser.add_argument(
             "fasta_outpath", help="Where to write assembled sequences"
         )
 
@@ -99,14 +104,23 @@ class DumpContigs(App):
                 ["length"], ascending=False
             )
             results = results[lambda x: x.total_depth > args.min_depth]
-            dereplicated_vertices = sz.results.dereplicate_vertices_by_segments(results)
+            if args.no_derep:
+                vertices = (
+                    results["segments"]
+                    .rename_axis("vertex")  # type: ignore[reportAttributeAccessIssue]
+                    .reset_index()
+                    .assign(vertex=lambda x: x.vertex.apply(list))
+                    .set_index("segments")
+                )
+            else:
+                vertices = sz.results.dereplicate_vertices_by_segments(results)
 
         with phase_info("Writing results"):
             with phase_info("Writing FASTA"), open(
                 args.fasta_outpath, "w"
             ) as fasta_handle:
                 for segments, vertex_list in tqdm_debug(
-                    dereplicated_vertices.items(), total=len(dereplicated_vertices)
+                    vertices.items(), total=len(vertices)
                 ):
                     header = "_".join([str(v) for v in vertex_list])
                     assembly = sz.results.assemble_overlapping_unitigs(
