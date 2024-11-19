@@ -72,6 +72,13 @@ class DumpContigs(App):
         self.parser.add_argument("graph_inpath", help="StrainZip formatted graph.")
         self.parser.add_argument("fasta_inpath", help="GGCAT FASTA.")
         self.parser.add_argument(
+            "--min-depth",
+            "-d",
+            type=float,
+            default=0,
+            help="Minimum (summed) depth to output a contig.",
+        )
+        self.parser.add_argument(
             "fasta_outpath", help="Where to write assembled sequences"
         )
 
@@ -91,6 +98,7 @@ class DumpContigs(App):
             results = sz.results.extract_vertex_data(graph).sort_values(
                 ["length"], ascending=False
             )
+            results = results[lambda x: x.total_depth > args.min_depth]
             dereplicated_vertices = sz.results.dereplicate_vertices_by_segments(results)
 
         with phase_info("Writing results"):
